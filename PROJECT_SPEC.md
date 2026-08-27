@@ -344,7 +344,7 @@ Verification requirement: GitHub Actions must successfully run `./gradlew :featu
 
 The existing functional Radio and local Library features now enter a three-commit visual refinement pass. The established `:core:designsystem` theme remains the single palette/theme authority; this work refines composition and components without replacing theme persistence or playback/data architecture.
 
-- [ ] UI polish sub-step 1/3: application shell and bottom navigation. Replace the provisional top buttons with a Material 3 bottom navigation bar for `Radio`, `Musica`, `In Riproduzione`, and `Impostazioni`; keep Radio and Musica wired to their real routes, and provide restrained Atlas Night placeholders for the latter two destinations. Preserve current ViewModel instances, playback services, repository wiring, system-following theme behavior, and edge-to-edge-safe content padding. Use Material icons and coherent destination labels, with selection styling driven by the existing Material 3 color scheme. Verification: `./gradlew :app:assembleDebug` plus structural checks for all four destinations and no playback/data regressions.
+- [x] UI polish sub-step 1/3: application shell and bottom navigation. Replace the provisional top buttons with a Material 3 bottom navigation bar for `Radio`, `Musica`, `In Riproduzione`, and `Impostazioni`; keep Radio and Musica wired to their real routes, and provide restrained Atlas Night placeholders for the latter two destinations. Preserve current ViewModel instances, playback services, repository wiring, system-following theme behavior, and edge-to-edge-safe content padding. Use Material icons and coherent destination labels, with selection styling driven by the existing Material 3 color scheme. Verification: `./gradlew :app:assembleDebug` plus structural checks for all four destinations and no playback/data regressions.
 
 - [ ] UI polish sub-step 2/3: Radio visual refinement. Keep existing catalog, favorites, tabs, playback gateway, and errors unchanged while refining header hierarchy, spacing, station cards, leading radio icon treatment, favorite action, borders/elevation, and current-station emphasis. A currently playing radio station must display a compact `LIVE` badge and an accessible `In riproduzione` state. Visuals must use Atlas Night semantic colors through `MaterialTheme`, with restrained Sahara Pulse sand/gold, Atlas green, and terracotta accents rather than hard-coded unrelated colors. Verification: `:feature:radio:testDebugUnitTest :app:assembleDebug` and structural checks that playback/favorites behavior remains wired.
 
@@ -446,6 +446,11 @@ Do not implement yet:
 - [x] `:feature:library` sub-step 2/2: Media3 local-track playback, ordered queue Previous/Next, current-track indication, and shared-player radio/local replacement committed and verified.
 
 ## Decision log
+
+### 2026-08-27 — UI polish sub-step 1/3 completed
+
+Application shell refinement is implemented in `89c599cd18356d066bd0b8bc54181813587767a3`. The provisional top-button switcher is replaced by a Material 3 `NavigationBar` with icon/label destinations for Radio, Musica, In Riproduzione, and Impostazioni. Radio and Musica retain their existing ViewModels/routes; the latter two destinations are intentionally minimal themed placeholders. GitHub Actions run `33115829966` passed `:app:assembleDebug` and structural destination checks. The real debug APK SHA-256 was `6951fb4ffd2c8c20c9872b3be931c9a617627a73f73a3f152d17805edc4c80d3`; no APK artifact was uploaded.
+
 
 ### 2026-08-27 — General Atlas Night UI refinement authorized
 
