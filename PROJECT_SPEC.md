@@ -226,6 +226,28 @@ Responsibilities:
 
 Verification requirement: GitHub Actions must successfully run `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, verify a real APK containing the playback service, and perform a network smoke probe that receives bytes from the Radio Azawan seed stream before the code reaches `main`.
 
+
+### `:feature:radio` implementation contract — sub-step 1/2
+
+The first feature module is split into two verified commits. Sub-step 1 establishes the real radio catalog/favorites UI and local repository wiring; Media3 playback selection is completed in sub-step 2.
+
+Responsibilities:
+
+- create `:feature:radio` as a Compose Android library using the existing Atlas Night / Material 3 design system.
+- expose a Radio screen with two sections/tabs: `Preferiti` and `Tutte le radio`.
+- load data through the existing `RadioStationRepository` and `FavoriteStationRepository` from `:core:data`; do not duplicate catalog business logic in the feature.
+- seed the approved initial station catalog idempotently before presenting the list.
+- expose immutable UI state from a ViewModel and keep repository/database work off the composable layer.
+- allow toggling favorites from each station row through a visible star/heart-style icon; UI state must refresh immediately after repository mutation.
+- show a clear empty state when there are no favorites and a recoverable error state if initial loading fails.
+- wire the real Room database and repositories from `:app` explicitly for now; Hilt remains deferred.
+- replace the placeholder app content with the new Radio screen, while retaining the existing Atlas Night theme and persisted theme preference.
+- station row selection is exposed as a callback but does not start Media3 playback in this sub-step; playback wiring and removal of the temporary `Prepara Radio Azawan` test path are reserved for sub-step 2/2.
+- no Google Drive, custom-station editor, now-playing UI, sleep timer, equalizer, or other feature modules belong in this commit.
+- unit tests must cover initial load/seeding, favorite toggling, favorites/all filtering, empty favorites, and repository failure state through lightweight fakes.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :feature:radio:testDebugUnitTest :app:assembleDebug`, verify the debug APK, and ensure the feature is wired into the app before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
@@ -348,6 +370,7 @@ Do not implement yet:
 - [x] `:core:playback` sub-step 1/3: MediaLibraryService / ExoPlayer foundation, native audio focus, generic MediaItem support, and explicit Stop/Exit committed and verified.
 - [x] `:core:playback` sub-step 2/3: bounded automatic radio primary→fallback recovery committed and verified.
 - [x] `:core:playback` sub-step 3/3: notification/media-button controls, browsable Android Auto test library, and manual on-device radio playback verification completed.
+- [ ] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen.
 
 ## Decision log
 
@@ -428,3 +451,6 @@ Bounded automatic radio fallback is implemented and committed in `62b6396846c9d0
 
 `:core:playback` sub-step 3/3 is implemented and committed in `05739c788b82cab18585c15608cc8c26361c8e5d`. Media3 now exposes Play/Pause, Next, and explicit Stop/Exit through the shared MediaLibrarySession/system control surface; the service remains the single playback authority for notification, lock-screen, and Android Auto controllers. The minimal browsable library is `TamalutRadio -> Radio di test` with Radio Azawan, HIT RADIO Maroc, and Radio Mars, and selecting a station resolves to an ordered playable queue so Next advances between real seed stations. `INTERNET` is declared and the app includes a temporary `Prepara Radio Azawan` manual-test action that prepares the station through MediaBrowser without creating a second player. GitHub Actions run `33092744338` passed `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, verified the merged playback service, produced a real debug APK with SHA-256 `d8780e2c96b42a1df8d27a38bbc6575faabaf66e384047c44a4ae68db3e93738`, and received 432000 bytes from the approved Radio Azawan stream during the network smoke probe. Manual on-device verification was subsequently confirmed by the user: after pressing `Prepara Radio Azawan`, playback started successfully from the media notification Play control, audio was heard from the phone, and the media controls behaved as expected. This completes all three `:core:playback` foundation sub-steps.
 
+### 2026-08-27 — Feature radio UI/favorites sub-step 1/2 authorized
+
+Authorized the first `:feature:radio` commit for the repository-backed Compose screen only: `Preferiti` / `Tutte le radio`, idempotent initial catalog seeding, favorite toggling, explicit app composition of Room/data repositories, Atlas Night theme consumption, and unit tests. Station selection will be exposed but Media3 playback integration and removal of the temporary Radio Azawan preparation path remain sub-step 2/2. CI must pass `:feature:radio:testDebugUnitTest` and `:app:assembleDebug`.
