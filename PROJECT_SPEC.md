@@ -206,6 +206,26 @@ Responsibilities:
 
 Verification requirement: GitHub Actions must successfully run `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, verify a real APK, and exercise the fallback unit tests before the code reaches `main`.
 
+### `:core:playback` implementation contract — sub-step 3/3
+
+Sub-step 3 finalizes system media controls and a minimal browsable Android Auto test library on top of the verified service/fallback foundation.
+
+Responsibilities:
+
+- keep Media3 `MediaLibraryService` / `MediaLibrarySession` as the single playback/session authority and use Media3's foreground media notification lifecycle rather than a parallel notification/player stack.
+- publish explicit media-button preferences for play/pause, next, and the existing Stop/Exit custom session command so compatible SystemUI notification, lock-screen, Android Auto, and Media3 controller surfaces can expose the same session controls.
+- authorize Stop/Exit only for the Media3 notification controller, Android Auto companion controller, and trusted controllers; invoking it must stop playback, clear the queue, reset fallback state, and stop the playback service.
+- keep next functional by providing a small ordered test playlist of three real stations already present in `:core:data`'s seed catalog. The production `:core:playback` module must not depend on `:core:data`; a test-only dependency may assert that the temporary test catalog exactly matches the seed entries to prevent drift.
+- refine the library tree to `TamalutRadio -> Radio di test -> playable station items`, with valid browsable/playable metadata and direct `getItem` lookup suitable for Media3 browsers and legacy Android Auto browsing.
+- resolve browser/controller requests that contain only station media IDs into playable Media3 radio items and an ordered playlist, starting from the selected station, so Android Auto selection and the notification's Next control operate on the same queue.
+- expose Radio Azawan as the primary manual verification station, using the exact seed ID/name/URL and the existing radio fallback media-item factory.
+- wire `:core:playback` into the current `:app` APK and add only a temporary placeholder-level manual test action that connects through a Media3 browser/controller and prepares Radio Azawan paused; the real `feature:radio` UI remains deferred.
+- the manual test action must not create a second player or bypass the service. Playback must start from the notification/lock-screen Play control after the test station has been prepared.
+- keep Google Drive, full radio UI, Hilt, equalizer, sleep timer, favorites UI, and production catalog/repository orchestration out of this sub-step.
+- unit tests must cover media-button definitions, Stop/Exit exposure policy, browsable root/category/station metadata, station lookup, ordered playlist resolution/Next semantics, and exact synchronization of the temporary test stations with the `:core:data` seed.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, verify a real APK containing the playback service, and perform a network smoke probe that receives bytes from the Radio Azawan seed stream before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
