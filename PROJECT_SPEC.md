@@ -301,6 +301,25 @@ Radio requirements:
 - ordered fallback URLs per station where available.
 - `lastVerifiedAt`/health metadata where practical.
 
+### `:feature:library` implementation contract — sub-step 1/2
+
+The local-music feature is split into two verified commits. Sub-step 1 establishes SAF folder selection, durable access, recursive audio scanning, and the functional library list; playback wiring remains for sub-step 2.
+
+Responsibilities:
+
+- create `:feature:library` as an Android/Compose feature module.
+- select exactly one user folder with Storage Access Framework `ACTION_OPEN_DOCUMENT_TREE` / `OpenDocumentTree`; do not request broad storage/media permissions.
+- persist the granted read URI permission with `takePersistableUriPermission` and persist the selected tree URI through the existing `:core:preferences` DataStore.
+- restore the persisted tree URI on later launches and rescan it automatically when access remains valid.
+- recursively enumerate only documents below the selected SAF tree using `ContentResolver` / `DocumentsContract`; include audio MIME types and safe audio-extension fallback, ignore non-audio files, and tolerate unreadable child documents without crashing the whole scan.
+- represent scanned tracks with stable `:core:model` `MediaId` values derived from their document URI plus display title/URI metadata needed by the later playback step.
+- expose a minimal Compose Library screen with folder-selection action, loading/empty/error states, and an ordered list of discovered tracks.
+- keep track taps non-playing in this sub-step; Media3 playback and current-track indication are explicitly deferred to sub-step 2/2.
+- add unit tests for audio filtering/order, recoverable scan failures, persisted-folder restoration, and ViewModel state transitions.
+- no Google Drive, Room schema changes, Hilt, broad storage permission, or separate player belongs in this sub-step.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :feature:library:testDebugUnitTest :app:assembleDebug` and verify the generated APK. Debug APK artifacts are not uploaded unless explicitly requested for physical testing.
+
 ## Local music
 
 Use Storage Access Framework (`ACTION_OPEN_DOCUMENT_TREE`), persist URI access, recursively scan audio files inside the selected tree only, and build the playlist without broad storage permission.
@@ -391,8 +410,14 @@ Do not implement yet:
 - [x] `:core:playback` sub-step 3/3: notification/media-button controls, browsable Android Auto test library, and manual on-device radio playback verification completed.
 - [x] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen committed and verified.
 - [x] `:feature:radio` sub-step 2/2: station selection wired to real MediaLibraryService playback; temporary Radio Azawan test path removed and verified.
+- [ ] `:feature:library` sub-step 1/2: SAF folder selection, persisted tree URI, recursive audio scan, and functional local-library list.
 
 ## Decision log
+
+### 2026-08-27 — Feature library SAF/scanning sub-step 1/2 authorized
+
+Authorized `:feature:library` sub-step 1/2: SAF tree selection, durable read permission, DataStore persistence of the selected local-folder URI, recursive in-tree audio scanning, and a minimal functional track list. Playback remains sub-step 2/2. Development APK artifacts are now on-demand only; when explicitly requested, prefer 1–2 day retention rather than 7 days. CI for normal sub-steps verifies the APK without uploading it.
+
 
 ### 2026-08-27 — UI / architecture / scope
 
