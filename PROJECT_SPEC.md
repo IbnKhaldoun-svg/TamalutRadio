@@ -248,6 +248,25 @@ Responsibilities:
 
 Verification requirement: GitHub Actions must successfully run `./gradlew :feature:radio:testDebugUnitTest :app:assembleDebug`, verify the debug APK, and ensure the feature is wired into the app before the code reaches `main`.
 
+
+### `:feature:radio` implementation contract — sub-step 2/2
+
+Sub-step 2 completes the feature by wiring station selection to the verified Media3 playback service.
+
+Responsibilities:
+
+- add a feature-level playback gateway whose production implementation connects to `TamalutPlaybackService` through Media3 `MediaBrowser`; no second player is created.
+- selecting any repository-backed `RadioStation` must send a `RadioMediaItemFactory` media item to the MediaLibraryService, call `prepare()`, and start playback immediately.
+- preserve the station's primary/fallback plan because playback receives the full domain station through the existing factory.
+- expose playback connection/failure feedback in the Radio UI without crashing or blocking favorite interactions.
+- remove the temporary `Prepara Radio Azawan` button and its test-only app callback/browser path; the Radio screen becomes the only app-level way to start radio playback.
+- keep notification, lock-screen, Stop/Exit, Next, audio focus, fallback, and Android Auto behavior owned by `:core:playback`.
+- retain Atlas Night theming, repository-backed tabs, and favorite toggling from sub-step 1/2.
+- no Google Drive, custom-station editor, now-playing feature, Hilt, sleep timer, or equalizer belongs in this commit.
+- unit tests must cover station-selection delegation, successful playback state, failure state, and ensure data/favorite state remains intact.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :feature:radio:testDebugUnitTest :app:assembleDebug`, verify a real APK and the merged MediaLibraryService, before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
