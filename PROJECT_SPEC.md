@@ -390,6 +390,7 @@ Do not implement yet:
 - [x] `:core:playback` sub-step 2/3: bounded automatic radio primary→fallback recovery committed and verified.
 - [x] `:core:playback` sub-step 3/3: notification/media-button controls, browsable Android Auto test library, and manual on-device radio playback verification completed.
 - [x] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen committed and verified.
+- [x] `:feature:radio` sub-step 2/2: station selection wired to real MediaLibraryService playback; temporary Radio Azawan test path removed and verified.
 
 ## Decision log
 
@@ -477,4 +478,8 @@ Authorized the first `:feature:radio` commit for the repository-backed Compose s
 ### 2026-08-27 — Feature radio UI/favorites sub-step 1/2 completed
 
 `:feature:radio` sub-step 1/2 is implemented and committed in `ab7707aea02f618535277fb1fdd9b62c91659ff1`. The app now renders a real Atlas Night / Material 3 radio screen backed by the existing Room/data repositories, with `Preferiti` and `Tutte le radio` tabs, idempotent seed loading, visible star controls for adding/removing favorites, optimistic favorite UI updates with rollback on repository failure, empty-favorites messaging, and recoverable load errors. `:app` explicitly composes `TamalutDatabase`, `RadioStationRepository`, `FavoriteStationRepository`, and the feature ViewModel factory; Hilt remains deferred. Station row selection is exposed but intentionally does not start Media3 playback yet, and the temporary Radio Azawan manual-test path remains until sub-step 2/2. GitHub Actions run `33095959100` passed `./gradlew :feature:radio:testDebugUnitTest :app:assembleDebug`, verified the feature wiring and produced a real debug APK with SHA-256 `97f4aa610096c495cdd6672aec3d5759418bccaf6b64b800939ec649bba8f261`. Sub-step 2/2 will connect every station selection to the existing `MediaLibraryService` and remove the temporary Radio Azawan test control.
+
+### 2026-08-27 — Feature radio playback sub-step 2/2 completed
+
+`:feature:radio` is completed in commit `795efb516febdab473f45483c798e06044351e41`. The Radio ViewModel now delegates station selection to a feature-level Media3 playback gateway backed by `MediaBrowser` and the existing `TamalutPlaybackService`; it sends the selected repository-backed `RadioStation` through `RadioMediaItemFactory`, then prepares and starts playback without creating a second player. The full primary/fallback plan is preserved for every station. The Radio UI exposes playback success/failure state while retaining the repository-backed `Preferiti` / `Tutte le radio` tabs and favorite mutations. The temporary app-level `Prepara Radio Azawan` path and its dedicated browser callback were removed, making the Radio screen the app-level radio playback entry point. GitHub Actions run `33097183525` passed `./gradlew :feature:radio:testDebugUnitTest :app:assembleDebug`, verified the merged MediaLibraryService and absence of the temporary test button, produced a real debug APK, and verified SHA-256 `45f01b4ac53a819c887386356e9f05c1ea35bc3c47386486377b5aedca8486d7`. This completes both `:feature:radio` implementation sub-steps.
 
