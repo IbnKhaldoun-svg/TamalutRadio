@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "TamalutRadio"
+include(":app")
