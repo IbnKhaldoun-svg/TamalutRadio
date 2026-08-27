@@ -236,7 +236,7 @@ Do not implement yet:
 - [x] Obsolete `wrapper-bootstrap` branch removed after its wrapper commit reached `main`.
 - [x] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
 - [x] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation committed and verified by `./gradlew :app:assembleDebug`.
-- [ ] `:core:model` pure Kotlin shared domain models — **authorized next step**.
+- [x] `:core:model` pure Kotlin shared domain models committed and verified with `:core:model:test` + `:app:assembleDebug`.
 
 ## Decision log
 
@@ -275,3 +275,7 @@ Authorized next foundation commit: create only `:core:designsystem` plus the min
 ### 2026-08-27 — Core model implementation authorized
 
 Authorized next foundation commit: create only `:core:model` plus the minimum root/settings wiring needed for a pure Kotlin/JVM module. The module owns typed IDs, radio station primary/fallback stream endpoints, base media item/source types, and recently-played entries. Room, DataStore, Media3, Hilt, Android framework types, networking, and persistence are explicitly excluded. CI must pass `:core:model:test` and produce the real debug APK with `:app:assembleDebug`.
+
+### 2026-08-27 — Core model implementation completed
+
+`:core:model` is committed as a pure Kotlin/JVM module. It provides typed `StationId` / `MediaId`, validated `StreamEndpoint`, `RadioStation` with ordered primary/fallback playback streams, `MediaSourceType`, `MediaItemSummary`, and `RecentlyPlayedEntry`. No Android, Room, DataStore, Media3, Hilt, networking, or persistence APIs are present. CI run `33079784030` passed `:core:model:test` and `:app:assembleDebug`; the verified debug APK SHA-256 is `8b3dde17ab1f56fe8615ccd3fa303e1f86260667ea6fe3dd84646383ef592306`.
