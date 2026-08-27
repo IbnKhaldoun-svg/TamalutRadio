@@ -108,6 +108,19 @@ Approved initial modules:
 
 The initial bootstrap must provide a minimal launchable `MainActivity` placeholder so CI can verify the project compiles before feature implementation.
 
+### `:core:model` implementation contract
+
+The next foundation module is authorized as a pure Kotlin/JVM module with no Android, Room, DataStore, Media3, or Hilt dependencies. It owns shared domain models only:
+
+- typed identifiers for radio stations and generic media items.
+- `StreamEndpoint` with a validated non-blank URL string.
+- `RadioStation` with a primary endpoint and ordered fallback endpoints, preserving playback priority.
+- base media types covering radio stations, local tracks, and future Drive tracks without implementing storage or playback behavior.
+- `RecentlyPlayedEntry` using a media summary plus an epoch-millisecond timestamp, leaving persistence to later modules.
+- small invariant checks and unit tests for identifier/endpoint validity and fallback ordering.
+
+No database annotations, Android framework types, serialization framework, persistence APIs, network APIs, or playback APIs belong in `:core:model`. Verification requirement: `./gradlew :core:model:test :app:assembleDebug` must succeed on GitHub Actions before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
@@ -223,6 +236,7 @@ Do not implement yet:
 - [x] Obsolete `wrapper-bootstrap` branch removed after its wrapper commit reached `main`.
 - [x] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
 - [x] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation committed and verified by `./gradlew :app:assembleDebug`.
+- [ ] `:core:model` pure Kotlin shared domain models — **authorized next step**.
 
 ## Decision log
 
@@ -257,3 +271,7 @@ Authorized next foundation commit: create only `:core:designsystem` plus the min
 ### 2026-08-27 — Design system implementation completed
 
 `:core:designsystem` is committed and consumed by `:app`. It provides centralized Atlas Night color tokens, Material 3 light/dark `ColorScheme`s, Material Air-inspired rounded shapes, and `ThemeMode.FOLLOW_SYSTEM / LIGHT / DARK`. `MainActivity` uses `FOLLOW_SYSTEM` by default. CI run `33075397300` successfully built and verified the debug APK; theme persistence remains deferred to `:core:preferences`.
+
+### 2026-08-27 — Core model implementation authorized
+
+Authorized next foundation commit: create only `:core:model` plus the minimum root/settings wiring needed for a pure Kotlin/JVM module. The module owns typed IDs, radio station primary/fallback stream endpoints, base media item/source types, and recently-played entries. Room, DataStore, Media3, Hilt, Android framework types, networking, and persistence are explicitly excluded. CI must pass `:core:model:test` and produce the real debug APK with `:app:assembleDebug`.
