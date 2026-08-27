@@ -137,6 +137,22 @@ The next foundation module is authorized as an Android library backed by Android
 
 Verification requirement: unit tests for preference decoding/defaults must pass and GitHub Actions must successfully run `./gradlew :core:preferences:testDebugUnitTest :app:assembleDebug` before the code reaches `main`.
 
+### `:core:database` implementation contract
+
+The next foundation module is authorized as an Android persistence library using stable Room 3.0.2 (`androidx.room3`) with KSP 2.3.10. Its scope is deliberately limited to schema, Room entities/DAO, and persistence/domain mapping helpers:
+
+- persist preinstalled and custom radio stations corresponding to `:core:model` `RadioStation`, including primary stream URL and ordered fallback stream URLs.
+- distinguish custom stations from the preinstalled catalog without embedding the catalog itself in this module.
+- persist station favorites separately so favorite state is not mixed into the shared domain model.
+- persist/cache recently-played media metadata required by the approved local history: media ID, source type, title/subtitle, optional station ID, and last-played epoch-millisecond timestamp.
+- provide Room DAO operations for station/fallback CRUD, favorite add/remove/query, and recently-played upsert/query/delete/trim primitives.
+- expose explicit mapping helpers between Room station aggregates / recently-played entities and the existing `:core:model` types.
+- database schema version starts at 1 and Room schema JSON must be exported/committed for future migration verification.
+- no repository implementation, dependency injection, UI, playback, networking, catalog seeding, Media3, DataStore, or Hilt belongs in this module; repository orchestration is deferred to `:core:data`.
+- compile-time Room SQL verification is mandatory; unit tests must cover domain/entity mapping invariants and fallback ordering.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :core:database:testDebugUnitTest :app:assembleDebug` and produce a real debug APK before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
@@ -254,6 +270,7 @@ Do not implement yet:
 - [x] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation committed and verified by `./gradlew :app:assembleDebug`.
 - [x] `:core:model` pure Kotlin shared domain models committed and verified with `:core:model:test` + `:app:assembleDebug`.
 - [x] `:core:preferences` DataStore-backed theme/language/last-source preferences committed and verified with `:core:preferences:testDebugUnitTest` + `:app:assembleDebug`.
+- [ ] `:core:database` Room station/favorites/recent metadata persistence — **authorized next step**.
 
 ## Decision log
 
@@ -304,3 +321,7 @@ Authorized next foundation commit: create `:core:preferences` with AndroidX Pref
 ### 2026-08-27 — Core preferences implementation completed
 
 `:core:preferences` is committed with AndroidX Preferences DataStore 1.2.1. It persists `FOLLOW_SYSTEM / LIGHT / DARK`, an optional BCP-47 language tag, and the last played source plus typed station/media identifiers from `:core:model`. Unknown enum values decode to safe defaults. `:app` now collects the stored preferences and maps the persisted theme selection to the existing `:core:designsystem` `ThemeMode`. Room, Media3, Hilt, networking, recently-played history, and unrelated settings remain excluded. CI run `33081261153` passed `:core:preferences:testDebugUnitTest` and `:app:assembleDebug`; the verified debug APK SHA-256 is `e9da98065c3727f4b3d0f85d42a84b963ee6d8543f7cc02096d5bd4da7512c60`.
+
+### 2026-08-27 — Core database implementation authorized
+
+Authorized next foundation commit: create `:core:database` using stable Room 3.0.2 (`androidx.room3`) with KSP 2.3.10. The module persists preinstalled/custom radio stations with ordered fallback URLs, station favorites, and recently-played metadata/cache mapped to `:core:model`. It owns entities, DAO, the Room database declaration, schema export, and mapping helpers only. Repository orchestration, UI, Hilt, Media3, networking, catalog seeding, and DataStore integration remain excluded and are deferred to later modules. CI must pass `:core:database:testDebugUnitTest` and `:app:assembleDebug`.
