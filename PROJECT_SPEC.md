@@ -33,6 +33,39 @@ Light palette:
 - same accent family as dark mode.
 - Material 3 accessibility/contrast preserved.
 
+### `:core:designsystem` implementation contract
+
+The first design-system module is authorized with these responsibilities only:
+
+- centralize Atlas Night semantic color tokens and Material 3 `ColorScheme` definitions.
+- expose a `ThemeMode` with `FOLLOW_SYSTEM`, `LIGHT`, and `DARK` values corresponding to `Segui sistema`, `Chiaro`, and `Scuro`.
+- expose `TamalutRadioTheme(themeMode, content)`; `FOLLOW_SYSTEM` resolves through Compose `isSystemInDarkTheme()`.
+- use Atlas Night dark background `#0E1116`, with elevated/surface anthracites derived from the same family.
+- use sand/gold as the primary brand accent, deep Atlas green as secondary, and terracotta as tertiary/accent.
+- use warm off-white / sand-tinted light surfaces while keeping readable Material 3 foreground contrast.
+- keep Material Air ergonomics as a visual/interaction direction implemented through Material 3 tokens (comfortable rounded shapes and restrained hierarchy), not as a separate dependency.
+- do not enable dynamic color in this first implementation because it would replace the approved Atlas Night identity.
+- theme preference persistence remains the responsibility of the future `:core:preferences` module; this module only models and applies the requested mode.
+- integrate the existing placeholder `:app` with `TamalutRadioTheme(ThemeMode.FOLLOW_SYSTEM)` so the design system is exercised by the real debug build.
+
+Approved initial semantic palette anchors:
+
+Dark:
+- background `#0E1116`
+- surface `#161B22`
+- surface variant `#222831`
+- sand/gold `#D8B36A`
+- Atlas green `#4F8A73`
+- terracotta `#C66A46`
+
+Light:
+- background `#FFF8EC`
+- surface `#FFFBF5`
+- surface variant `#F3EBDD`
+- primary dark-gold `#705A12`
+- Atlas green `#2F6B57`
+- terracotta `#99462F`
+
 Main destinations:
 - Radio
 - Music (local / Drive)
@@ -187,7 +220,9 @@ Do not implement yet:
 - [ ] Release signing plumbing verified.
 - [x] Temporary downloadable debug APK artifact published for device testing (Actions run `33073747137`, artifact `TamalutRadio-debug-apk`, 7-day retention).
 - [x] Temporary bootstrap branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate` removed.
+- [x] Obsolete `wrapper-bootstrap` branch removed after its wrapper commit reached `main`.
 - [x] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
+- [ ] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation — **authorized next step**.
 
 ## Decision log
 
@@ -214,3 +249,7 @@ Before implementing `:core:designsystem`, complete three repository-maintenance 
 ### 2026-08-27 — Pre-designsystem maintenance completed
 
 Completed before `:core:designsystem`: downloadable debug APK artifact published from a successful `:app:assembleDebug` run; temporary branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate` removed; `README.md` added with project overview, release sideload instructions, and current development status.
+
+### 2026-08-27 — Design system implementation authorized
+
+Authorized next foundation commit: create only `:core:designsystem` plus the minimum root/app wiring required to consume it. The module will centralize the approved Atlas Night semantic palette, Material 3 dark/light schemes, comfortable Material Air-inspired shapes, and `FOLLOW_SYSTEM / LIGHT / DARK` theme selection. Preference persistence is explicitly deferred to `:core:preferences`. Verification requirement: a real GitHub Actions `./gradlew :app:assembleDebug` must succeed before the code reaches `main`.
