@@ -347,7 +347,7 @@ Do not implement yet:
 - [x] `:core:data` repository/seeding/favorites/recently-played orchestration committed and verified with `:core:data:testDebugUnitTest` + `:app:assembleDebug`.
 - [x] `:core:playback` sub-step 1/3: MediaLibraryService / ExoPlayer foundation, native audio focus, generic MediaItem support, and explicit Stop/Exit committed and verified.
 - [x] `:core:playback` sub-step 2/3: bounded automatic radio primary→fallback recovery committed and verified.
-- [ ] `:core:playback` sub-step 3/3: notification/media-button and Android Auto browsing polish.
+- [x] `:core:playback` sub-step 3/3: notification/media-button controls, browsable Android Auto test library, and manual on-device radio playback verification completed.
 
 ## Decision log
 
@@ -423,4 +423,8 @@ Authorized next foundation commit: create `:core:data` as the local repository/o
 ### 2026-08-27 — Core playback fallback sub-step 2/3 completed
 
 Bounded automatic radio fallback is implemented and committed in `62b6396846c9d08eb21ff6fe38024558a2e1c4e1`. `RadioMediaItemFactory` carries the exact `primary -> fallbackStreams` plan from `:core:model`; fatal Media3 `onPlayerError` callbacks advance exactly one endpoint, with the effective attempt budget capped by both configurable `maxAttempts` (default 3) and available endpoints. Exhaustion is explicit through `RadioFallbackState.Exhausted` with station ID, attempted count, maximum attempts, and final Media3 error code; no retry loop is restarted and the final player error remains visible to MediaSession/controllers. Generic/local Media3 items are unaffected. GitHub Actions run `33089219860` passed `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, produced a real debug APK, and verified SHA-256 `b598aa5c78fe6b9c460f44476ce014053c54698e046b686f3f887929d7ca8a23`. Notification/media-button and Android Auto browsing polish remain sub-step 3/3.
+
+### 2026-08-27 — Core playback controls sub-step 3/3 completed
+
+`:core:playback` sub-step 3/3 is implemented and committed in `05739c788b82cab18585c15608cc8c26361c8e5d`. Media3 now exposes Play/Pause, Next, and explicit Stop/Exit through the shared MediaLibrarySession/system control surface; the service remains the single playback authority for notification, lock-screen, and Android Auto controllers. The minimal browsable library is `TamalutRadio -> Radio di test` with Radio Azawan, HIT RADIO Maroc, and Radio Mars, and selecting a station resolves to an ordered playable queue so Next advances between real seed stations. `INTERNET` is declared and the app includes a temporary `Prepara Radio Azawan` manual-test action that prepares the station through MediaBrowser without creating a second player. GitHub Actions run `33092744338` passed `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, verified the merged playback service, produced a real debug APK with SHA-256 `d8780e2c96b42a1df8d27a38bbc6575faabaf66e384047c44a4ae68db3e93738`, and received 432000 bytes from the approved Radio Azawan stream during the network smoke probe. Manual on-device verification was subsequently confirmed by the user: after pressing `Prepara Radio Azawan`, playback started successfully from the media notification Play control, audio was heard from the phone, and the media controls behaved as expected. This completes all three `:core:playback` foundation sub-steps.
 
