@@ -320,6 +320,26 @@ Responsibilities:
 
 Verification requirement: GitHub Actions must successfully run `./gradlew :feature:library:testDebugUnitTest :app:assembleDebug` and verify the generated APK. Debug APK artifacts are not uploaded unless explicitly requested for physical testing.
 
+### `:feature:library` implementation contract — sub-step 2/2
+
+Sub-step 2 completes local music by wiring the verified SAF library to the existing Media3 playback service.
+
+Responsibilities:
+
+- keep `TamalutPlaybackService` / `MediaLibraryService` as the only player/session authority; `:feature:library` must not create an ExoPlayer or other secondary player.
+- add a feature-level local playback gateway whose production implementation connects to the existing service through Media3 `MediaBrowser`.
+- convert scanned `LocalAudioTrack` entries into generic Media3 `MediaItem` instances using their stable media IDs, SAF content URIs, titles, and MIME types where available; do not add radio-specific fallback metadata.
+- tapping a local track must replace the current service queue with the full ordered scanned-track list, start at the tapped item, call `prepare()`, and start playback immediately.
+- preserve the scanner's deterministic list order as the Media3 queue order so standard Previous/Next commands move through the selected folder playlist.
+- observe Media3 media-item transitions from the shared session and expose the current local media ID to UI state so the matching row shows `In riproduzione`; when the shared player switches to a non-local item, no local row remains marked current.
+- starting local playback must replace any radio item/queue already loaded in the shared player; starting radio playback must likewise replace the local queue, relying on the existing radio gateway's `setMediaItem` behavior and the single service/player.
+- keep notification, lock-screen, audio focus, Stop/Exit, Android Auto session ownership, and playback lifecycle in `:core:playback`; local playback only supplies generic media items and queue selection.
+- retain the existing SAF tree permission, persisted-folder restoration, scanning, refresh, and error behavior from sub-step 1/2.
+- add unit tests for local MediaItem mapping/queue order, selected start index, playback success/failure state, current-track indication, and gateway delegation; verify structurally that both radio and local playback target the same `TamalutPlaybackService` and replace the active Media3 queue rather than creating parallel playback.
+- no Google Drive, Room schema changes, Hilt, broad storage permission, separate player, sleep timer, equalizer, or unrelated navigation work belongs in this sub-step.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :feature:library:testDebugUnitTest :feature:radio:testDebugUnitTest :app:assembleDebug`, verify a real debug APK and merged `TamalutPlaybackService`, and confirm the APK still requests no broad storage/media permission. The APK must not be uploaded as an artifact unless explicitly requested.
+
 ## Local music
 
 Use Storage Access Framework (`ACTION_OPEN_DOCUMENT_TREE`), persist URI access, recursively scan audio files inside the selected tree only, and build the playlist without broad storage permission.
@@ -411,8 +431,14 @@ Do not implement yet:
 - [x] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen committed and verified.
 - [x] `:feature:radio` sub-step 2/2: station selection wired to real MediaLibraryService playback; temporary Radio Azawan test path removed and verified.
 - [x] `:feature:library` sub-step 1/2: SAF folder selection, persisted tree URI, recursive audio scan, and functional local-library list committed and verified.
+- [ ] `:feature:library` sub-step 2/2: Media3 local-track playback, ordered queue Previous/Next, current-track indication, and shared-player radio/local replacement.
 
 ## Decision log
+
+### 2026-08-27 — Feature library Media3 playback sub-step 2/2 authorized
+
+Authorized `:feature:library` sub-step 2/2: scanned SAF tracks become generic Media3 items played through the existing `TamalutPlaybackService`; tapping a track installs the whole scanned list as the ordered queue at the selected index, enabling Previous/Next. The Library UI must track the current local media item through the shared session. Radio and local playback remain mutually exclusive because both replace the queue of the same MediaLibraryService player. No APK artifact is published unless explicitly requested.
+
 
 ### 2026-08-27 — Feature library SAF/scanning sub-step 1/2 completed
 
