@@ -307,6 +307,9 @@ Do not implement yet:
 - [x] `:core:preferences` DataStore-backed theme/language/last-source preferences committed and verified with `:core:preferences:testDebugUnitTest` + `:app:assembleDebug`.
 - [x] `:core:database` Room station/favorites/recent metadata persistence committed and verified with `:core:database:testDebugUnitTest` + `:app:assembleDebug`; Room schema v1 exported.
 - [x] `:core:data` repository/seeding/favorites/recently-played orchestration committed and verified with `:core:data:testDebugUnitTest` + `:app:assembleDebug`.
+- [x] `:core:playback` sub-step 1/3: MediaLibraryService / ExoPlayer foundation, native audio focus, generic MediaItem support, and explicit Stop/Exit committed and verified.
+- [ ] `:core:playback` sub-step 2/3: automatic radio primary→fallback recovery.
+- [ ] `:core:playback` sub-step 3/3: notification/media-button and Android Auto browsing polish.
 
 ## Decision log
 
@@ -373,3 +376,8 @@ Authorized next foundation commit: create `:core:data` as the local repository/o
 ### 2026-08-27 — Core data implementation completed
 
 `:core:data` is implemented and committed in `492b496186baac2aed19caac281a18a7103e07a1` as the local repository/orchestration layer over `:core:database` and `:core:model`. It seeds the nine approved radio stations idempotently (excluding unresolved Radio Tachlit Sous Massa), coordinates custom stations and favorites, preserves ordered stream fallbacks, and maintains bounded recently-played history with safe domain mapping. Media3/playback, Google Drive, networking, UI, and Hilt remain deferred. GitHub Actions run `33085614244` passed `./gradlew :core:data:testDebugUnitTest :app:assembleDebug`; the verified debug APK SHA-256 is `c10f19e3e32f839e897302bb0fd81f5a1adb04e23a2863261530cd3c9bd81964`.
+
+
+### 2026-08-27 — Core playback foundation sub-step 1/3 completed
+
+`:core:playback` foundation is implemented and committed in `14873c8cb33a6797bfd3c7fe4b0d2d6b8acd040a` using Media3 1.11.0. `TamalutPlaybackService` is a `MediaLibraryService` owning one ExoPlayer and `MediaLibrarySession`, with media/music `AudioAttributes` and ExoPlayer-managed audio focus (`handleAudioFocus = true`). The service exposes a minimal browsable root for future Android Auto, accepts generic Media3 `MediaItem` queues including future local files, declares the media-playback foreground-service permissions/actions, preserves playback across task removal through the Media3 service lifecycle, and provides an explicit trusted-controller Stop/Exit custom command that stops playback, clears the queue, and stops the playback service. Automatic radio primary→fallback recovery remains sub-step 2/3; notification/button and Android Auto browsing polish remain sub-step 3/3. GitHub Actions run `33087262971` passed `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, produced a real debug APK, and verified SHA-256 `f88ea521be57ca0c94dcca521967dc1bd7b007e71d23735cdd5a78c3dcce86ec`.
