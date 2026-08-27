@@ -410,9 +410,14 @@ Do not implement yet:
 - [x] `:core:playback` sub-step 3/3: notification/media-button controls, browsable Android Auto test library, and manual on-device radio playback verification completed.
 - [x] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen committed and verified.
 - [x] `:feature:radio` sub-step 2/2: station selection wired to real MediaLibraryService playback; temporary Radio Azawan test path removed and verified.
-- [ ] `:feature:library` sub-step 1/2: SAF folder selection, persisted tree URI, recursive audio scan, and functional local-library list.
+- [x] `:feature:library` sub-step 1/2: SAF folder selection, persisted tree URI, recursive audio scan, and functional local-library list committed and verified.
 
 ## Decision log
+
+### 2026-08-27 — Feature library SAF/scanning sub-step 1/2 completed
+
+`:feature:library` sub-step 1/2 is implemented and committed in `f861eba53ab02ef2efb1b2221ff44fb773a86a54`. The app now exposes provisional Radio / Musica locale switching; the local screen selects one SAF tree with `OpenDocumentTree`, persists read access with `takePersistableUriPermission`, stores the selected tree URI in the existing `:core:preferences` DataStore, restores it on later launches, and recursively scans only in-tree audio documents with stable `MediaId` values. Unit tests cover recursive filtering/order, unreadable child folders, root-access errors, persisted-folder restoration, folder selection, and recoverable scan failures. GitHub Actions run `33108580230` passed `:core:preferences:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, and `:app:assembleDebug`; the real debug APK SHA-256 was `6ecbd3a8bafd81d1c0f41218a4ab25ed1132a01463c1196794fbc5a320c7e821`. The merged manifest was verified to contain no `READ_MEDIA_AUDIO`, `READ_EXTERNAL_STORAGE`, or `MANAGE_EXTERNAL_STORAGE` permission. No debug artifact was uploaded. Local-track Media3 playback and current-track indication remain sub-step 2/2.
+
 
 ### 2026-08-27 — Feature library SAF/scanning sub-step 1/2 authorized
 
