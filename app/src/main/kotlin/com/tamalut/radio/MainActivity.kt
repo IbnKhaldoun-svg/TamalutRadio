@@ -33,6 +33,7 @@ import com.tamalut.radio.core.preferences.UserPreferences
 import com.tamalut.radio.feature.library.LibraryRoute
 import com.tamalut.radio.feature.library.LibraryViewModel
 import com.tamalut.radio.feature.library.LibraryViewModelFactory
+import com.tamalut.radio.feature.library.Media3LocalPlaybackGateway
 import com.tamalut.radio.feature.library.SafFolderAccess
 import com.tamalut.radio.feature.library.SafLocalAudioScanner
 import com.tamalut.radio.feature.radio.CoreRadioDataSource
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
             preferencesRepository = preferencesRepository,
             scanner = SafLocalAudioScanner(contentResolver),
             folderAccess = SafFolderAccess(contentResolver),
+            playbackGateway = Media3LocalPlaybackGateway(applicationContext),
         )
     }
 

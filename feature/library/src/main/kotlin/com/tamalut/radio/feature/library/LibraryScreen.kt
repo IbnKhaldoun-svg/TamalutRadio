@@ -3,6 +3,7 @@ package com.tamalut.radio.feature.library
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +41,7 @@ fun LibraryRoute(
             folderPicker.launch(uiState.folderUri?.let(Uri::parse))
         },
         onRefresh = viewModel::refresh,
+        onTrackClick = viewModel::playTrack,
         modifier = modifier,
     )
 }
@@ -49,6 +51,7 @@ fun LibraryScreen(
     uiState: LibraryUiState,
     onChooseFolder: () -> Unit,
     onRefresh: () -> Unit,
+    onTrackClick: (LocalAudioTrack) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -82,6 +85,21 @@ fun LibraryScreen(
             }
         }
 
+        uiState.playbackMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        uiState.playbackErrorMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
         when {
             uiState.isLoading -> CircularProgressIndicator()
             uiState.errorMessage != null -> Text(
@@ -100,12 +118,20 @@ fun LibraryScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable { onTrackClick(track) }
                             .padding(vertical = 10.dp),
                     ) {
                         Text(
                             text = track.title,
                             style = MaterialTheme.typography.titleMedium,
                         )
+                        if (uiState.playingTrackId == track.id) {
+                            Text(
+                                text = "In riproduzione",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         track.mimeType?.let { mimeType ->
                             Text(
                                 text = mimeType,
