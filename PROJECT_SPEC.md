@@ -431,9 +431,14 @@ Do not implement yet:
 - [x] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen committed and verified.
 - [x] `:feature:radio` sub-step 2/2: station selection wired to real MediaLibraryService playback; temporary Radio Azawan test path removed and verified.
 - [x] `:feature:library` sub-step 1/2: SAF folder selection, persisted tree URI, recursive audio scan, and functional local-library list committed and verified.
-- [ ] `:feature:library` sub-step 2/2: Media3 local-track playback, ordered queue Previous/Next, current-track indication, and shared-player radio/local replacement.
+- [x] `:feature:library` sub-step 2/2: Media3 local-track playback, ordered queue Previous/Next, current-track indication, and shared-player radio/local replacement committed and verified.
 
 ## Decision log
+
+### 2026-08-27 — Feature library Media3 playback sub-step 2/2 completed
+
+`:feature:library` sub-step 2/2 is implemented with final validated code at `d071c3a216aa8b40bfcb5889f0fcb025b869c4a2` (initial implementation `b42d4b43bbf7ff549dd6d100bf8591258611a863`). Local SAF tracks are converted to generic Media3 items only at the playback boundary; tapping a row sends the full deterministic scanned list to the existing `TamalutPlaybackService` through `MediaBrowser.setMediaItems(...)`, starts at the tapped index, prepares, and plays. Media-item transitions from the shared session update the Library UI so the current local row shows `In riproduzione`; a non-local current media ID clears that marker. Radio and local playback both target the same MediaLibraryService player: local playback replaces the active queue with `setMediaItems`, while the existing radio gateway replaces it with `setMediaItem`, so switching source cannot leave parallel players running. Unit tests cover queue order/metadata/start index, gateway delegation, playback success/failure, and current-track transitions. GitHub Actions run `33114097614` passed `:feature:library:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, and `:app:assembleDebug`, verified the merged `TamalutPlaybackService`, confirmed no `ExoPlayer.Builder` exists in `:feature:library`, and confirmed the APK requests no `READ_MEDIA_AUDIO`, `READ_EXTERNAL_STORAGE`, or `MANAGE_EXTERNAL_STORAGE` permission. The real debug APK SHA-256 was `62993eb49aede1c0a9430ffedde165831bdd3a28b7435dde79cf0fc58e0dc362`; no APK artifact was uploaded. An earlier validation run exposed a JVM-only test coupling to Android `Uri`; the test seam was corrected before the clean code was promoted to `main`.
+
 
 ### 2026-08-27 — Feature library Media3 playback sub-step 2/2 authorized
 
