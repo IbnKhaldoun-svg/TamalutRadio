@@ -22,6 +22,9 @@ data class RadioUiState(
     val stations: List<RadioStation> = emptyList(),
     val favoriteIds: Set<StationId> = emptySet(),
     val errorMessage: String? = null,
+    val playbackMessage: String? = null,
+    val playbackErrorMessage: String? = null,
+    val playingStationId: StationId? = null,
 ) {
     val visibleStations: List<RadioStation>
         get() = when (selectedSection) {
@@ -32,6 +35,7 @@ data class RadioUiState(
 
 class RadioViewModel(
     private val controller: RadioFeatureController,
+    private val playbackGateway: RadioPlaybackGateway,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RadioUiState())
     val uiState: StateFlow<RadioUiState> = _uiState.asStateFlow()
@@ -84,6 +88,33 @@ class RadioViewModel(
         }
     }
 
+    fun playStation(station: RadioStation) {
+        _uiState.update {
+            it.copy(
+                playbackMessage = "Connessione a ${station.name}…",
+                playbackErrorMessage = null,
+            )
+        }
+        playbackGateway.play(station) { result ->
+            result.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        playingStationId = station.id,
+                        playbackMessage = "In riproduzione: ${station.name}",
+                        playbackErrorMessage = null,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        playbackMessage = null,
+                        playbackErrorMessage = "Impossibile riprodurre ${station.name}: ${error.message ?: "errore sconosciuto"}",
+                    )
+                }
+            }
+        }
+    }
+
     private fun applySnapshot(snapshot: RadioSnapshot) {
         _uiState.update {
             it.copy(
@@ -94,14 +125,20 @@ class RadioViewModel(
             )
         }
     }
+
+    override fun onCleared() {
+        playbackGateway.release()
+        super.onCleared()
+    }
 }
 
 class RadioViewModelFactory(
     private val controller: RadioFeatureController,
+    private val playbackGateway: RadioPlaybackGateway,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass.isAssignableFrom(RadioViewModel::class.java))
-        return RadioViewModel(controller) as T
+        return RadioViewModel(controller, playbackGateway) as T
     }
 }

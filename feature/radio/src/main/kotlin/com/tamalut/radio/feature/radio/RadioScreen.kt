@@ -32,7 +32,6 @@ import com.tamalut.radio.core.model.RadioStation
 @Composable
 fun RadioRoute(
     viewModel: RadioViewModel,
-    onStationSelected: (RadioStation) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -40,7 +39,7 @@ fun RadioRoute(
         state = state,
         onSectionSelected = viewModel::selectSection,
         onToggleFavorite = viewModel::toggleFavorite,
-        onStationSelected = onStationSelected,
+        onStationSelected = viewModel::playStation,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
@@ -88,6 +87,23 @@ fun RadioScreen(
                 )
             }
 
+            state.playbackMessage?.let {
+                Text(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            state.playbackErrorMessage?.let {
+                Text(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             when {
                 state.isLoading -> LoadingState()
                 state.errorMessage != null && state.stations.isEmpty() -> ErrorState(
@@ -99,6 +115,7 @@ fun RadioScreen(
                 else -> RadioList(
                     stations = state.visibleStations,
                     favoriteIds = state.favoriteIds.mapTo(mutableSetOf()) { it.value },
+                    playingStationId = state.playingStationId?.value,
                     onToggleFavorite = onToggleFavorite,
                     onStationSelected = onStationSelected,
                     transientError = state.errorMessage,
@@ -163,6 +180,7 @@ private fun EmptyFavoritesState() {
 private fun RadioList(
     stations: List<RadioStation>,
     favoriteIds: Set<String>,
+    playingStationId: String?,
     onToggleFavorite: (RadioStation) -> Unit,
     onStationSelected: (RadioStation) -> Unit,
     transientError: String?,
@@ -186,6 +204,7 @@ private fun RadioList(
             RadioStationRow(
                 station = station,
                 isFavorite = station.id.value in favoriteIds,
+                isPlaying = station.id.value == playingStationId,
                 onToggleFavorite = { onToggleFavorite(station) },
                 onClick = { onStationSelected(station) },
             )
@@ -197,6 +216,7 @@ private fun RadioList(
 private fun RadioStationRow(
     station: RadioStation,
     isFavorite: Boolean,
+    isPlaying: Boolean,
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
 ) {
@@ -219,9 +239,13 @@ private fun RadioStationRow(
                 )
                 Text(
                     modifier = Modifier.padding(top = 3.dp),
-                    text = if (station.fallbackStreams.isEmpty()) "Diretta radio" else "Diretta · fallback disponibile",
+                    text = when {
+                        isPlaying -> "In riproduzione"
+                        station.fallbackStreams.isEmpty() -> "Diretta radio"
+                        else -> "Diretta · fallback disponibile"
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(

@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -74,9 +75,10 @@ class RadioFeatureControllerTest {
     @Test
     fun viewModelExposesRecoverableErrorWhenRepositoryLoadFails() = runTest(dispatcher) {
         val viewModel = RadioViewModel(
-            RadioFeatureController(
+            controller = RadioFeatureController(
                 FakeRadioDataSource(loadFailure = IllegalStateException("database unavailable")),
             ),
+            playbackGateway = FakePlaybackGateway(),
         )
 
         advanceUntilIdle()
@@ -90,7 +92,10 @@ class RadioFeatureControllerTest {
     fun viewModelRefreshesFavoriteStateAfterMutation() = runTest(dispatcher) {
         val azawan = station("radio-azawan", "Radio Azawan")
         val source = FakeRadioDataSource(stations = mutableListOf(azawan))
-        val viewModel = RadioViewModel(RadioFeatureController(source))
+        val viewModel = RadioViewModel(
+            RadioFeatureController(source),
+            FakePlaybackGateway(),
+        )
         advanceUntilIdle()
 
         viewModel.toggleFavorite(azawan)
@@ -100,11 +105,57 @@ class RadioFeatureControllerTest {
         assertEquals(1, source.favoriteMutations)
     }
 
+    @Test
+    fun stationSelectionDelegatesToPlaybackAndPreservesFavorites() = runTest(dispatcher) {
+        val azawan = station("radio-azawan", "Radio Azawan")
+        val source = FakeRadioDataSource(
+            stations = mutableListOf(azawan),
+            favorites = mutableSetOf(azawan.id),
+        )
+        val playback = FakePlaybackGateway()
+        val viewModel = RadioViewModel(RadioFeatureController(source), playback)
+        advanceUntilIdle()
+
+        viewModel.playStation(azawan)
+
+        assertEquals(azawan, playback.lastStation)
+        assertEquals(azawan.id, viewModel.uiState.value.playingStationId)
+        assertEquals("In riproduzione: Radio Azawan", viewModel.uiState.value.playbackMessage)
+        assertTrue(azawan.id in viewModel.uiState.value.favoriteIds)
+        assertNull(viewModel.uiState.value.playbackErrorMessage)
+    }
+
+    @Test
+    fun playbackFailureIsExposedWithoutDestroyingLoadedData() = runTest(dispatcher) {
+        val azawan = station("radio-azawan", "Radio Azawan")
+        val source = FakeRadioDataSource(stations = mutableListOf(azawan))
+        val playback = FakePlaybackGateway(failure = IllegalStateException("service unavailable"))
+        val viewModel = RadioViewModel(RadioFeatureController(source), playback)
+        advanceUntilIdle()
+
+        viewModel.playStation(azawan)
+
+        assertEquals(listOf(azawan), viewModel.uiState.value.stations)
+        assertNull(viewModel.uiState.value.playingStationId)
+        assertTrue(viewModel.uiState.value.playbackErrorMessage!!.contains("service unavailable"))
+    }
+
     private fun station(id: String, name: String) = RadioStation(
         id = StationId(id),
         name = name,
         primaryStream = StreamEndpoint("https://example.com/$id.mp3"),
     )
+
+    private class FakePlaybackGateway(
+        private val failure: Throwable? = null,
+    ) : RadioPlaybackGateway {
+        var lastStation: RadioStation? = null
+
+        override fun play(station: RadioStation, onResult: (Result<Unit>) -> Unit) {
+            lastStation = station
+            onResult(failure?.let(Result.Companion::failure) ?: Result.success(Unit))
+        }
+    }
 
     private class FakeRadioDataSource(
         private val stations: MutableList<RadioStation> = mutableListOf(),
