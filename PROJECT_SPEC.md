@@ -6,7 +6,7 @@ Single source of truth for TamalutRadio. **Update this file before code changes.
 
 - UI: **Atlas Night** base + Material 3 / Material Air ergonomics + restrained Sahara Pulse accents.
 - Theme: **Follow system** by default, with manual `Chiaro / Scuro / Segui sistema` override persisted locally.
-- **Logo/Icona: APPROVATO — Atlas Signal, variante 3, margini adattivi confermati.**
+- **Logo/Icona: APPROVATO — Atlas Signal, tutti gli asset sorgente committati.**
 - Icon proportions: generous safe-area margins based on refinement #3; verified for circle, squircle and rounded-square adaptive masks.
 - Android: native Kotlin + Jetpack Compose; **minSdk 26 / compileSdk 37 / targetSdk 37**.
 - Build baseline: **AGP 9.3.0 / Gradle 9.5.0 / JDK 17 / Compose BOM 2026.08.00**.
@@ -46,15 +46,14 @@ Languages:
 
 ## Approved branding source assets
 
-Store source assets under `docs/branding/` (not yet in Android `mipmap-*`):
+Store source assets under `assets/branding/` (not yet in Android `mipmap-*`):
 
 - `atlas-signal-master-1024.png`
 - `atlas-signal-adaptive-foreground-1024.png`
 - `atlas-signal-adaptive-background-1024.png`
 - `atlas-signal-monochrome-1024.png`
-- `atlas-signal-mask-preview.png`
 
-Android launcher density resources and adaptive-icon XML will be generated later from these approved sources without changing the approved proportions.
+All four approved source assets are committed. Android launcher density resources and adaptive-icon XML will be generated later from these approved sources without changing the approved proportions.
 
 ## Architecture / module graph
 
@@ -179,7 +178,7 @@ Do not implement yet:
 ### Phase 1 — foundation
 - [x] Technical baseline approved.
 - [x] Initial modular Gradle/Compose bootstrap authorized.
-- [ ] Branding source files committed under `docs/branding/`.
+- [x] Branding source files committed under `assets/branding/`.
 - [ ] Gradle wrapper and version catalog committed.
 - [ ] Module graph committed.
 - [ ] Minimal app build verified by CI.
@@ -193,7 +192,7 @@ Approved Atlas Night + Material 3 + Sahara Pulse accents; system/light/dark them
 
 ### 2026-08-27 — Branding final approval
 
-**Logo/Icona: APPROVATO — Atlas Signal, variante 3, margini adattivi confermati.** The final launcher artwork must keep the generous safe area of refinement #3.
+**Logo/Icona: APPROVATO — Atlas Signal, tutti gli asset sorgente committati.** Variant 3 and its generous adaptive-icon safe-area margins remain the approved proportions. Source files are committed under `assets/branding/` as master, adaptive foreground, adaptive background, and monochrome/themed assets.
 
 ### 2026-08-27 — Gradle/Compose bootstrap authorized
 
