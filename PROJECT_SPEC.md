@@ -168,6 +168,26 @@ The next foundation module is authorized as the repository/orchestration layer b
 
 Verification requirement: GitHub Actions must successfully run `./gradlew :core:data:testDebugUnitTest :app:assembleDebug` and produce a real debug APK before the code reaches `main`.
 
+### `:core:playback` implementation contract — sub-step 1/3
+
+The playback foundation is intentionally split into three verified commits. Sub-step 1 establishes the service/session lifecycle only; automatic radio fallback and notification/media-button refinements remain for sub-steps 2 and 3.
+
+Sub-step 1 responsibilities:
+
+- create `:core:playback` as an Android library using stable Media3 1.11.0.
+- host a single ExoPlayer inside a `MediaLibraryService` / `MediaLibrarySession`, not a plain `MediaSessionService`, so the service is ready for future Android Auto browsing.
+- configure `AudioAttributes` with media usage/content type and `handleAudioFocus = true`; no custom audio-focus manager is added.
+- accept generic Media3 `MediaItem` instances so future local-file items can be queued without changing the service architecture.
+- expose a minimal browsable library root required by `MediaLibraryService`, without feature catalog wiring yet.
+- define an explicit custom session command for Stop/Exit that stops playback, clears the queue, and terminates the playback service lifecycle safely.
+- preserve Media3 default task-removal behavior: swiping the app away must not stop playback while playback is ongoing.
+- declare foreground media-playback service permissions and both `androidx.media3.session.MediaLibraryService` and legacy `android.media.browse.MediaBrowserService` service actions.
+- rely on Media3's standard session notification behavior in this foundation; explicit notification/button preference polishing is deferred to sub-step 3.
+- do not add radio fallback retry logic yet; that is sub-step 2.
+- no Google Drive integration, repository orchestration, UI, Hilt, sleep timer, equalizer, or feature modules belong in this commit.
+
+Verification requirement: unit tests for pure playback command/configuration helpers plus GitHub Actions `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug` must succeed and produce a real debug APK before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
