@@ -286,7 +286,7 @@ Do not implement yet:
 - [x] `:core:model` pure Kotlin shared domain models committed and verified with `:core:model:test` + `:app:assembleDebug`.
 - [x] `:core:preferences` DataStore-backed theme/language/last-source preferences committed and verified with `:core:preferences:testDebugUnitTest` + `:app:assembleDebug`.
 - [x] `:core:database` Room station/favorites/recent metadata persistence committed and verified with `:core:database:testDebugUnitTest` + `:app:assembleDebug`; Room schema v1 exported.
-- [ ] `:core:data` repository/seeding/favorites/recently-played orchestration — **authorized next step**.
+- [x] `:core:data` repository/seeding/favorites/recently-played orchestration committed and verified with `:core:data:testDebugUnitTest` + `:app:assembleDebug`.
 
 ## Decision log
 
@@ -349,3 +349,7 @@ Authorized next foundation commit: create `:core:database` using stable Room 3.0
 ### 2026-08-27 — Core data implementation authorized
 
 Authorized next foundation commit: create `:core:data` as the local repository/orchestration layer over `:core:database` and `:core:model`. It will seed the nine approved radio stations idempotently, coordinate custom stations, favorites, and bounded recently-played history, while Media3/playback, Google Drive, networking, UI, and Hilt remain deferred. CI must pass `:core:data:testDebugUnitTest` and `:app:assembleDebug`.
+
+### 2026-08-27 — Core data implementation completed
+
+`:core:data` is implemented and committed in `492b496186baac2aed19caac281a18a7103e07a1` as the local repository/orchestration layer over `:core:database` and `:core:model`. It seeds the nine approved radio stations idempotently (excluding unresolved Radio Tachlit Sous Massa), coordinates custom stations and favorites, preserves ordered stream fallbacks, and maintains bounded recently-played history with safe domain mapping. Media3/playback, Google Drive, networking, UI, and Hilt remain deferred. GitHub Actions run `33085614244` passed `./gradlew :core:data:testDebugUnitTest :app:assembleDebug`; the verified debug APK SHA-256 is `c10f19e3e32f839e897302bb0fd81f5a1adb04e23a2863261530cd3c9bd81964`.
