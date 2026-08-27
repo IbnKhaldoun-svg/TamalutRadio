@@ -270,7 +270,7 @@ Do not implement yet:
 - [x] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation committed and verified by `./gradlew :app:assembleDebug`.
 - [x] `:core:model` pure Kotlin shared domain models committed and verified with `:core:model:test` + `:app:assembleDebug`.
 - [x] `:core:preferences` DataStore-backed theme/language/last-source preferences committed and verified with `:core:preferences:testDebugUnitTest` + `:app:assembleDebug`.
-- [ ] `:core:database` Room station/favorites/recent metadata persistence — **authorized next step**.
+- [x] `:core:database` Room station/favorites/recent metadata persistence committed and verified with `:core:database:testDebugUnitTest` + `:app:assembleDebug`; Room schema v1 exported.
 
 ## Decision log
 
@@ -325,3 +325,7 @@ Authorized next foundation commit: create `:core:preferences` with AndroidX Pref
 ### 2026-08-27 — Core database implementation authorized
 
 Authorized next foundation commit: create `:core:database` using stable Room 3.0.2 (`androidx.room3`) with KSP 2.3.10. The module persists preinstalled/custom radio stations with ordered fallback URLs, station favorites, and recently-played metadata/cache mapped to `:core:model`. It owns entities, DAO, the Room database declaration, schema export, and mapping helpers only. Repository orchestration, UI, Hilt, Media3, networking, catalog seeding, and DataStore integration remain excluded and are deferred to later modules. CI must pass `:core:database:testDebugUnitTest` and `:app:assembleDebug`.
+
+### 2026-08-27 — Core database foundation completed
+
+`:core:database` is implemented and committed in `c9d8f21832812d647ce74bc56aaf964ac5989c7f` using Room 3.0.2 (`androidx.room3`) with KSP 2.3.10. The persistence-only module contains Room entities/DAO and mapping helpers for preinstalled/custom radio stations with ordered fallback streams, station favorites, and recently-played metadata/cache; repository orchestration and UI remain deferred to `:core:data` and feature modules. Room schema v1 is exported at `core/database/schemas/com.tamalut.radio.core.database.TamalutDatabase/1.json`. GitHub Actions run `33083889979` passed `./gradlew :core:database:testDebugUnitTest :app:assembleDebug`, generated a real debug APK, and verified its SHA-256 as `f71bb761f2afde189164d2d2a8a518335ee0645840694224c1aeca0e5d38ddb4`.
