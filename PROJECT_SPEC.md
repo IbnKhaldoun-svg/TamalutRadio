@@ -326,7 +326,7 @@ Do not implement yet:
 - [x] `:core:database` Room station/favorites/recent metadata persistence committed and verified with `:core:database:testDebugUnitTest` + `:app:assembleDebug`; Room schema v1 exported.
 - [x] `:core:data` repository/seeding/favorites/recently-played orchestration committed and verified with `:core:data:testDebugUnitTest` + `:app:assembleDebug`.
 - [x] `:core:playback` sub-step 1/3: MediaLibraryService / ExoPlayer foundation, native audio focus, generic MediaItem support, and explicit Stop/Exit committed and verified.
-- [ ] `:core:playback` sub-step 2/3: automatic radio primary→fallback recovery.
+- [x] `:core:playback` sub-step 2/3: bounded automatic radio primary→fallback recovery committed and verified.
 - [ ] `:core:playback` sub-step 3/3: notification/media-button and Android Auto browsing polish.
 
 ## Decision log
@@ -399,3 +399,8 @@ Authorized next foundation commit: create `:core:data` as the local repository/o
 ### 2026-08-27 — Core playback foundation sub-step 1/3 completed
 
 `:core:playback` foundation is implemented and committed in `14873c8cb33a6797bfd3c7fe4b0d2d6b8acd040a` using Media3 1.11.0. `TamalutPlaybackService` is a `MediaLibraryService` owning one ExoPlayer and `MediaLibrarySession`, with media/music `AudioAttributes` and ExoPlayer-managed audio focus (`handleAudioFocus = true`). The service exposes a minimal browsable root for future Android Auto, accepts generic Media3 `MediaItem` queues including future local files, declares the media-playback foreground-service permissions/actions, preserves playback across task removal through the Media3 service lifecycle, and provides an explicit trusted-controller Stop/Exit custom command that stops playback, clears the queue, and stops the playback service. Automatic radio primary→fallback recovery remains sub-step 2/3; notification/button and Android Auto browsing polish remain sub-step 3/3. GitHub Actions run `33087262971` passed `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, produced a real debug APK, and verified SHA-256 `f88ea521be57ca0c94dcca521967dc1bd7b007e71d23735cdd5a78c3dcce86ec`.
+
+### 2026-08-27 — Core playback fallback sub-step 2/3 completed
+
+Bounded automatic radio fallback is implemented and committed in `62b6396846c9d08eb21ff6fe38024558a2e1c4e1`. `RadioMediaItemFactory` carries the exact `primary -> fallbackStreams` plan from `:core:model`; fatal Media3 `onPlayerError` callbacks advance exactly one endpoint, with the effective attempt budget capped by both configurable `maxAttempts` (default 3) and available endpoints. Exhaustion is explicit through `RadioFallbackState.Exhausted` with station ID, attempted count, maximum attempts, and final Media3 error code; no retry loop is restarted and the final player error remains visible to MediaSession/controllers. Generic/local Media3 items are unaffected. GitHub Actions run `33089219860` passed `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, produced a real debug APK, and verified SHA-256 `b598aa5c78fe6b9c460f44476ce014053c54698e046b686f3f887929d7ca8a23`. Notification/media-button and Android Auto browsing polish remain sub-step 3/3.
+
