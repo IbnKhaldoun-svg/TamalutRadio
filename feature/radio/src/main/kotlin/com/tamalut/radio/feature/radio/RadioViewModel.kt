@@ -1,0 +1,107 @@
+package com.tamalut.radio.feature.radio
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.tamalut.radio.core.model.RadioStation
+import com.tamalut.radio.core.model.StationId
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+enum class RadioSection {
+    FAVORITES,
+    ALL,
+}
+
+data class RadioUiState(
+    val isLoading: Boolean = true,
+    val selectedSection: RadioSection = RadioSection.ALL,
+    val stations: List<RadioStation> = emptyList(),
+    val favoriteIds: Set<StationId> = emptySet(),
+    val errorMessage: String? = null,
+) {
+    val visibleStations: List<RadioStation>
+        get() = when (selectedSection) {
+            RadioSection.FAVORITES -> stations.filter { it.id in favoriteIds }
+            RadioSection.ALL -> stations
+        }
+}
+
+class RadioViewModel(
+    private val controller: RadioFeatureController,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(RadioUiState())
+    val uiState: StateFlow<RadioUiState> = _uiState.asStateFlow()
+
+    init {
+        refresh()
+    }
+
+    fun selectSection(section: RadioSection) {
+        _uiState.update { it.copy(selectedSection = section) }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            runCatching { controller.load() }
+                .onSuccess(::applySnapshot)
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Impossibile caricare le radio",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun toggleFavorite(station: RadioStation) {
+        val previous = _uiState.value
+        val wasFavorite = station.id in previous.favoriteIds
+        val optimistic = if (wasFavorite) {
+            previous.favoriteIds - station.id
+        } else {
+            previous.favoriteIds + station.id
+        }
+        _uiState.update { it.copy(favoriteIds = optimistic, errorMessage = null) }
+
+        viewModelScope.launch {
+            runCatching { controller.toggleFavorite(station.id, wasFavorite) }
+                .onSuccess(::applySnapshot)
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            favoriteIds = previous.favoriteIds,
+                            errorMessage = error.message ?: "Impossibile aggiornare i preferiti",
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun applySnapshot(snapshot: RadioSnapshot) {
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                stations = snapshot.stations,
+                favoriteIds = snapshot.favoriteIds,
+                errorMessage = null,
+            )
+        }
+    }
+}
+
+class RadioViewModelFactory(
+    private val controller: RadioFeatureController,
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        require(modelClass.isAssignableFrom(RadioViewModel::class.java))
+        return RadioViewModel(controller) as T
+    }
+}
