@@ -181,10 +181,13 @@ Do not implement yet:
 - [x] Branding source files committed under `assets/branding/`.
 - [x] Gradle 9.5.0 wrapper committed and verified.
 - [x] Root Gradle Kotlin DSL skeleton committed and verified with `./gradlew help`.
-- [ ] `:app` module with minimal Compose `MainActivity` and Atlas Signal launcher resources — **next implementation step**.
+- [x] `:app` module with minimal Compose `MainActivity` and Atlas Signal launcher resources committed.
 - [ ] Module graph committed.
-- [ ] Minimal app APK build verified by CI.
+- [x] Minimal app APK build verified by CI with `./gradlew :app:assembleDebug`.
 - [ ] Release signing plumbing verified.
+- [ ] Temporary downloadable debug APK artifact published for device testing.
+- [ ] Temporary bootstrap branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate` removed.
+- [ ] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
 
 ## Decision log
 
@@ -203,3 +206,7 @@ Authorized baseline: AGP 9.3.0, Gradle 9.5.0, JDK 17, compileSdk/targetSdk 37, m
 ### 2026-08-27 — App module bootstrap step
 
 Next foundation change is limited to `:app`: application ID `com.tamalut.radio`, minSdk 26 / compileSdk 37 / targetSdk 37, minimal Compose placeholder UI, and launcher resources derived from the approved Atlas Signal branding sources. Verification requirement: GitHub Actions must successfully run `./gradlew :app:assembleDebug` and produce a debug APK before proceeding to `core/*` or `feature/*` modules.
+
+### 2026-08-27 — Pre-designsystem maintenance
+
+Before implementing `:core:designsystem`, complete three repository-maintenance steps: publish a temporary downloadable debug APK artifact for immediate device testing, remove the temporary bootstrap branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate`, and add `README.md` with project description, GitHub Releases installation guidance, and current development status. The already committed `:app` module has been verified with a successful real `./gradlew :app:assembleDebug` build.
