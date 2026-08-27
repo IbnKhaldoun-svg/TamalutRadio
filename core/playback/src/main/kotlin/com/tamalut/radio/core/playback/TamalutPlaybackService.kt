@@ -41,8 +41,6 @@ class TamalutPlaybackService : MediaLibraryService() {
 
                 is RadioFallbackDecision.Exhausted -> {
                     currentRadioFallbackState = decision.state
-                    // Deliberately do not clear/re-prepare here. The final fatal Media3
-                    // PlaybackException remains visible to MediaSession/controllers.
                 }
             }
         }
@@ -50,7 +48,6 @@ class TamalutPlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-
         val exoPlayer = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -61,13 +58,14 @@ class TamalutPlaybackService : MediaLibraryService() {
             )
             .build()
             .also { it.addListener(playerListener) }
-
         player = exoPlayer
         mediaLibrarySession = MediaLibrarySession.Builder(
             this,
             exoPlayer,
             PlaybackSessionCallback(::stopAndExit),
-        ).build()
+        )
+            .setMediaButtonPreferences(PlaybackControls.mediaButtonPreferences(includeStopExit = true))
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =

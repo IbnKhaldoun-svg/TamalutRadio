@@ -30,6 +30,8 @@ dependencies {
     implementation(composeBom)
     implementation(project(":core:designsystem"))
     implementation(project(":core:preferences"))
+    implementation(project(":core:playback"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.media3:media3-session:1.11.0")
 }
