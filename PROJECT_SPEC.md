@@ -370,7 +370,7 @@ Do not implement yet:
 - [x] `:core:playback` sub-step 1/3: MediaLibraryService / ExoPlayer foundation, native audio focus, generic MediaItem support, and explicit Stop/Exit committed and verified.
 - [x] `:core:playback` sub-step 2/3: bounded automatic radio primary→fallback recovery committed and verified.
 - [x] `:core:playback` sub-step 3/3: notification/media-button controls, browsable Android Auto test library, and manual on-device radio playback verification completed.
-- [ ] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen.
+- [x] `:feature:radio` sub-step 1/2: repository-backed radio/favorites Compose screen committed and verified.
 
 ## Decision log
 
@@ -454,3 +454,8 @@ Bounded automatic radio fallback is implemented and committed in `62b6396846c9d0
 ### 2026-08-27 — Feature radio UI/favorites sub-step 1/2 authorized
 
 Authorized the first `:feature:radio` commit for the repository-backed Compose screen only: `Preferiti` / `Tutte le radio`, idempotent initial catalog seeding, favorite toggling, explicit app composition of Room/data repositories, Atlas Night theme consumption, and unit tests. Station selection will be exposed but Media3 playback integration and removal of the temporary Radio Azawan preparation path remain sub-step 2/2. CI must pass `:feature:radio:testDebugUnitTest` and `:app:assembleDebug`.
+
+### 2026-08-27 — Feature radio UI/favorites sub-step 1/2 completed
+
+`:feature:radio` sub-step 1/2 is implemented and committed in `ab7707aea02f618535277fb1fdd9b62c91659ff1`. The app now renders a real Atlas Night / Material 3 radio screen backed by the existing Room/data repositories, with `Preferiti` and `Tutte le radio` tabs, idempotent seed loading, visible star controls for adding/removing favorites, optimistic favorite UI updates with rollback on repository failure, empty-favorites messaging, and recoverable load errors. `:app` explicitly composes `TamalutDatabase`, `RadioStationRepository`, `FavoriteStationRepository`, and the feature ViewModel factory; Hilt remains deferred. Station row selection is exposed but intentionally does not start Media3 playback yet, and the temporary Radio Azawan manual-test path remains until sub-step 2/2. GitHub Actions run `33095959100` passed `./gradlew :feature:radio:testDebugUnitTest :app:assembleDebug`, verified the feature wiring and produced a real debug APK with SHA-256 `97f4aa610096c495cdd6672aec3d5759418bccaf6b64b800939ec649bba8f261`. Sub-step 2/2 will connect every station selection to the existing `MediaLibraryService` and remove the temporary Radio Azawan test control.
+
