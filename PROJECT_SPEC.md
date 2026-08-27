@@ -222,7 +222,7 @@ Do not implement yet:
 - [x] Temporary bootstrap branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate` removed.
 - [x] Obsolete `wrapper-bootstrap` branch removed after its wrapper commit reached `main`.
 - [x] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
-- [ ] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation — **authorized next step**.
+- [x] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation committed and verified by `./gradlew :app:assembleDebug`.
 
 ## Decision log
 
@@ -253,3 +253,7 @@ Completed before `:core:designsystem`: downloadable debug APK artifact published
 ### 2026-08-27 — Design system implementation authorized
 
 Authorized next foundation commit: create only `:core:designsystem` plus the minimum root/app wiring required to consume it. The module will centralize the approved Atlas Night semantic palette, Material 3 dark/light schemes, comfortable Material Air-inspired shapes, and `FOLLOW_SYSTEM / LIGHT / DARK` theme selection. Preference persistence is explicitly deferred to `:core:preferences`. Verification requirement: a real GitHub Actions `./gradlew :app:assembleDebug` must succeed before the code reaches `main`.
+
+### 2026-08-27 — Design system implementation completed
+
+`:core:designsystem` is committed and consumed by `:app`. It provides centralized Atlas Night color tokens, Material 3 light/dark `ColorScheme`s, Material Air-inspired rounded shapes, and `ThemeMode.FOLLOW_SYSTEM / LIGHT / DARK`. `MainActivity` uses `FOLLOW_SYSTEM` by default. CI run `33075397300` successfully built and verified the debug APK; theme persistence remains deferred to `:core:preferences`.
