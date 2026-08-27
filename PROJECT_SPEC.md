@@ -188,6 +188,24 @@ Sub-step 1 responsibilities:
 
 Verification requirement: unit tests for pure playback command/configuration helpers plus GitHub Actions `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug` must succeed and produce a real debug APK before the code reaches `main`.
 
+### `:core:playback` implementation contract — sub-step 2/3
+
+Sub-step 2 adds bounded automatic radio-stream fallback on top of the verified MediaLibraryService foundation.
+
+Responsibilities:
+
+- depend on `:core:model` so playback can accept a `RadioStation` and preserve its exact `primaryStream -> fallbackStreams` order.
+- introduce a small deterministic fallback state machine that tracks the current endpoint, attempted endpoints, and terminal success/exhausted state.
+- expose a configurable maximum attempt count; the effective attempt budget is bounded by both this value and the station's number of available endpoints, preventing loops or repeated cycling.
+- start radio playback from the primary endpoint and advance exactly one endpoint after a fatal Media3 `Player.Listener.onPlayerError` callback; non-fatal load events are left to ExoPlayer's own recovery policy.
+- when an endpoint fails and another attempt remains, replace the current radio media item with the next endpoint, call `prepare()`, and preserve the caller's play intent.
+- when the final allowed endpoint also fails, stop retrying, retain a terminal `EXHAUSTED` playback-fallback state with station ID / attempted count / last error code, and leave the fatal Media3 error visible to the MediaSession/controller rather than crashing or silently looping.
+- local/generic Media3 `MediaItem` playback remains unaffected by radio fallback handling.
+- no notification button customization, Android Auto catalog wiring, Google Drive, UI, Hilt, sleep timer, equalizer, or repository orchestration belongs in this sub-step.
+- unit tests must simulate ordered fatal failures and verify primary -> fallback 1 -> fallback 2 progression, configurable attempt truncation, no retries after exhaustion, and explicit terminal error state.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :core:playback:testDebugUnitTest :app:assembleDebug`, verify a real APK, and exercise the fallback unit tests before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
