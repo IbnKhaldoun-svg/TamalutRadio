@@ -185,9 +185,9 @@ Do not implement yet:
 - [ ] Module graph committed.
 - [x] Minimal app APK build verified by CI with `./gradlew :app:assembleDebug`.
 - [ ] Release signing plumbing verified.
-- [ ] Temporary downloadable debug APK artifact published for device testing.
-- [ ] Temporary bootstrap branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate` removed.
-- [ ] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
+- [x] Temporary downloadable debug APK artifact published for device testing (Actions run `33073747137`, artifact `TamalutRadio-debug-apk`, 7-day retention).
+- [x] Temporary bootstrap branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate` removed.
+- [x] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
 
 ## Decision log
 
@@ -210,3 +210,7 @@ Next foundation change is limited to `:app`: application ID `com.tamalut.radio`,
 ### 2026-08-27 — Pre-designsystem maintenance
 
 Before implementing `:core:designsystem`, complete three repository-maintenance steps: publish a temporary downloadable debug APK artifact for immediate device testing, remove the temporary bootstrap branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate`, and add `README.md` with project description, GitHub Releases installation guidance, and current development status. The already committed `:app` module has been verified with a successful real `./gradlew :app:assembleDebug` build.
+
+### 2026-08-27 — Pre-designsystem maintenance completed
+
+Completed before `:core:designsystem`: downloadable debug APK artifact published from a successful `:app:assembleDebug` run; temporary branches `branding-bootstrap`, `foundation-gradle-validate`, and `app-bootstrap-validate` removed; `README.md` added with project overview, release sideload instructions, and current development status.
