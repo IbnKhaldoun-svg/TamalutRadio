@@ -253,7 +253,7 @@ Do not implement yet:
 - [x] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
 - [x] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation committed and verified by `./gradlew :app:assembleDebug`.
 - [x] `:core:model` pure Kotlin shared domain models committed and verified with `:core:model:test` + `:app:assembleDebug`.
-- [ ] `:core:preferences` DataStore-backed theme/language/last-source preferences — **authorized next step**.
+- [x] `:core:preferences` DataStore-backed theme/language/last-source preferences committed and verified with `:core:preferences:testDebugUnitTest` + `:app:assembleDebug`.
 
 ## Decision log
 
@@ -300,3 +300,7 @@ Authorized next foundation commit: create only `:core:model` plus the minimum ro
 ### 2026-08-27 — Core preferences implementation authorized
 
 Authorized next foundation commit: create `:core:preferences` with AndroidX Preferences DataStore 1.2.1, persisting theme mode, optional language tag, and last played source/station/media identifiers. The app composition layer will map the stored theme preference to the existing `:core:designsystem` `ThemeMode`, avoiding a design-system dependency from preferences. Room, Media3, Hilt, networking, recently-played history, and unrelated settings remain excluded. CI must pass `:core:preferences:testDebugUnitTest` and produce the real debug APK with `:app:assembleDebug`.
+
+### 2026-08-27 — Core preferences implementation completed
+
+`:core:preferences` is committed with AndroidX Preferences DataStore 1.2.1. It persists `FOLLOW_SYSTEM / LIGHT / DARK`, an optional BCP-47 language tag, and the last played source plus typed station/media identifiers from `:core:model`. Unknown enum values decode to safe defaults. `:app` now collects the stored preferences and maps the persisted theme selection to the existing `:core:designsystem` `ThemeMode`. Room, Media3, Hilt, networking, recently-played history, and unrelated settings remain excluded. CI run `33081261153` passed `:core:preferences:testDebugUnitTest` and `:app:assembleDebug`; the verified debug APK SHA-256 is `e9da98065c3727f4b3d0f85d42a84b963ee6d8543f7cc02096d5bd4da7512c60`.
