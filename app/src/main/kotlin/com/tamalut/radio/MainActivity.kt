@@ -4,20 +4,30 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.room3.Room
@@ -43,9 +53,14 @@ import com.tamalut.radio.feature.radio.RadioRoute
 import com.tamalut.radio.feature.radio.RadioViewModel
 import com.tamalut.radio.feature.radio.RadioViewModelFactory
 
-private enum class MainDestination {
-    RADIO,
-    LIBRARY,
+private enum class MainDestination(
+    val label: String,
+    val icon: ImageVector,
+) {
+    RADIO("Radio", Icons.Filled.Radio),
+    LIBRARY("Musica", Icons.Filled.LibraryMusic),
+    NOW_PLAYING("In Riproduzione", Icons.Filled.PlayCircle),
+    SETTINGS("Impostazioni", Icons.Filled.Settings),
 }
 
 class MainActivity : ComponentActivity() {
@@ -109,30 +124,20 @@ class MainActivity : ComponentActivity() {
                 themeMode = userPreferences.themePreference.toThemeMode(),
             ) {
                 Scaffold(
-                    topBar = {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            if (destination == MainDestination.RADIO) {
-                                Button(onClick = { destination = MainDestination.RADIO }) {
-                                    Text("Radio")
-                                }
-                            } else {
-                                OutlinedButton(onClick = { destination = MainDestination.RADIO }) {
-                                    Text("Radio")
-                                }
-                            }
-                            if (destination == MainDestination.LIBRARY) {
-                                Button(onClick = { destination = MainDestination.LIBRARY }) {
-                                    Text("Musica locale")
-                                }
-                            } else {
-                                OutlinedButton(onClick = { destination = MainDestination.LIBRARY }) {
-                                    Text("Musica locale")
-                                }
+                    bottomBar = {
+                        NavigationBar {
+                            MainDestination.entries.forEach { item ->
+                                NavigationBarItem(
+                                    selected = destination == item,
+                                    onClick = { destination = item },
+                                    icon = {
+                                        Icon(
+                                            imageVector = item.icon,
+                                            contentDescription = item.label,
+                                        )
+                                    },
+                                    label = { Text(item.label) },
+                                )
                             }
                         }
                     },
@@ -144,8 +149,27 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(contentPadding),
                         )
+
                         MainDestination.LIBRARY -> LibraryRoute(
                             viewModel = libraryViewModel,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(contentPadding),
+                        )
+
+                        MainDestination.NOW_PLAYING -> PlaceholderDestination(
+                            title = "In Riproduzione",
+                            subtitle = "I controlli completi del player arriveranno nel modulo dedicato.",
+                            icon = Icons.Filled.PlayCircle,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(contentPadding),
+                        )
+
+                        MainDestination.SETTINGS -> PlaceholderDestination(
+                            title = "Impostazioni",
+                            subtitle = "Tema e preferenze avanzate saranno raccolti qui.",
+                            icon = Icons.Filled.Settings,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(contentPadding),
@@ -153,6 +177,40 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun PlaceholderDestination(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    Surface(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
