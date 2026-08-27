@@ -153,6 +153,21 @@ The next foundation module is authorized as an Android persistence library using
 
 Verification requirement: GitHub Actions must successfully run `./gradlew :core:database:testDebugUnitTest :app:assembleDebug` and produce a real debug APK before the code reaches `main`.
 
+### `:core:data` implementation contract
+
+The next foundation module is authorized as the repository/orchestration layer between `:core:model` and `:core:database`. Its scope is intentionally limited to local data coordination:
+
+- expose repository contracts/implementations for radio stations, favorites, and recently-played history using the existing Room DAO layer and domain models.
+- seed the approved initial catalog of nine radio stations from `PROJECT_SPEC.md` exactly once/idempotently, while keeping Radio Tachlit Sous Massa excluded because it remains an unresolved placeholder.
+- preserve primary stream URLs and ordered fallback URLs through the existing persistence mappings.
+- support custom station persistence through repository APIs without embedding UI validation flows.
+- expose favorites with favorite stations ordered first when requested by consumers, while keeping favorite state outside the shared `RadioStation` model.
+- record/query/clear a bounded recently-played history through the existing database primitives, dropping corrupt/unknown cached rows safely.
+- depend on `:core:model` and `:core:database`; no Media3, ExoPlayer, playback service, Google Drive, networking client, Hilt, Compose, or feature UI belongs in this module.
+- repository unit tests must cover idempotent catalog seeding, favorite coordination, fallback ordering, custom-station persistence, and recently-played bounds/mapping.
+
+Verification requirement: GitHub Actions must successfully run `./gradlew :core:data:testDebugUnitTest :app:assembleDebug` and produce a real debug APK before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
@@ -271,6 +286,7 @@ Do not implement yet:
 - [x] `:core:model` pure Kotlin shared domain models committed and verified with `:core:model:test` + `:app:assembleDebug`.
 - [x] `:core:preferences` DataStore-backed theme/language/last-source preferences committed and verified with `:core:preferences:testDebugUnitTest` + `:app:assembleDebug`.
 - [x] `:core:database` Room station/favorites/recent metadata persistence committed and verified with `:core:database:testDebugUnitTest` + `:app:assembleDebug`; Room schema v1 exported.
+- [ ] `:core:data` repository/seeding/favorites/recently-played orchestration — **authorized next step**.
 
 ## Decision log
 
@@ -329,3 +345,7 @@ Authorized next foundation commit: create `:core:database` using stable Room 3.0
 ### 2026-08-27 — Core database foundation completed
 
 `:core:database` is implemented and committed in `c9d8f21832812d647ce74bc56aaf964ac5989c7f` using Room 3.0.2 (`androidx.room3`) with KSP 2.3.10. The persistence-only module contains Room entities/DAO and mapping helpers for preinstalled/custom radio stations with ordered fallback streams, station favorites, and recently-played metadata/cache; repository orchestration and UI remain deferred to `:core:data` and feature modules. Room schema v1 is exported at `core/database/schemas/com.tamalut.radio.core.database.TamalutDatabase/1.json`. GitHub Actions run `33083889979` passed `./gradlew :core:database:testDebugUnitTest :app:assembleDebug`, generated a real debug APK, and verified its SHA-256 as `f71bb761f2afde189164d2d2a8a518335ee0645840694224c1aeca0e5d38ddb4`.
+
+### 2026-08-27 — Core data implementation authorized
+
+Authorized next foundation commit: create `:core:data` as the local repository/orchestration layer over `:core:database` and `:core:model`. It will seed the nine approved radio stations idempotently, coordinate custom stations, favorites, and bounded recently-played history, while Media3/playback, Google Drive, networking, UI, and Hilt remain deferred. CI must pass `:core:data:testDebugUnitTest` and `:app:assembleDebug`.
