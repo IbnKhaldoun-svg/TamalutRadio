@@ -179,9 +179,11 @@ Do not implement yet:
 - [x] Technical baseline approved.
 - [x] Initial modular Gradle/Compose bootstrap authorized.
 - [x] Branding source files committed under `assets/branding/`.
-- [ ] Gradle wrapper and version catalog committed.
+- [x] Gradle 9.5.0 wrapper committed and verified.
+- [x] Root Gradle Kotlin DSL skeleton committed and verified with `./gradlew help`.
+- [ ] `:app` module with minimal Compose `MainActivity` and Atlas Signal launcher resources — **next implementation step**.
 - [ ] Module graph committed.
-- [ ] Minimal app build verified by CI.
+- [ ] Minimal app APK build verified by CI.
 - [ ] Release signing plumbing verified.
 
 ## Decision log
@@ -197,3 +199,7 @@ Approved Atlas Night + Material 3 + Sahara Pulse accents; system/light/dark them
 ### 2026-08-27 — Gradle/Compose bootstrap authorized
 
 Authorized baseline: AGP 9.3.0, Gradle 9.5.0, JDK 17, compileSdk/targetSdk 37, minSdk 26, Compose BOM 2026.08.00, Media3 1.11.0, the approved modular structure, and a minimal launchable `MainActivity` for build verification.
+
+### 2026-08-27 — App module bootstrap step
+
+Next foundation change is limited to `:app`: application ID `com.tamalut.radio`, minSdk 26 / compileSdk 37 / targetSdk 37, minimal Compose placeholder UI, and launcher resources derived from the approved Atlas Signal branding sources. Verification requirement: GitHub Actions must successfully run `./gradlew :app:assembleDebug` and produce a debug APK before proceeding to `core/*` or `feature/*` modules.
