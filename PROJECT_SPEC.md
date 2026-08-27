@@ -121,6 +121,22 @@ The next foundation module is authorized as a pure Kotlin/JVM module with no And
 
 No database annotations, Android framework types, serialization framework, persistence APIs, network APIs, or playback APIs belong in `:core:model`. Verification requirement: `./gradlew :core:model:test :app:assembleDebug` must succeed on GitHub Actions before the code reaches `main`.
 
+### `:core:preferences` implementation contract
+
+The next foundation module is authorized as an Android library backed by AndroidX Preferences DataStore 1.2.1. Its first scope is intentionally limited to lightweight user preferences:
+
+- persist theme preference as `FOLLOW_SYSTEM`, `LIGHT`, or `DARK`, with `FOLLOW_SYSTEM` as the safe default.
+- persist an optional BCP-47 language tag for the future Italian / Arabic / French language selector.
+- persist the last played source type and identifiers needed to resume the last radio station or media item.
+- expose preferences as a Kotlin `Flow` plus explicit suspend setters; no UI belongs in this module.
+- depend on `:core:model` for typed station/media identifiers and source type, but do not depend on `:core:designsystem`; the app composition layer maps the stored theme preference to `ThemeMode`.
+- integrate `:app` so its existing `TamalutRadioTheme` reads the persisted theme mode instead of hard-coding `FOLLOW_SYSTEM`.
+- keep Room, Media3, Hilt, station catalog data, recently-played history, sleep timer, equalizer settings, local-folder URI, and Drive-folder ID out of this first preferences commit.
+- handle unknown enum strings defensively by falling back to defaults rather than crashing.
+- no analytics, network access, cloud synchronization, or paid service dependency.
+
+Verification requirement: unit tests for preference decoding/defaults must pass and GitHub Actions must successfully run `./gradlew :core:preferences:testDebugUnitTest :app:assembleDebug` before the code reaches `main`.
+
 ## Playback requirements
 
 - Internet radio and local/Drive media through Media3/ExoPlayer.
@@ -237,6 +253,7 @@ Do not implement yet:
 - [x] `README.md` committed with project overview, GitHub Releases sideload instructions, and current development status.
 - [x] `:core:designsystem` Atlas Night Material 3 light/dark theme implementation committed and verified by `./gradlew :app:assembleDebug`.
 - [x] `:core:model` pure Kotlin shared domain models committed and verified with `:core:model:test` + `:app:assembleDebug`.
+- [ ] `:core:preferences` DataStore-backed theme/language/last-source preferences — **authorized next step**.
 
 ## Decision log
 
@@ -279,3 +296,7 @@ Authorized next foundation commit: create only `:core:model` plus the minimum ro
 ### 2026-08-27 — Core model implementation completed
 
 `:core:model` is committed as a pure Kotlin/JVM module. It provides typed `StationId` / `MediaId`, validated `StreamEndpoint`, `RadioStation` with ordered primary/fallback playback streams, `MediaSourceType`, `MediaItemSummary`, and `RecentlyPlayedEntry`. No Android, Room, DataStore, Media3, Hilt, networking, or persistence APIs are present. CI run `33079784030` passed `:core:model:test` and `:app:assembleDebug`; the verified debug APK SHA-256 is `8b3dde17ab1f56fe8615ccd3fa303e1f86260667ea6fe3dd84646383ef592306`.
+
+### 2026-08-27 — Core preferences implementation authorized
+
+Authorized next foundation commit: create `:core:preferences` with AndroidX Preferences DataStore 1.2.1, persisting theme mode, optional language tag, and last played source/station/media identifiers. The app composition layer will map the stored theme preference to the existing `:core:designsystem` `ThemeMode`, avoiding a design-system dependency from preferences. Room, Media3, Hilt, networking, recently-played history, and unrelated settings remain excluded. CI must pass `:core:preferences:testDebugUnitTest` and produce the real debug APK with `:app:assembleDebug`.
