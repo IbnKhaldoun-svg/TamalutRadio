@@ -16,8 +16,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+data class LocalPlaybackItem(
+    val mediaId: String,
+    val contentUri: String,
+    val title: String,
+    val mimeType: String?,
+)
+
 data class LocalPlaybackQueue(
-    val mediaItems: List<MediaItem>,
+    val items: List<LocalPlaybackItem>,
     val startIndex: Int,
 )
 
@@ -30,22 +37,16 @@ object LocalPlaybackQueueFactory {
         val startIndex = tracks.indexOfFirst { it.id == selectedTrackId }
         require(startIndex >= 0) { "Selected local track is not present in the queue" }
         return LocalPlaybackQueue(
-            mediaItems = tracks.map(::toMediaItem),
+            items = tracks.map { track ->
+                LocalPlaybackItem(
+                    mediaId = track.id.value,
+                    contentUri = track.contentUri,
+                    title = track.title,
+                    mimeType = track.mimeType,
+                )
+            },
             startIndex = startIndex,
         )
-    }
-
-    private fun toMediaItem(track: LocalAudioTrack): MediaItem {
-        val builder = MediaItem.Builder()
-            .setMediaId(track.id.value)
-            .setUri(track.contentUri)
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(track.title)
-                    .build(),
-            )
-        track.mimeType?.let(builder::setMimeType)
-        return builder.build()
     }
 }
 
@@ -126,7 +127,7 @@ class Media3LocalPlaybackGateway(
                             connectedBrowser.addListener(listener)
                             _currentMediaId.value = connectedBrowser.currentMediaItem.toDomainMediaId()
                             connectedBrowser.setMediaItems(
-                                queue.mediaItems,
+                                queue.items.map(LocalPlaybackItem::toMediaItem),
                                 queue.startIndex,
                                 0L,
                             )
@@ -156,6 +157,19 @@ class Media3LocalPlaybackGateway(
         browser = null
         _currentMediaId.value = null
     }
+}
+
+private fun LocalPlaybackItem.toMediaItem(): MediaItem {
+    val builder = MediaItem.Builder()
+        .setMediaId(mediaId)
+        .setUri(contentUri)
+        .setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle(title)
+                .build(),
+        )
+    mimeType?.let(builder::setMimeType)
+    return builder.build()
 }
 
 private fun MediaItem?.toDomainMediaId(): MediaId? = this

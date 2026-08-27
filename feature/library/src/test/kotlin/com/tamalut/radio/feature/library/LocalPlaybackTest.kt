@@ -49,11 +49,11 @@ class LocalPlaybackTest {
         val queue = LocalPlaybackQueueFactory.create(tracks, tracks[1].id)
 
         assertEquals(1, queue.startIndex)
-        assertEquals(tracks.map { it.id.value }, queue.mediaItems.map { it.mediaId })
-        assertEquals("content://test/one", queue.mediaItems[0].localConfiguration?.uri.toString())
-        assertEquals("audio/mpeg", queue.mediaItems[0].localConfiguration?.mimeType)
-        assertEquals("One", queue.mediaItems[0].mediaMetadata.title.toString())
-        assertEquals("Three", queue.mediaItems[2].mediaMetadata.title.toString())
+        assertEquals(tracks.map { it.id.value }, queue.items.map { it.mediaId })
+        assertEquals("content://test/one", queue.items[0].contentUri)
+        assertEquals("audio/mpeg", queue.items[0].mimeType)
+        assertEquals("One", queue.items[0].title)
+        assertEquals("Three", queue.items[2].title)
     }
 
     @Test
