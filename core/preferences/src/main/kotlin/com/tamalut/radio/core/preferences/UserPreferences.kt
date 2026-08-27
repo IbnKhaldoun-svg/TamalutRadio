@@ -33,4 +33,5 @@ data class UserPreferences(
     val themePreference: ThemePreference = ThemePreference.FOLLOW_SYSTEM,
     val languageTag: String? = null,
     val lastPlayed: LastPlayedPreference? = null,
+    val localFolderUri: String? = null,
 )

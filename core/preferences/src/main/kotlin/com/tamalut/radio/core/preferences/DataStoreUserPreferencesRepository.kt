@@ -27,6 +27,7 @@ internal object PreferenceKeys {
     val lastSourceType = stringPreferencesKey("last_source_type")
     val lastMediaId = stringPreferencesKey("last_media_id")
     val lastStationId = stringPreferencesKey("last_station_id")
+    val localFolderUri = stringPreferencesKey("local_folder_uri")
 }
 
 class DataStoreUserPreferencesRepository(
@@ -86,6 +87,16 @@ class DataStoreUserPreferencesRepository(
             preferences.remove(PreferenceKeys.lastStationId)
         }
     }
+
+    override suspend fun setLocalFolderUri(localFolderUri: String?) {
+        dataStore.edit { preferences ->
+            setOrRemove(
+                preferences = preferences,
+                key = PreferenceKeys.localFolderUri,
+                value = localFolderUri?.trim()?.takeIf(String::isNotEmpty),
+            )
+        }
+    }
 }
 
 internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
@@ -127,10 +138,15 @@ internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
         null -> null
     }
 
+    val localFolderUri = preferences[PreferenceKeys.localFolderUri]
+        ?.trim()
+        ?.takeIf(String::isNotEmpty)
+
     return UserPreferences(
         themePreference = theme,
         languageTag = languageTag,
         lastPlayed = lastPlayed,
+        localFolderUri = localFolderUri,
     )
 }
 

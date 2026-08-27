@@ -3,10 +3,22 @@ package com.tamalut.radio
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.room3.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
@@ -18,12 +30,22 @@ import com.tamalut.radio.core.designsystem.ThemeMode
 import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
 import com.tamalut.radio.core.preferences.ThemePreference
 import com.tamalut.radio.core.preferences.UserPreferences
+import com.tamalut.radio.feature.library.LibraryRoute
+import com.tamalut.radio.feature.library.LibraryViewModel
+import com.tamalut.radio.feature.library.LibraryViewModelFactory
+import com.tamalut.radio.feature.library.SafFolderAccess
+import com.tamalut.radio.feature.library.SafLocalAudioScanner
 import com.tamalut.radio.feature.radio.CoreRadioDataSource
 import com.tamalut.radio.feature.radio.Media3RadioPlaybackGateway
 import com.tamalut.radio.feature.radio.RadioFeatureController
 import com.tamalut.radio.feature.radio.RadioRoute
 import com.tamalut.radio.feature.radio.RadioViewModel
 import com.tamalut.radio.feature.radio.RadioViewModelFactory
+
+private enum class MainDestination {
+    RADIO,
+    LIBRARY,
+}
 
 class MainActivity : ComponentActivity() {
     private val preferencesRepository by lazy {
@@ -57,8 +79,20 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private val libraryViewModelFactory by lazy {
+        LibraryViewModelFactory(
+            preferencesRepository = preferencesRepository,
+            scanner = SafLocalAudioScanner(contentResolver),
+            folderAccess = SafFolderAccess(contentResolver),
+        )
+    }
+
     private val radioViewModel by lazy {
         ViewModelProvider(this, radioViewModelFactory)[RadioViewModel::class.java]
+    }
+
+    private val libraryViewModel by lazy {
+        ViewModelProvider(this, libraryViewModelFactory)[LibraryViewModel::class.java]
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,14 +101,55 @@ class MainActivity : ComponentActivity() {
             val userPreferences by preferencesRepository.userPreferences.collectAsState(
                 initial = UserPreferences(),
             )
+            var destination by remember { mutableStateOf(MainDestination.RADIO) }
 
             TamalutRadioTheme(
                 themeMode = userPreferences.themePreference.toThemeMode(),
             ) {
-                RadioRoute(
-                    viewModel = radioViewModel,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                Scaffold(
+                    topBar = {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (destination == MainDestination.RADIO) {
+                                Button(onClick = { destination = MainDestination.RADIO }) {
+                                    Text("Radio")
+                                }
+                            } else {
+                                OutlinedButton(onClick = { destination = MainDestination.RADIO }) {
+                                    Text("Radio")
+                                }
+                            }
+                            if (destination == MainDestination.LIBRARY) {
+                                Button(onClick = { destination = MainDestination.LIBRARY }) {
+                                    Text("Musica locale")
+                                }
+                            } else {
+                                OutlinedButton(onClick = { destination = MainDestination.LIBRARY }) {
+                                    Text("Musica locale")
+                                }
+                            }
+                        }
+                    },
+                ) { contentPadding ->
+                    when (destination) {
+                        MainDestination.RADIO -> RadioRoute(
+                            viewModel = radioViewModel,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(contentPadding),
+                        )
+                        MainDestination.LIBRARY -> LibraryRoute(
+                            viewModel = libraryViewModel,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(contentPadding),
+                        )
+                    }
+                }
             }
         }
     }

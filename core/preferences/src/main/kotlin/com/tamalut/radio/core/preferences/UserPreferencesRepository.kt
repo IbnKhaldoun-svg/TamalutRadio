@@ -19,4 +19,6 @@ interface UserPreferencesRepository {
     )
 
     suspend fun clearLastPlayed()
+
+    suspend fun setLocalFolderUri(localFolderUri: String?)
 }

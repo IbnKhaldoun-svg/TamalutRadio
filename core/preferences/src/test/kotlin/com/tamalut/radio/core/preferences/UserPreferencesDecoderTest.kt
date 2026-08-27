@@ -14,6 +14,7 @@ class UserPreferencesDecoderTest {
         assertEquals(ThemePreference.FOLLOW_SYSTEM, decoded.themePreference)
         assertNull(decoded.languageTag)
         assertNull(decoded.lastPlayed)
+        assertNull(decoded.localFolderUri)
     }
 
     @Test
@@ -38,6 +39,7 @@ class UserPreferencesDecoderTest {
             PreferenceKeys.lastSourceType to MediaSourceType.RADIO.name,
             PreferenceKeys.lastMediaId to "radio-media",
             PreferenceKeys.lastStationId to "radio-azawan",
+            PreferenceKeys.localFolderUri to "content://com.example/tree/Music",
         )
 
         val decoded = decodeUserPreferences(preferences)
@@ -47,6 +49,16 @@ class UserPreferencesDecoderTest {
         assertEquals(MediaSourceType.RADIO, decoded.lastPlayed?.sourceType)
         assertEquals("radio-media", decoded.lastPlayed?.mediaId?.value)
         assertEquals("radio-azawan", decoded.lastPlayed?.stationId?.value)
+        assertEquals("content://com.example/tree/Music", decoded.localFolderUri)
+    }
+
+    @Test
+    fun blankLocalFolderUriIsIgnored() {
+        val decoded = decodeUserPreferences(
+            mutablePreferencesOf(PreferenceKeys.localFolderUri to "   "),
+        )
+
+        assertNull(decoded.localFolderUri)
     }
 
     @Test
