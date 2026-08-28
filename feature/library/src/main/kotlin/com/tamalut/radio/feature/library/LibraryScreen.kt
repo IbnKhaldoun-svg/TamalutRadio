@@ -21,11 +21,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -37,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.tamalut.radio.core.playback.PlaybackRepeatMode
 
 @Composable
 fun LibraryRoute(
@@ -57,6 +62,8 @@ fun LibraryRoute(
         },
         onRefresh = viewModel::refresh,
         onTrackClick = viewModel::playTrack,
+        onToggleShuffle = viewModel::toggleShuffle,
+        onCycleRepeat = viewModel::cycleRepeatMode,
         modifier = modifier,
     )
 }
@@ -67,6 +74,8 @@ fun LibraryScreen(
     onChooseFolder: () -> Unit,
     onRefresh: () -> Unit,
     onTrackClick: (LocalAudioTrack) -> Unit,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
@@ -78,6 +87,15 @@ fun LibraryScreen(
                 onChooseFolder = onChooseFolder,
                 onRefresh = onRefresh,
             )
+
+            if (uiState.isLocalPlaybackActive) {
+                LocalPlaybackControls(
+                    repeatMode = uiState.repeatMode,
+                    shuffleEnabled = uiState.shuffleEnabled,
+                    onToggleShuffle = onToggleShuffle,
+                    onCycleRepeat = onCycleRepeat,
+                )
+            }
 
             uiState.playbackMessage?.let { message ->
                 StatusMessage(text = message, isError = false)
@@ -157,9 +175,7 @@ private fun FolderPanel(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(48.dp),
                     shape = MaterialTheme.shapes.medium,
@@ -195,9 +211,7 @@ private fun FolderPanel(
                 }
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onChooseFolder) {
                     Text(if (folderUri == null) "Scegli cartella" else "Cambia cartella")
                 }
@@ -209,6 +223,72 @@ private fun FolderPanel(
                         Text("Aggiorna")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalPlaybackControls(
+    repeatMode: PlaybackRepeatMode,
+    shuffleEnabled: Boolean,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeat: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.28f),
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.62f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Riproduzione locale",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = when (repeatMode) {
+                        PlaybackRepeatMode.OFF -> "Loop disattivato"
+                        PlaybackRepeatMode.ALL -> "Loop playlist"
+                        PlaybackRepeatMode.ONE -> "Loop brano"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onToggleShuffle) {
+                Icon(
+                    imageVector = Icons.Filled.Shuffle,
+                    contentDescription = if (shuffleEnabled) "Disattiva shuffle" else "Attiva shuffle",
+                    tint = if (shuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onCycleRepeat) {
+                Icon(
+                    imageVector = if (repeatMode == PlaybackRepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                    contentDescription = when (repeatMode) {
+                        PlaybackRepeatMode.OFF -> "Attiva loop playlist"
+                        PlaybackRepeatMode.ALL -> "Attiva loop brano"
+                        PlaybackRepeatMode.ONE -> "Disattiva loop"
+                    },
+                    tint = if (repeatMode == PlaybackRepeatMode.OFF) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
             }
         }
     }

@@ -37,6 +37,7 @@ import com.tamalut.radio.core.data.RadioStationRepository
 import com.tamalut.radio.core.database.TamalutDatabase
 import com.tamalut.radio.core.designsystem.TamalutRadioTheme
 import com.tamalut.radio.core.designsystem.ThemeMode
+import com.tamalut.radio.core.playback.Media3PlaybackController
 import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
 import com.tamalut.radio.core.preferences.ThemePreference
 import com.tamalut.radio.core.preferences.UserPreferences
@@ -68,6 +69,10 @@ class MainActivity : ComponentActivity() {
         DataStoreUserPreferencesRepository(applicationContext)
     }
 
+    private val playbackController by lazy {
+        Media3PlaybackController(applicationContext)
+    }
+
     private val database by lazy {
         Room.databaseBuilder(
             applicationContext,
@@ -91,7 +96,7 @@ class MainActivity : ComponentActivity() {
                     favoriteRepository = favoriteRepository,
                 ),
             ),
-            playbackGateway = Media3RadioPlaybackGateway(applicationContext),
+            playbackGateway = Media3RadioPlaybackGateway(playbackController),
         )
     }
 
@@ -100,7 +105,7 @@ class MainActivity : ComponentActivity() {
             preferencesRepository = preferencesRepository,
             scanner = SafLocalAudioScanner(contentResolver),
             folderAccess = SafFolderAccess(contentResolver),
-            playbackGateway = Media3LocalPlaybackGateway(applicationContext),
+            playbackGateway = Media3LocalPlaybackGateway(playbackController),
         )
     }
 
@@ -118,6 +123,7 @@ class MainActivity : ComponentActivity() {
             val userPreferences by preferencesRepository.userPreferences.collectAsState(
                 initial = UserPreferences(),
             )
+            val playbackState by playbackController.state.collectAsState()
             var destination by remember { mutableStateOf(MainDestination.RADIO) }
 
             TamalutRadioTheme(
@@ -125,19 +131,25 @@ class MainActivity : ComponentActivity() {
             ) {
                 Scaffold(
                     bottomBar = {
-                        NavigationBar {
-                            MainDestination.entries.forEach { item ->
-                                NavigationBarItem(
-                                    selected = destination == item,
-                                    onClick = { destination = item },
-                                    icon = {
-                                        Icon(
-                                            imageVector = item.icon,
-                                            contentDescription = item.label,
-                                        )
-                                    },
-                                    label = { Text(item.label) },
-                                )
+                        Column {
+                            PersistentMiniPlayer(
+                                state = playbackState,
+                                controller = playbackController,
+                            )
+                            NavigationBar {
+                                MainDestination.entries.forEach { item ->
+                                    NavigationBarItem(
+                                        selected = destination == item,
+                                        onClick = { destination = item },
+                                        icon = {
+                                            Icon(
+                                                imageVector = item.icon,
+                                                contentDescription = item.label,
+                                            )
+                                        },
+                                        label = { Text(item.label) },
+                                    )
+                                }
                             }
                         }
                     },
@@ -157,10 +169,9 @@ class MainActivity : ComponentActivity() {
                                 .padding(contentPadding),
                         )
 
-                        MainDestination.NOW_PLAYING -> PlaceholderDestination(
-                            title = "In Riproduzione",
-                            subtitle = "I controlli completi del player arriveranno nel modulo dedicato.",
-                            icon = Icons.Filled.PlayCircle,
+                        MainDestination.NOW_PLAYING -> NowPlayingDestination(
+                            state = playbackState,
+                            controller = playbackController,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(contentPadding),
@@ -178,6 +189,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        playbackController.release()
+        super.onDestroy()
     }
 }
 

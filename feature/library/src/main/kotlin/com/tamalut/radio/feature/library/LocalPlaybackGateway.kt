@@ -1,27 +1,13 @@
 package com.tamalut.radio.feature.library
 
-import android.content.ComponentName
-import android.content.Context
-import android.os.Handler
-import android.os.Looper
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
-import androidx.media3.session.MediaBrowser
-import androidx.media3.session.SessionToken
 import com.tamalut.radio.core.model.MediaId
-import com.tamalut.radio.core.playback.TamalutPlaybackService
-import java.util.concurrent.Executor
+import com.tamalut.radio.core.playback.LocalPlaybackItem
+import com.tamalut.radio.core.playback.PlaybackController
+import com.tamalut.radio.core.playback.PlaybackRepeatMode
+import com.tamalut.radio.core.playback.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-
-data class LocalPlaybackItem(
-    val mediaId: String,
-    val contentUri: String,
-    val title: String,
-    val mimeType: String?,
-)
 
 data class LocalPlaybackQueue(
     val items: List<LocalPlaybackItem>,
@@ -39,7 +25,7 @@ object LocalPlaybackQueueFactory {
         return LocalPlaybackQueue(
             items = tracks.map { track ->
                 LocalPlaybackItem(
-                    mediaId = track.id.value,
+                    mediaId = track.id,
                     contentUri = track.contentUri,
                     title = track.title,
                     mimeType = track.mimeType,
@@ -51,7 +37,7 @@ object LocalPlaybackQueueFactory {
 }
 
 interface LocalPlaybackGateway {
-    val currentMediaId: StateFlow<MediaId?>
+    val playbackState: StateFlow<PlaybackState>
 
     fun play(
         tracks: List<LocalAudioTrack>,
@@ -59,12 +45,14 @@ interface LocalPlaybackGateway {
         onResult: (Result<Unit>) -> Unit,
     )
 
+    fun setRepeatMode(mode: PlaybackRepeatMode)
+    fun setShuffleEnabled(enabled: Boolean)
     fun release() = Unit
 }
 
 object NoOpLocalPlaybackGateway : LocalPlaybackGateway {
-    private val current = MutableStateFlow<MediaId?>(null)
-    override val currentMediaId: StateFlow<MediaId?> = current.asStateFlow()
+    private val current = MutableStateFlow(PlaybackState())
+    override val playbackState: StateFlow<PlaybackState> = current.asStateFlow()
 
     override fun play(
         tracks: List<LocalAudioTrack>,
@@ -73,26 +61,15 @@ object NoOpLocalPlaybackGateway : LocalPlaybackGateway {
     ) {
         onResult(Result.failure(IllegalStateException("Local playback gateway is not configured")))
     }
+
+    override fun setRepeatMode(mode: PlaybackRepeatMode) = Unit
+    override fun setShuffleEnabled(enabled: Boolean) = Unit
 }
 
 class Media3LocalPlaybackGateway(
-    context: Context,
+    private val playbackController: PlaybackController,
 ) : LocalPlaybackGateway {
-    private val appContext = context.applicationContext
-    private val mainExecutor = Executor { command ->
-        Handler(Looper.getMainLooper()).post(command)
-    }
-    private val _currentMediaId = MutableStateFlow<MediaId?>(null)
-    override val currentMediaId: StateFlow<MediaId?> = _currentMediaId.asStateFlow()
-
-    private var browser: MediaBrowser? = null
-    private var generation: Long = 0
-
-    private val listener = object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            _currentMediaId.value = mediaItem.toDomainMediaId()
-        }
-    }
+    override val playbackState: StateFlow<PlaybackState> = playbackController.state
 
     override fun play(
         tracks: List<LocalAudioTrack>,
@@ -105,74 +82,18 @@ class Media3LocalPlaybackGateway(
             onResult(Result.failure(error))
             return
         }
-
-        val requestGeneration = ++generation
-        val token = SessionToken(
-            appContext,
-            ComponentName(appContext, TamalutPlaybackService::class.java),
-        )
-        val future = MediaBrowser.Builder(appContext, token).buildAsync()
-        future.addListener(
-            {
-                runCatching { future.get() }
-                    .onSuccess { connectedBrowser ->
-                        if (requestGeneration != generation) {
-                            connectedBrowser.release()
-                            return@onSuccess
-                        }
-                        runCatching {
-                            browser?.removeListener(listener)
-                            browser?.release()
-                            browser = connectedBrowser
-                            connectedBrowser.addListener(listener)
-                            _currentMediaId.value = connectedBrowser.currentMediaItem.toDomainMediaId()
-                            connectedBrowser.setMediaItems(
-                                queue.items.map(LocalPlaybackItem::toMediaItem),
-                                queue.startIndex,
-                                0L,
-                            )
-                            connectedBrowser.prepare()
-                            connectedBrowser.play()
-                        }.onSuccess {
-                            _currentMediaId.value = connectedBrowser.currentMediaItem.toDomainMediaId()
-                            onResult(Result.success(Unit))
-                        }.onFailure { error ->
-                            onResult(Result.failure(error))
-                        }
-                    }
-                    .onFailure { error ->
-                        if (requestGeneration == generation) {
-                            onResult(Result.failure(error))
-                        }
-                    }
-            },
-            mainExecutor,
+        playbackController.playLocal(
+            items = queue.items,
+            startIndex = queue.startIndex,
+            onResult = onResult,
         )
     }
 
-    override fun release() {
-        generation += 1
-        browser?.removeListener(listener)
-        browser?.release()
-        browser = null
-        _currentMediaId.value = null
+    override fun setRepeatMode(mode: PlaybackRepeatMode) {
+        playbackController.setLocalRepeatMode(mode)
+    }
+
+    override fun setShuffleEnabled(enabled: Boolean) {
+        playbackController.setLocalShuffleEnabled(enabled)
     }
 }
-
-private fun LocalPlaybackItem.toMediaItem(): MediaItem {
-    val builder = MediaItem.Builder()
-        .setMediaId(mediaId)
-        .setUri(contentUri)
-        .setMediaMetadata(
-            MediaMetadata.Builder()
-                .setTitle(title)
-                .build(),
-        )
-    mimeType?.let(builder::setMimeType)
-    return builder.build()
-}
-
-private fun MediaItem?.toDomainMediaId(): MediaId? = this
-    ?.mediaId
-    ?.takeIf(String::isNotBlank)
-    ?.let(::MediaId)

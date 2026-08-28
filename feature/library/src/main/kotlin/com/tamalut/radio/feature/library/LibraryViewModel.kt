@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tamalut.radio.core.model.MediaId
+import com.tamalut.radio.core.model.MediaSourceType
+import com.tamalut.radio.core.playback.PlaybackRepeatMode
 import com.tamalut.radio.core.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +22,9 @@ data class LibraryUiState(
     val playbackMessage: String? = null,
     val playbackErrorMessage: String? = null,
     val playingTrackId: MediaId? = null,
+    val isLocalPlaybackActive: Boolean = false,
+    val repeatMode: PlaybackRepeatMode = PlaybackRepeatMode.OFF,
+    val shuffleEnabled: Boolean = false,
 )
 
 class LibraryViewModel(
@@ -61,11 +66,22 @@ class LibraryViewModel(
             }
         }
         viewModelScope.launch {
-            playbackGateway.currentMediaId.collectLatest { currentMediaId ->
+            playbackGateway.playbackState.collectLatest { playback ->
+                if (!playback.isConnected) return@collectLatest
                 _uiState.update { state ->
+                    val localActive = playback.sourceType == MediaSourceType.LOCAL
+                    val currentMediaId = playback.mediaId.takeIf { localActive }
                     state.copy(
                         playingTrackId = currentMediaId?.takeIf { mediaId ->
                             state.tracks.any { track -> track.id == mediaId }
+                        },
+                        isLocalPlaybackActive = localActive,
+                        repeatMode = if (localActive) playback.repeatMode else PlaybackRepeatMode.OFF,
+                        shuffleEnabled = localActive && playback.shuffleEnabled,
+                        playbackMessage = if (localActive && playback.title != null) {
+                            "In riproduzione: ${playback.title}"
+                        } else {
+                            null
                         },
                     )
                 }
@@ -125,11 +141,7 @@ class LibraryViewModel(
         playbackGateway.play(tracks, track.id) { result ->
             result.onSuccess {
                 _uiState.update {
-                    it.copy(
-                        playingTrackId = track.id,
-                        playbackMessage = "In riproduzione: ${track.title}",
-                        playbackErrorMessage = null,
-                    )
+                    it.copy(playbackErrorMessage = null)
                 }
             }.onFailure { error ->
                 _uiState.update {
@@ -140,6 +152,21 @@ class LibraryViewModel(
                 }
             }
         }
+    }
+
+    fun cycleRepeatMode() {
+        if (!_uiState.value.isLocalPlaybackActive) return
+        val nextMode = when (_uiState.value.repeatMode) {
+            PlaybackRepeatMode.OFF -> PlaybackRepeatMode.ALL
+            PlaybackRepeatMode.ALL -> PlaybackRepeatMode.ONE
+            PlaybackRepeatMode.ONE -> PlaybackRepeatMode.OFF
+        }
+        playbackGateway.setRepeatMode(nextMode)
+    }
+
+    fun toggleShuffle() {
+        if (!_uiState.value.isLocalPlaybackActive) return
+        playbackGateway.setShuffleEnabled(!_uiState.value.shuffleEnabled)
     }
 
     private suspend fun scanFolder(folderUri: String) {

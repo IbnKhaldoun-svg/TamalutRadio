@@ -3,11 +3,13 @@ package com.tamalut.radio.feature.radio
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.tamalut.radio.core.model.MediaSourceType
 import com.tamalut.radio.core.model.RadioStation
 import com.tamalut.radio.core.model.StationId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -42,6 +44,27 @@ class RadioViewModel(
 
     init {
         refresh()
+        viewModelScope.launch {
+            playbackGateway.playbackState.collectLatest { playback ->
+                if (!playback.isConnected) return@collectLatest
+                _uiState.update { state ->
+                    val stationId = playback.stationId.takeIf {
+                        playback.sourceType == MediaSourceType.RADIO
+                    }
+                    val stationName = stationId
+                        ?.let { id -> state.stations.firstOrNull { it.id == id }?.name }
+                        ?: playback.title
+                    state.copy(
+                        playingStationId = stationId,
+                        playbackMessage = if (stationId != null) {
+                            "In riproduzione: ${stationName ?: stationId.value}"
+                        } else {
+                            null
+                        },
+                    )
+                }
+            }
+        }
     }
 
     fun selectSection(section: RadioSection) {
@@ -98,11 +121,7 @@ class RadioViewModel(
         playbackGateway.play(station) { result ->
             result.onSuccess {
                 _uiState.update {
-                    it.copy(
-                        playingStationId = station.id,
-                        playbackMessage = "In riproduzione: ${station.name}",
-                        playbackErrorMessage = null,
-                    )
+                    it.copy(playbackErrorMessage = null)
                 }
             }.onFailure { error ->
                 _uiState.update {
