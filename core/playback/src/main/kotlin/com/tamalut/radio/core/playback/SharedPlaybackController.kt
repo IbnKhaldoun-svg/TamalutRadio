@@ -257,7 +257,9 @@ class Media3PlaybackController(
                 publish(connectedBrowser)
                 onResult(Result.success(Unit))
             }
-            .onFailure(onResult)
+            .onFailure { error ->
+                onResult(Result.failure(error))
+            }
     }
 
     private fun failPending(error: Throwable) {
