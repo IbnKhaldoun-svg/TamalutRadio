@@ -171,7 +171,6 @@ class MainActivity : ComponentActivity() {
 
                         MainDestination.NOW_PLAYING -> NowPlayingDestination(
                             state = playbackState,
-                            controller = playbackController,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(contentPadding),

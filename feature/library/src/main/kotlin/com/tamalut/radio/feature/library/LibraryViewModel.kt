@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tamalut.radio.core.model.MediaId
 import com.tamalut.radio.core.model.MediaSourceType
+import com.tamalut.radio.core.playback.PlaybackModePolicy
 import com.tamalut.radio.core.playback.PlaybackRepeatMode
 import com.tamalut.radio.core.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -156,12 +157,9 @@ class LibraryViewModel(
 
     fun cycleRepeatMode() {
         if (!_uiState.value.isLocalPlaybackActive) return
-        val nextMode = when (_uiState.value.repeatMode) {
-            PlaybackRepeatMode.OFF -> PlaybackRepeatMode.ALL
-            PlaybackRepeatMode.ALL -> PlaybackRepeatMode.ONE
-            PlaybackRepeatMode.ONE -> PlaybackRepeatMode.OFF
-        }
-        playbackGateway.setRepeatMode(nextMode)
+        playbackGateway.setRepeatMode(
+            PlaybackModePolicy.nextRepeatMode(_uiState.value.repeatMode),
+        )
     }
 
     fun toggleShuffle() {

@@ -83,6 +83,14 @@ object PlaybackModePolicy {
         null
     }
 
+    fun defaultRepeatModeForLocalQueue(): Int = Player.REPEAT_MODE_ALL
+
+    fun nextRepeatMode(mode: PlaybackRepeatMode): PlaybackRepeatMode = when (mode) {
+        PlaybackRepeatMode.OFF -> PlaybackRepeatMode.ALL
+        PlaybackRepeatMode.ALL -> PlaybackRepeatMode.ONE
+        PlaybackRepeatMode.ONE -> PlaybackRepeatMode.OFF
+    }
+
     fun shuffleFor(
         sourceType: MediaSourceType?,
         enabled: Boolean,
@@ -141,6 +149,7 @@ class Media3PlaybackController(
             return
         }
         execute(onResult) { connectedBrowser ->
+            connectedBrowser.repeatMode = PlaybackModePolicy.defaultRepeatModeForLocalQueue()
             connectedBrowser.setMediaItems(
                 items.map(LocalPlaybackItem::toMediaItem),
                 startIndex,

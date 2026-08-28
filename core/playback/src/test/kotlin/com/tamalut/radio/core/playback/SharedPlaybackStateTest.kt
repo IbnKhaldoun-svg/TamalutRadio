@@ -27,6 +27,23 @@ class SharedPlaybackStateTest {
     }
 
     @Test
+    fun localQueueDefaultsToPlaylistLoopAndRepeatCycleIsShared() {
+        assertEquals(Player.REPEAT_MODE_ALL, PlaybackModePolicy.defaultRepeatModeForLocalQueue())
+        assertEquals(
+            PlaybackRepeatMode.ALL,
+            PlaybackModePolicy.nextRepeatMode(PlaybackRepeatMode.OFF),
+        )
+        assertEquals(
+            PlaybackRepeatMode.ONE,
+            PlaybackModePolicy.nextRepeatMode(PlaybackRepeatMode.ALL),
+        )
+        assertEquals(
+            PlaybackRepeatMode.OFF,
+            PlaybackModePolicy.nextRepeatMode(PlaybackRepeatMode.ONE),
+        )
+    }
+
+    @Test
     fun shuffleIsAcceptedOnlyForLocalPlayback() {
         assertEquals(true, PlaybackModePolicy.shuffleFor(MediaSourceType.LOCAL, true))
         assertEquals(false, PlaybackModePolicy.shuffleFor(MediaSourceType.LOCAL, false))

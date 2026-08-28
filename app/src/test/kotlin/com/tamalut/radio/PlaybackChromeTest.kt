@@ -19,7 +19,7 @@ import org.junit.Test
 
 class PlaybackChromeTest {
     @Test
-    fun stateProjectionDescribesCurrentSourceAndTransportCapabilities() {
+    fun stateProjectionDescribesSourceTransportAndLocalModeVisibility() {
         val radio = PlaybackState(
             isConnected = true,
             sourceType = MediaSourceType.RADIO,
@@ -27,6 +27,8 @@ class PlaybackChromeTest {
             title = "Radio Azawan",
             isPlaying = true,
             canSkipNext = true,
+            repeatMode = PlaybackRepeatMode.ALL,
+            shuffleEnabled = true,
         ).toPlaybackChromeModel()
 
         requireNotNull(radio)
@@ -35,31 +37,71 @@ class PlaybackChromeTest {
         assertTrue(radio.isPlaying)
         assertFalse(radio.canSkipPrevious)
         assertTrue(radio.canSkipNext)
+        assertFalse(radio.showLocalPlaybackModes)
+        assertEquals(PlaybackRepeatMode.OFF, radio.repeatMode)
+        assertFalse(radio.shuffleEnabled)
 
         val local = PlaybackState(
             isConnected = true,
             sourceType = MediaSourceType.LOCAL,
             mediaId = MediaId("track"),
             title = "Track",
+            repeatMode = PlaybackRepeatMode.ALL,
+            shuffleEnabled = true,
         ).toPlaybackChromeModel()
         requireNotNull(local)
         assertEquals("Musica locale", local.sourceLabel)
         assertFalse(local.isPlaying)
+        assertTrue(local.showLocalPlaybackModes)
+        assertEquals(PlaybackRepeatMode.ALL, local.repeatMode)
+        assertTrue(local.shuffleEnabled)
 
         assertNull(PlaybackState(isConnected = true).toPlaybackChromeModel())
     }
 
     @Test
-    fun chromeActionsDelegateToTheSharedPlaybackController() {
+    fun transportActionsDelegateToTheSharedPlaybackController() {
         val controller = FakePlaybackController()
+        val state = PlaybackState()
 
-        performPlaybackChromeAction(PlaybackChromeAction.PREVIOUS, controller)
-        performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_PLAY_PAUSE, controller)
-        performPlaybackChromeAction(PlaybackChromeAction.NEXT, controller)
+        performPlaybackChromeAction(PlaybackChromeAction.PREVIOUS, state, controller)
+        performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_PLAY_PAUSE, state, controller)
+        performPlaybackChromeAction(PlaybackChromeAction.NEXT, state, controller)
 
         assertEquals(1, controller.previousCalls)
         assertEquals(1, controller.toggleCalls)
         assertEquals(1, controller.nextCalls)
+    }
+
+    @Test
+    fun localModeActionsDelegateAndRadioRejectsThem() {
+        val controller = FakePlaybackController()
+        val localState = PlaybackState(
+            isConnected = true,
+            sourceType = MediaSourceType.LOCAL,
+            mediaId = MediaId("track"),
+            repeatMode = PlaybackRepeatMode.ALL,
+            shuffleEnabled = false,
+        )
+
+        performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_SHUFFLE, localState, controller)
+        performPlaybackChromeAction(PlaybackChromeAction.CYCLE_REPEAT, localState, controller)
+
+        assertEquals(listOf(true), controller.shuffleValues)
+        assertEquals(listOf(PlaybackRepeatMode.ONE), controller.repeatValues)
+
+        val radioState = PlaybackState(
+            isConnected = true,
+            sourceType = MediaSourceType.RADIO,
+            stationId = StationId("radio"),
+            repeatMode = PlaybackRepeatMode.OFF,
+            shuffleEnabled = false,
+        )
+        performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_SHUFFLE, radioState, controller)
+        performPlaybackChromeAction(PlaybackChromeAction.CYCLE_REPEAT, radioState, controller)
+
+        assertEquals(listOf(true), controller.shuffleValues)
+        assertEquals(listOf(PlaybackRepeatMode.ONE), controller.repeatValues)
     }
 
     private class FakePlaybackController : PlaybackController {
@@ -68,6 +110,8 @@ class PlaybackChromeTest {
         var previousCalls = 0
         var toggleCalls = 0
         var nextCalls = 0
+        val repeatValues = mutableListOf<PlaybackRepeatMode>()
+        val shuffleValues = mutableListOf<Boolean>()
 
         override fun playRadio(station: RadioStation, onResult: (Result<Unit>) -> Unit) {
             onResult(Result.success(Unit))
@@ -84,8 +128,8 @@ class PlaybackChromeTest {
         override fun togglePlayPause() { toggleCalls += 1 }
         override fun skipToPrevious() { previousCalls += 1 }
         override fun skipToNext() { nextCalls += 1 }
-        override fun setLocalRepeatMode(mode: PlaybackRepeatMode) = Unit
-        override fun setLocalShuffleEnabled(enabled: Boolean) = Unit
+        override fun setLocalRepeatMode(mode: PlaybackRepeatMode) { repeatValues += mode }
+        override fun setLocalShuffleEnabled(enabled: Boolean) { shuffleValues += enabled }
         override fun release() = Unit
     }
 }
