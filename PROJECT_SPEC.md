@@ -21,7 +21,7 @@ Single source of truth for TamalutRadio. **Update this file before code changes.
 
 ### Debug APK release distribution contract
 
-- [ ] Replace debug APK distribution through `actions/upload-artifact` with a permanent GitHub Actions workflow that builds `:app:assembleDebug` and attaches the APK directly to a GitHub prerelease.
+- [x] Replace debug APK distribution through `actions/upload-artifact` with a permanent GitHub Actions workflow that builds `:app:assembleDebug` and attaches the APK directly to a GitHub prerelease.
 - The workflow must support manual execution against `main` (or an explicitly supplied ref) and generate an automatic unique tag in the form `debug-<UTC date/time>-<short commit>`.
 - The Release must target the exact commit used for the build, include the APK SHA-256 in its notes, and publish a clearly named `TamalutRadio-debug-<short commit>.apk` asset.
 - Debug release publication must not use `actions/upload-artifact`, must not depend on Actions artifact storage, and must keep the existing Android build baseline unchanged.
@@ -455,6 +455,10 @@ Do not implement yet:
 - [x] `:feature:library` sub-step 2/2: Media3 local-track playback, ordered queue Previous/Next, current-track indication, and shared-player radio/local replacement committed and verified.
 
 ## Decision log
+
+### 2026-08-28 — Debug APK distribution moved to GitHub Releases
+
+Debug APK distribution is now implemented by permanent workflow `.github/workflows/publish-debug-release.yml` in `d0ccb0dbef099d81a67bee29160bdee9c0ae11d0`. The workflow supports manual builds from `main` or an explicit ref, resolves and checks out the exact target commit, runs `:app:assembleDebug`, computes the APK SHA-256, creates a unique `debug-<UTC date/time>-<short commit>` GitHub prerelease targeting that commit, and attaches `TamalutRadio-debug-<short commit>.apk` directly to the Release without `actions/upload-artifact`. Validation run `33144891560` succeeded against polished snapshot `f685090bd5997b13e56753949cfe375d3ff93156` and published prerelease `debug-20260828-053504-f685090`. The APK asset SHA-256 is `75e29a967281f4dd396d78c8a17c8d4745f989260c09ecd980aded8949c26d8f`. This distribution path does not consume GitHub Actions artifact storage quota.
 
 ### 2026-08-28 — UI polish sub-step 3/3 completed
 
