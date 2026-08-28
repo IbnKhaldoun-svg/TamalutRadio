@@ -44,6 +44,20 @@ class SharedPlaybackStateTest {
     }
 
     @Test
+    fun newLocalQueueAppliesPlaylistLoopAfterReplacingItems() {
+        val calls = mutableListOf<String>()
+
+        installNewLocalQueue(
+            setItems = { calls += "set-items" },
+            applyRepeatDefault = { calls += "repeat-all" },
+            prepare = { calls += "prepare" },
+            play = { calls += "play" },
+        )
+
+        assertEquals(listOf("set-items", "repeat-all", "prepare", "play"), calls)
+    }
+
+    @Test
     fun shuffleIsAcceptedOnlyForLocalPlayback() {
         assertEquals(true, PlaybackModePolicy.shuffleFor(MediaSourceType.LOCAL, true))
         assertEquals(false, PlaybackModePolicy.shuffleFor(MediaSourceType.LOCAL, false))

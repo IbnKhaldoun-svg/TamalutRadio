@@ -97,6 +97,18 @@ object PlaybackModePolicy {
     ): Boolean? = enabled.takeIf { sourceType == MediaSourceType.LOCAL }
 }
 
+internal inline fun installNewLocalQueue(
+    setItems: () -> Unit,
+    applyRepeatDefault: () -> Unit,
+    prepare: () -> Unit,
+    play: () -> Unit,
+) {
+    setItems()
+    applyRepeatDefault()
+    prepare()
+    play()
+}
+
 class Media3PlaybackController(
     context: Context,
 ) : PlaybackController {
@@ -149,14 +161,20 @@ class Media3PlaybackController(
             return
         }
         execute(onResult) { connectedBrowser ->
-            connectedBrowser.repeatMode = PlaybackModePolicy.defaultRepeatModeForLocalQueue()
-            connectedBrowser.setMediaItems(
-                items.map(LocalPlaybackItem::toMediaItem),
-                startIndex,
-                0L,
+            installNewLocalQueue(
+                setItems = {
+                    connectedBrowser.setMediaItems(
+                        items.map(LocalPlaybackItem::toMediaItem),
+                        startIndex,
+                        0L,
+                    )
+                },
+                applyRepeatDefault = {
+                    connectedBrowser.repeatMode = PlaybackModePolicy.defaultRepeatModeForLocalQueue()
+                },
+                prepare = connectedBrowser::prepare,
+                play = connectedBrowser::play,
             )
-            connectedBrowser.prepare()
-            connectedBrowser.play()
         }
     }
 

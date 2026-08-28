@@ -2,6 +2,7 @@ package com.tamalut.radio.feature.radio
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
@@ -38,6 +40,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
 import com.tamalut.radio.core.model.RadioStation
 
 @Composable
@@ -49,6 +52,7 @@ fun RadioRoute(
     RadioScreen(
         state = state,
         onSectionSelected = viewModel::selectSection,
+        onFilterSelected = viewModel::selectFilter,
         onToggleFavorite = viewModel::toggleFavorite,
         onStationSelected = viewModel::playStation,
         onRetry = viewModel::refresh,
@@ -60,6 +64,7 @@ fun RadioRoute(
 fun RadioScreen(
     state: RadioUiState,
     onSectionSelected: (RadioSection) -> Unit,
+    onFilterSelected: (RadioStationFilter) -> Unit,
     onToggleFavorite: (RadioStation) -> Unit,
     onStationSelected: (RadioStation) -> Unit,
     onRetry: () -> Unit,
@@ -83,6 +88,13 @@ fun RadioScreen(
                     selected = state.selectedSection == RadioSection.ALL,
                     onClick = { onSectionSelected(RadioSection.ALL) },
                     text = { Text("Tutte le radio") },
+                )
+            }
+
+            if (state.selectedSection == RadioSection.ALL) {
+                RadioFilterSelector(
+                    selectedFilter = state.selectedFilter,
+                    onFilterSelected = onFilterSelected,
                 )
             }
 
@@ -111,12 +123,33 @@ fun RadioScreen(
                     stations = state.visibleStations,
                     favoriteIds = state.favoriteIds.mapTo(mutableSetOf()) { it.value },
                     playingStationId = state.playingStationId?.value,
-                    grouped = state.selectedSection == RadioSection.ALL,
                     onToggleFavorite = onToggleFavorite,
                     onStationSelected = onStationSelected,
                     transientError = state.errorMessage,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun RadioFilterSelector(
+    selectedFilter: RadioStationFilter,
+    onFilterSelected: (RadioStationFilter) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RadioStationFilter.entries.forEach { filter ->
+            FilterChip(
+                selected = selectedFilter == filter,
+                onClick = { onFilterSelected(filter) },
+                label = { Text(filter.label) },
+            )
         }
     }
 }
@@ -242,7 +275,6 @@ private fun RadioList(
     stations: List<RadioStation>,
     favoriteIds: Set<String>,
     playingStationId: String?,
-    grouped: Boolean,
     onToggleFavorite: (RadioStation) -> Unit,
     onStationSelected: (RadioStation) -> Unit,
     transientError: String?,
@@ -262,44 +294,16 @@ private fun RadioList(
                 )
             }
         }
-        if (grouped) {
-            RadioStationGrouping.group(stations).forEach { group ->
-                item(key = "section-${group.section.name}") {
-                    RadioSectionHeader(group.section.label)
-                }
-                items(group.stations, key = { it.id.value }) { station ->
-                    RadioStationCard(
-                        station = station,
-                        isFavorite = station.id.value in favoriteIds,
-                        isPlaying = station.id.value == playingStationId,
-                        onToggleFavorite = { onToggleFavorite(station) },
-                        onClick = { onStationSelected(station) },
-                    )
-                }
-            }
-        } else {
-            items(stations, key = { it.id.value }) { station ->
-                RadioStationCard(
-                    station = station,
-                    isFavorite = station.id.value in favoriteIds,
-                    isPlaying = station.id.value == playingStationId,
-                    onToggleFavorite = { onToggleFavorite(station) },
-                    onClick = { onStationSelected(station) },
-                )
-            }
+        items(stations, key = { it.id.value }) { station ->
+            RadioStationCard(
+                station = station,
+                isFavorite = station.id.value in favoriteIds,
+                isPlaying = station.id.value == playingStationId,
+                onToggleFavorite = { onToggleFavorite(station) },
+                onClick = { onStationSelected(station) },
+            )
         }
     }
-}
-
-@Composable
-private fun RadioSectionHeader(label: String) {
-    Text(
-        modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 2.dp),
-        text = label,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-    )
 }
 
 @Composable

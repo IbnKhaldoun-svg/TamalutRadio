@@ -21,6 +21,7 @@ enum class RadioSection {
 data class RadioUiState(
     val isLoading: Boolean = true,
     val selectedSection: RadioSection = RadioSection.ALL,
+    val selectedFilter: RadioStationFilter = RadioStationFilter.ALL,
     val stations: List<RadioStation> = emptyList(),
     val favoriteIds: Set<StationId> = emptySet(),
     val errorMessage: String? = null,
@@ -31,7 +32,7 @@ data class RadioUiState(
     val visibleStations: List<RadioStation>
         get() = when (selectedSection) {
             RadioSection.FAVORITES -> stations.filter { it.id in favoriteIds }
-            RadioSection.ALL -> stations
+            RadioSection.ALL -> RadioStationFiltering.apply(stations, selectedFilter)
         }
 }
 
@@ -69,6 +70,10 @@ class RadioViewModel(
 
     fun selectSection(section: RadioSection) {
         _uiState.update { it.copy(selectedSection = section) }
+    }
+
+    fun selectFilter(filter: RadioStationFilter) {
+        _uiState.update { it.copy(selectedFilter = filter) }
     }
 
     fun refresh() {
