@@ -3,6 +3,26 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val isGithubActions = System.getenv("GITHUB_ACTIONS") == "true"
+val debugKeystorePath = System.getenv("TAMALUT_DEBUG_KEYSTORE_PATH")
+val debugKeystorePassword = System.getenv("TAMALUT_DEBUG_KEYSTORE_PASSWORD")
+val debugKeyAlias = System.getenv("TAMALUT_DEBUG_KEY_ALIAS")
+val debugKeyPassword = System.getenv("TAMALUT_DEBUG_KEY_PASSWORD")
+val debugSigningValues = listOf(
+    debugKeystorePath,
+    debugKeystorePassword,
+    debugKeyAlias,
+    debugKeyPassword,
+)
+val persistentDebugSigningEnabled = debugSigningValues.all { !it.isNullOrBlank() }
+
+if (debugSigningValues.any { !it.isNullOrBlank() } && !persistentDebugSigningEnabled) {
+    error("Persistent debug signing configuration is incomplete")
+}
+if (isGithubActions && !persistentDebugSigningEnabled) {
+    error("GitHub Actions debug builds require the persistent TamalutRadio debug signing key")
+}
+
 android {
     namespace = "com.tamalut.radio"
     compileSdk = 37
@@ -13,6 +33,25 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        if (persistentDebugSigningEnabled) {
+            create("persistentDebug") {
+                storeFile = file(requireNotNull(debugKeystorePath))
+                storePassword = requireNotNull(debugKeystorePassword)
+                keyAlias = requireNotNull(debugKeyAlias)
+                keyPassword = requireNotNull(debugKeyPassword)
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (persistentDebugSigningEnabled) {
+                signingConfig = signingConfigs.getByName("persistentDebug")
+            }
+        }
     }
 
     compileOptions {
