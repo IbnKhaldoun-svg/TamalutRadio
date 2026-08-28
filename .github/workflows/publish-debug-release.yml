@@ -32,7 +32,7 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             TARGET_REF='${{ inputs.ref }}'
           else
-            TARGET_REF='f685090bd5997b13e56753949cfe375d3ff93156'
+            TARGET_REF="$GITHUB_SHA"
           fi
 
           git fetch origin --tags --force
@@ -49,6 +49,12 @@ jobs:
           distribution: temurin
           java-version: '17'
           show-download-progress: false
+
+      - name: Provision persistent debug signing key
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/setup-debug-signing.sh
 
       - name: Install Android command-line tools
         shell: bash
@@ -70,6 +76,19 @@ jobs:
         shell: bash
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
+      - name: Verify persistent debug signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/apk-signing.txt
+          CERT_SHA="$(sed -n -E 's/^Signer #1 certificate SHA-256 digest: //p; s/^V2 Signer: certificate SHA-256 digest: //p' /tmp/apk-signing.txt | head -n1)"
+          EXPECTED_CERT_SHA="$(tr -d '[:space:]' < .github/signing/debug-cert-v1.sha256)"
+          test -n "$CERT_SHA"
+          test "$CERT_SHA" = "$EXPECTED_CERT_SHA"
+          echo "SIGNED_APK_CERT_SHA256=$CERT_SHA"
+
       - name: Publish APK as GitHub prerelease
         id: release
         shell: bash
@@ -89,6 +108,7 @@ jobs:
           TamalutRadio debug APK for physical testing.
 
           - Build commit: \`${TARGET_SHA}\`
+          - Debug signer SHA-256: \`$(tr -d '[:space:]' < .github/signing/debug-cert-v1.sha256)\`
           - APK SHA-256: \`${APK_SHA256}\`
           - Build task: \`:app:assembleDebug\`
           - Distribution: GitHub Release asset; no Actions artifact storage used.
@@ -113,6 +133,7 @@ jobs:
             echo "### Debug APK published"
             echo "- Commit: \`$TARGET_SHA\`"
             echo "- Tag: \`$TAG\`"
+            echo "- Debug signer SHA-256: \`$(tr -d '[:space:]' < .github/signing/debug-cert-v1.sha256)\`"
             echo "- APK SHA-256: \`$APK_SHA256\`"
             echo "- Release: $RELEASE_URL"
             echo "- APK: $ASSET_URL"
