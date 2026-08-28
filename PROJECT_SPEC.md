@@ -50,6 +50,15 @@ This refinement is one cohesive playback-state objective split into three implem
 - Explicit tests must cover local-only visibility/projection of mini-player shuffle/repeat controls, shared-controller delegation for shuffle/repeat, repeat-cycle mapping, local queue default `ALL`, and radio preservation of repeat OFF / shuffle OFF.
 - Verification requirement: GitHub Actions must run `:core:playback:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` successfully before code reaches `main`.
 
+### Notification launch, radio grouping, and compact playback chrome refinement contract
+
+- [ ] **1/3 — Media notification opens Now Playing.** The `MediaLibrarySession` must expose a real activity `PendingIntent` through Media3 `setSessionActivity(...)`. Tapping the media notification or lock-screen media surface must open/bring TamalutRadio to the foreground on the `In Riproduzione` destination, including when `MainActivity` is already alive and receives a new intent. Playback must continue uninterrupted and no second player/session may be created.
+- [ ] **2/3 — Radio list grouped into visual sections.** The `Tutte le radio` list must be visually grouped in deterministic sections `Marocco`, `Italia`, and `Sport`, with section headers and each station rendered exactly once. Existing favorites, station selection, LIVE state, fallback behavior, and the `Preferiti` tab must remain functional. Unknown/future stations must have a safe fallback group rather than disappearing.
+- [ ] **3/3 — Clarify manual music rescan + compact local mini-player.** Keep the manual folder rescan because it explicitly re-runs the SAF scan for recovery when provider changes are not reflected immediately; rename `Aggiorna` to `Riscansiona` and add a brief explanation that it forces a new read of the authorized folder. Redesign the local mini-player onto a single compact row: shuffle/repeat remain local-only, use smaller visual icons with accessible touch targets, sit in the same control row as previous/play/next, and remove the extra text row such as `Loop playlist`.
+- The radio grouping is presentation taxonomy only for the current catalog and must not require a Room schema migration.
+- Explicit tests must cover notification-launch destination routing, category grouping/order/coverage including unknown fallback, manual-rescan delegation, local-only mini-player mode projection/action delegation, and preservation of radio behavior.
+- Verification requirement: GitHub Actions must run `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` successfully, plus structural checks for the Media3 session activity and single-row mini-player, before code reaches `main`.
+
 ## Approved UI / theme requirements
 
 The final UI uses centralized Material 3 design tokens in `:core:designsystem`.
