@@ -28,6 +28,18 @@ Single source of truth for TamalutRadio. **Update this file before code changes.
 - The first validation release must build the approved polished snapshot `f685090bd5997b13e56753949cfe375d3ff93156`.
 - Verification: a real GitHub Actions run must complete `:app:assembleDebug`, create the prerelease, expose the APK asset via GitHub Releases, and leave no temporary branch behind.
 
+### Shared playback state and in-app controls refinement contract
+
+This refinement is one cohesive playback-state objective split into three implementation sub-steps:
+
+- [ ] **1/3 — Shared playback state + Radio/Music synchronization bug fix.** `:core:playback` becomes the single observable source of truth for the active Media3 item, source type (`RADIO` vs local music), play/pause state, queue position/capabilities, repeat mode, and shuffle state. `:feature:radio` and `:feature:library` must derive their `In riproduzione` highlighting from that shared state rather than storing independent successful-play selections. Switching from radio to a local track must immediately clear the previous radio highlight, and switching back to radio must clear the local-track highlight.
+- [ ] **2/3 — Persistent in-app mini-player.** Add a compact Atlas Night mini-player above the bottom navigation while a current Media3 item exists, plus a functional `In Riproduzione` destination using the same controller/state. At minimum expose play/pause, previous, and next controls; controls must operate the existing `TamalutPlaybackService` / `MediaLibrarySession` and must not create a second player.
+- [ ] **3/3 — Local music repeat + shuffle.** `:feature:library` exposes shuffle plus repeat modes OFF / ONE / ALL for local queues only. These controls delegate to the shared Media3 controller (`shuffleModeEnabled` / `repeatMode`) and must not alter radio fallback behavior or enable repeat/shuffle for radio playback.
+- Shared state must remain valid when playback changes from notification/lock screen/media buttons as well as from inside the app.
+- Existing radio favorites, automatic fallback streams, SAF folder selection/persisted permission, local queue ordering, notification/lock-screen controls, and background playback behavior must remain intact.
+- Explicit tests must cover radio -> local transition clearing the stale radio marker, local -> radio transition clearing the stale local marker, mini-player transport delegation/state projection, and local repeat/shuffle mapping including radio rejection/no-op behavior.
+- Verification requirement: GitHub Actions must run the relevant `:core:playback`, `:feature:radio`, and `:feature:library` unit tests plus `:app:assembleDebug` successfully before code reaches `main`.
+
 ## Approved UI / theme requirements
 
 The final UI uses centralized Material 3 design tokens in `:core:designsystem`.
@@ -453,6 +465,17 @@ Do not implement yet:
 - [x] `:feature:radio` sub-step 2/2: station selection wired to real MediaLibraryService playback; temporary Radio Azawan test path removed and verified.
 - [x] `:feature:library` sub-step 1/2: SAF folder selection, persisted tree URI, recursive audio scan, and functional local-library list committed and verified.
 - [x] `:feature:library` sub-step 2/2: Media3 local-track playback, ordered queue Previous/Next, current-track indication, and shared-player radio/local replacement committed and verified.
+
+## Proposte future approvate, da pianificare
+
+### Overlay flottante di controllo sopra altre app
+
+- **Approvato come proposta futura; non implementare durante il lavoro corrente su bug/stato condiviso/mini-player.**
+- Prevedere un overlay flottante che possa restare visibile sopra altre app, incluse Google Maps e Waze, anche dopo l'uscita da TamalutRadio tramite tasto Home.
+- L'overlay dovrà offrire controlli minimi `precedente / pausa-play / successivo`, collegati alla stessa sessione Media3 condivisa e senza creare un secondo player.
+- L'utente dovrà poter chiudere l'overlay senza fermare la riproduzione in corso.
+- Richiede il permesso speciale Android **Visualizza sopra altre app** (`SYSTEM_ALERT_WINDOW`), da richiedere solo con azione e consenso espliciti dell'utente e con UX dedicata per stato permesso/negazione/revoca.
+- La pianificazione dovrà considerare lifecycle del servizio overlay, compatibilità con background playback, accessibilità, comportamento su Android recenti e una modalità chiara per disattivarlo.
 
 ## Decision log
 
