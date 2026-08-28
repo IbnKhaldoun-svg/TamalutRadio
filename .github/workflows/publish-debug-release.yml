@@ -1,0 +1,119 @@
+name: Publish debug APK release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref or commit to build
+        required: false
+        default: main
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-debug-release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish-debug:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: ${{ github.workspace }}/.android-sdk
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/.android-sdk
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve exact build commit
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            TARGET_REF='${{ inputs.ref }}'
+          else
+            TARGET_REF='f685090bd5997b13e56753949cfe375d3ff93156'
+          fi
+
+          git fetch origin --tags --force
+          TARGET_SHA="$(git rev-parse "${TARGET_REF}^{commit}")"
+          SHORT_SHA="$(git rev-parse --short=7 "$TARGET_SHA")"
+          git checkout --detach "$TARGET_SHA"
+
+          echo "TARGET_SHA=$TARGET_SHA" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "Building exact commit: $TARGET_SHA"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          show-download-progress: false
+
+      - name: Install Android command-line tools
+        shell: bash
+        run: |
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o /tmp/android-tools.zip
+          unzip -q /tmp/android-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Install Android 37 SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Assemble debug APK
+        shell: bash
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Publish APK as GitHub prerelease
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -f "$APK"
+
+          ASSET="TamalutRadio-debug-${SHORT_SHA}.apk"
+          cp "$APK" "$ASSET"
+          APK_SHA256="$(sha256sum "$ASSET" | awk '{print $1}')"
+          STAMP="$(date -u +%Y%m%d-%H%M%S)"
+          TAG="debug-${STAMP}-${SHORT_SHA}"
+
+          cat > release-notes.md <<EOF
+          TamalutRadio debug APK for physical testing.
+
+          - Build commit: \`${TARGET_SHA}\`
+          - APK SHA-256: \`${APK_SHA256}\`
+          - Build task: \`:app:assembleDebug\`
+          - Distribution: GitHub Release asset; no Actions artifact storage used.
+          EOF
+
+          gh release create "$TAG" "$ASSET" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "TamalutRadio Debug ${SHORT_SHA}" \
+            --notes-file release-notes.md \
+            --prerelease
+
+          RELEASE_URL="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
+          ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${ASSET}"
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "apk_sha256=$APK_SHA256" >> "$GITHUB_OUTPUT"
+          echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+          echo "asset_url=$ASSET_URL" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Debug APK published"
+            echo "- Commit: \`$TARGET_SHA\`"
+            echo "- Tag: \`$TAG\`"
+            echo "- APK SHA-256: \`$APK_SHA256\`"
+            echo "- Release: $RELEASE_URL"
+            echo "- APK: $ASSET_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
