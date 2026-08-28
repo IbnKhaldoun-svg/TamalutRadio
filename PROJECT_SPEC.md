@@ -17,7 +17,16 @@ Single source of truth for TamalutRadio. **Update this file before code changes.
 - Google Drive OAuth/API setup: **deferred** until the Drive feature implementation phase.
 - Radio Tachlit Sous Massa: placeholder remains until a reliable identifying reference is provided.
 - Approved extra features: **Recently played** and **automatic fallback stream URLs**.
-- Distribution: signed APK via GitHub Releases / sideload; zero mandatory paid services or subscriptions.
+- Distribution: signed APK via GitHub Releases / sideload; debug APK test builds are distributed as GitHub prerelease assets rather than Actions artifacts, avoiding Actions artifact storage quota. Debug tags use `debug-<UTC date/time>-<short commit>`.
+
+### Debug APK release distribution contract
+
+- [ ] Replace debug APK distribution through `actions/upload-artifact` with a permanent GitHub Actions workflow that builds `:app:assembleDebug` and attaches the APK directly to a GitHub prerelease.
+- The workflow must support manual execution against `main` (or an explicitly supplied ref) and generate an automatic unique tag in the form `debug-<UTC date/time>-<short commit>`.
+- The Release must target the exact commit used for the build, include the APK SHA-256 in its notes, and publish a clearly named `TamalutRadio-debug-<short commit>.apk` asset.
+- Debug release publication must not use `actions/upload-artifact`, must not depend on Actions artifact storage, and must keep the existing Android build baseline unchanged.
+- The first validation release must build the approved polished snapshot `f685090bd5997b13e56753949cfe375d3ff93156`.
+- Verification: a real GitHub Actions run must complete `:app:assembleDebug`, create the prerelease, expose the APK asset via GitHub Releases, and leave no temporary branch behind.
 
 ## Approved UI / theme requirements
 
