@@ -40,6 +40,16 @@ This refinement is one cohesive playback-state objective split into three implem
 - Explicit tests must cover radio -> local transition clearing the stale radio marker, local -> radio transition clearing the stale local marker, mini-player transport delegation/state projection, and local repeat/shuffle mapping including radio rejection/no-op behavior.
 - Verification requirement: GitHub Actions must run the relevant `:core:playback`, `:feature:radio`, and `:feature:library` unit tests plus `:app:assembleDebug` successfully before code reaches `main`.
 
+
+### Mini-player discovery and Now Playing detail refinement contract
+
+- [ ] **1/2 — Local playback modes in the persistent mini-player.** When the active shared source is `LOCAL`, the persistent mini-player must expose shuffle plus repeat controls using the same shared `PlaybackController` and the same repeat cycle already used by Music (`OFF -> ALL -> ONE -> OFF`). Those controls must be hidden for Radio and must immediately reflect changes made from either the mini-player or the Music screen.
+- [ ] **2/2 — Local playlist continuity default + non-redundant Now Playing.** Every newly created local queue must start with repeat mode `ALL` (loop playlist) by default, while the user remains free to cycle to `ONE` or `OFF`. Radio playback must continue to force repeat OFF and shuffle OFF. Keep the `In Riproduzione` destination, but redefine it as an expanded detail view rather than a duplicate transport bar: prominent source/cover area, current item/source/status and local playback-mode summary; the persistent mini-player remains the global transport surface.
+- The expanded Now Playing view must not render a second previous/play-next control row immediately above the persistent mini-player.
+- Existing shared-state synchronization, notification/lock-screen controls, radio fallback, SAF library behavior and the single `TamalutPlaybackService` / `MediaLibrarySession` architecture must remain unchanged.
+- Explicit tests must cover local-only visibility/projection of mini-player shuffle/repeat controls, shared-controller delegation for shuffle/repeat, repeat-cycle mapping, local queue default `ALL`, and radio preservation of repeat OFF / shuffle OFF.
+- Verification requirement: GitHub Actions must run `:core:playback:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` successfully before code reaches `main`.
+
 ## Approved UI / theme requirements
 
 The final UI uses centralized Material 3 design tokens in `:core:designsystem`.
