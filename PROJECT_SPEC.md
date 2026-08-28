@@ -28,6 +28,15 @@ Single source of truth for TamalutRadio. **Update this file before code changes.
 - The first validation release must build the approved polished snapshot `f685090bd5997b13e56753949cfe375d3ff93156`.
 - Verification: a real GitHub Actions run must complete `:app:assembleDebug`, create the prerelease, expose the APK asset via GitHub Releases, and leave no temporary branch behind.
 
+### Persistent debug signing contract
+
+- [ ] **Dedicated persistent debug key v1.** All GitHub Actions `debug` APKs must be signed with the same dedicated debug-only key, strictly separate from the production/release signing key. Existing production/release keystore secrets must never be reused to sign debuggable builds.
+- [ ] **Private persistent key storage + centralized setup.** Because the current GitHub connector cannot create or modify repository Secrets, the dedicated debug-only keystore may be generated once and stored outside Git history as a private repository GitHub Release asset under the internal signing-material release `debug-signing-key-v1`. A committed setup script must download it into `RUNNER_TEMP`, verify its committed SHA-256 checksum, and export the signing path/credentials for Gradle. The keystore itself must never be committed.
+- [ ] **CI enforcement.** `:app` must use the persistent debug signing config whenever the signing environment is present and must fail fast on GitHub Actions if the persistent signing environment is missing, so CI can never silently fall back to a runner-generated `~/.android/debug.keystore`. Local developer builds may continue using the local Android debug keystore when not running in GitHub Actions.
+- [ ] **Permanent release workflow integration.** `.github/workflows/publish-debug-release.yml` must provision the persistent debug key before `:app:assembleDebug`, and future temporary validation workflows that build a debug APK must call the same setup script.
+- [ ] **Two-build signature proof.** Verification must run two consecutive independent GitHub Actions debug builds on the same validated commit and prove that `apksigner` reports the same signer certificate SHA-256 digest for both. The verification must also document the historical mismatch between prior ephemeral builds.
+- Transition note: APKs already installed from the old ephemeral-signing era cannot be updated in-place to the new key; one final uninstall/reinstall is required when moving to persistent debug key v1. After that transition, future debug APKs signed with v1 must install as updates over each other.
+
 ### Shared playback state and in-app controls refinement contract
 
 This refinement is one cohesive playback-state objective split into three implementation sub-steps:
