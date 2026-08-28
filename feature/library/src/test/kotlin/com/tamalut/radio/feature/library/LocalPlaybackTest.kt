@@ -131,6 +131,21 @@ class LocalPlaybackTest {
     }
 
     @Test
+    fun refreshForcesAnotherScanOfThePersistedFolder() = runTest(dispatcher) {
+        val tracks = listOf(track("one", "One"), track("two", "Two"))
+        val scanner = FakeScanner(tracks)
+        val viewModel = createViewModel(tracks, FakePlaybackGateway(), scanner)
+        advanceUntilIdle()
+        assertEquals(1, scanner.scanCalls)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(2, scanner.scanCalls)
+        assertEquals(tracks, viewModel.uiState.value.tracks)
+    }
+
+    @Test
     fun playbackFailureIsRecoverableAndDoesNotDropScannedTracks() = runTest(dispatcher) {
         val tracks = listOf(track("one", "One"))
         val gateway = FakePlaybackGateway(Result.failure(IllegalStateException("controller failed")))
@@ -144,11 +159,12 @@ class LocalPlaybackTest {
     private fun createViewModel(
         tracks: List<LocalAudioTrack>,
         gateway: FakePlaybackGateway,
+        scanner: LocalAudioScanner = FakeScanner(tracks),
     ) = LibraryViewModel(
         preferencesRepository = FakePreferencesRepository(
             UserPreferences(localFolderUri = "content://test/tree/Music"),
         ),
-        scanner = FakeScanner(tracks),
+        scanner = scanner,
         folderAccess = FakeFolderAccess,
         playbackGateway = gateway,
     )
@@ -216,7 +232,13 @@ class LocalPlaybackTest {
     }
 
     private class FakeScanner(private val tracks: List<LocalAudioTrack>) : LocalAudioScanner {
-        override suspend fun scan(treeUri: String): List<LocalAudioTrack> = tracks
+        var scanCalls: Int = 0
+            private set
+
+        override suspend fun scan(treeUri: String): List<LocalAudioTrack> {
+            scanCalls += 1
+            return tracks
+        }
     }
 
     private object FakeFolderAccess : LocalFolderAccess {

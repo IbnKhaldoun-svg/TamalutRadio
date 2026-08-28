@@ -112,131 +112,105 @@ fun PersistentMiniPlayer(
         shadowElevation = 2.dp,
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(38.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
-                Surface(
-                    modifier = Modifier.size(42.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (state.sourceType == MediaSourceType.RADIO) Icons.Filled.Radio else Icons.Filled.LibraryMusic,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                }
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 10.dp),
-                ) {
-                    Text(
-                        text = model.title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = model.sourceLabel,
-                        maxLines = 1,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        modifier = Modifier.size(22.dp),
+                        imageVector = if (state.sourceType == MediaSourceType.RADIO) Icons.Filled.Radio else Icons.Filled.LibraryMusic,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+            ) {
+                Text(
+                    text = model.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = model.sourceLabel,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (model.showLocalPlaybackModes) {
                 IconButton(
                     onClick = {
-                        performPlaybackChromeAction(PlaybackChromeAction.PREVIOUS, state, controller)
-                    },
-                    enabled = model.canSkipPrevious,
-                ) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Precedente")
-                }
-                IconButton(
-                    onClick = {
-                        performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_PLAY_PAUSE, state, controller)
+                        performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_SHUFFLE, state, controller)
                     },
                 ) {
                     Icon(
-                        imageVector = if (model.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (model.isPlaying) "Pausa" else "Riproduci",
+                        modifier = Modifier.size(18.dp),
+                        imageVector = Icons.Filled.Shuffle,
+                        contentDescription = if (state.shuffleEnabled) "Disattiva shuffle" else "Attiva shuffle",
+                        tint = if (state.shuffleEnabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     )
                 }
                 IconButton(
                     onClick = {
-                        performPlaybackChromeAction(PlaybackChromeAction.NEXT, state, controller)
+                        performPlaybackChromeAction(PlaybackChromeAction.CYCLE_REPEAT, state, controller)
                     },
-                    enabled = model.canSkipNext,
                 ) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Successivo")
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        imageVector = if (state.repeatMode == PlaybackRepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                        contentDescription = repeatContentDescription(state.repeatMode),
+                        tint = if (state.repeatMode == PlaybackRepeatMode.OFF) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
                 }
             }
-
-            if (model.showLocalPlaybackModes) {
-                MiniPlayerLocalModeControls(
-                    state = state,
-                    controller = controller,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 64.dp, end = 8.dp, bottom = 6.dp),
+            IconButton(
+                onClick = {
+                    performPlaybackChromeAction(PlaybackChromeAction.PREVIOUS, state, controller)
+                },
+                enabled = model.canSkipPrevious,
+            ) {
+                Icon(Icons.Filled.SkipPrevious, contentDescription = "Precedente")
+            }
+            IconButton(
+                onClick = {
+                    performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_PLAY_PAUSE, state, controller)
+                },
+            ) {
+                Icon(
+                    imageVector = if (model.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (model.isPlaying) "Pausa" else "Riproduci",
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun MiniPlayerLocalModeControls(
-    state: PlaybackState,
-    controller: PlaybackController,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = repeatModeLabel(state.repeatMode),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        IconButton(
-            onClick = {
-                performPlaybackChromeAction(PlaybackChromeAction.TOGGLE_SHUFFLE, state, controller)
-            },
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Shuffle,
-                contentDescription = if (state.shuffleEnabled) "Disattiva shuffle" else "Attiva shuffle",
-                tint = if (state.shuffleEnabled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+            IconButton(
+                onClick = {
+                    performPlaybackChromeAction(PlaybackChromeAction.NEXT, state, controller)
                 },
-            )
-        }
-        IconButton(
-            onClick = {
-                performPlaybackChromeAction(PlaybackChromeAction.CYCLE_REPEAT, state, controller)
-            },
-        ) {
-            Icon(
-                imageVector = if (state.repeatMode == PlaybackRepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                contentDescription = repeatContentDescription(state.repeatMode),
-                tint = if (state.repeatMode == PlaybackRepeatMode.OFF) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.primary
-                },
-            )
+                enabled = model.canSkipNext,
+            ) {
+                Icon(Icons.Filled.SkipNext, contentDescription = "Successivo")
+            }
         }
     }
 }

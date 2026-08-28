@@ -220,9 +220,16 @@ private fun FolderPanel(
                         onClick = onRefresh,
                         enabled = !isLoading,
                     ) {
-                        Text("Aggiorna")
+                        Text("Riscansiona")
                     }
                 }
+            }
+            if (folderUri != null) {
+                Text(
+                    text = "Riscansiona forza una nuova lettura della cartella se file aggiunti o rimossi non compaiono subito.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

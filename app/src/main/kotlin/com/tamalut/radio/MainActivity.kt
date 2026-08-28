@@ -1,5 +1,6 @@
 package com.tamalut.radio
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,9 +22,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,6 +36,7 @@ import com.tamalut.radio.core.database.TamalutDatabase
 import com.tamalut.radio.core.designsystem.TamalutRadioTheme
 import com.tamalut.radio.core.designsystem.ThemeMode
 import com.tamalut.radio.core.playback.Media3PlaybackController
+import com.tamalut.radio.core.playback.PlaybackLaunchContract
 import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
 import com.tamalut.radio.core.preferences.ThemePreference
 import com.tamalut.radio.core.preferences.UserPreferences
@@ -53,8 +52,9 @@ import com.tamalut.radio.feature.radio.RadioFeatureController
 import com.tamalut.radio.feature.radio.RadioRoute
 import com.tamalut.radio.feature.radio.RadioViewModel
 import com.tamalut.radio.feature.radio.RadioViewModelFactory
+import kotlinx.coroutines.flow.MutableStateFlow
 
-private enum class MainDestination(
+internal enum class MainDestination(
     val label: String,
     val icon: ImageVector,
 ) {
@@ -72,6 +72,8 @@ class MainActivity : ComponentActivity() {
     private val playbackController by lazy {
         Media3PlaybackController(applicationContext)
     }
+
+    private val selectedDestination = MutableStateFlow(MainDestination.RADIO)
 
     private val database by lazy {
         Room.databaseBuilder(
@@ -119,12 +121,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleLaunchIntent(intent)
         setContent {
             val userPreferences by preferencesRepository.userPreferences.collectAsState(
                 initial = UserPreferences(),
             )
             val playbackState by playbackController.state.collectAsState()
-            var destination by remember { mutableStateOf(MainDestination.RADIO) }
+            val destination by selectedDestination.collectAsState()
 
             TamalutRadioTheme(
                 themeMode = userPreferences.themePreference.toThemeMode(),
@@ -140,7 +143,7 @@ class MainActivity : ComponentActivity() {
                                 MainDestination.entries.forEach { item ->
                                     NavigationBarItem(
                                         selected = destination == item,
-                                        onClick = { destination = item },
+                                        onClick = { selectedDestination.value = item },
                                         icon = {
                                             Icon(
                                                 imageVector = item.icon,
@@ -190,11 +193,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLaunchIntent(intent)
+    }
+
+    private fun handleLaunchIntent(intent: Intent?) {
+        destinationForLaunchAction(intent?.action)?.let { requested ->
+            selectedDestination.value = requested
+        }
+    }
+
     override fun onDestroy() {
         playbackController.release()
         super.onDestroy()
     }
 }
+
+internal fun destinationForLaunchAction(action: String?): MainDestination? =
+    if (action == PlaybackLaunchContract.ACTION_OPEN_NOW_PLAYING) {
+        MainDestination.NOW_PLAYING
+    } else {
+        null
+    }
 
 @androidx.compose.runtime.Composable
 private fun PlaceholderDestination(

@@ -111,6 +111,7 @@ fun RadioScreen(
                     stations = state.visibleStations,
                     favoriteIds = state.favoriteIds.mapTo(mutableSetOf()) { it.value },
                     playingStationId = state.playingStationId?.value,
+                    grouped = state.selectedSection == RadioSection.ALL,
                     onToggleFavorite = onToggleFavorite,
                     onStationSelected = onStationSelected,
                     transientError = state.errorMessage,
@@ -241,6 +242,7 @@ private fun RadioList(
     stations: List<RadioStation>,
     favoriteIds: Set<String>,
     playingStationId: String?,
+    grouped: Boolean,
     onToggleFavorite: (RadioStation) -> Unit,
     onStationSelected: (RadioStation) -> Unit,
     transientError: String?,
@@ -260,16 +262,44 @@ private fun RadioList(
                 )
             }
         }
-        items(stations, key = { it.id.value }) { station ->
-            RadioStationCard(
-                station = station,
-                isFavorite = station.id.value in favoriteIds,
-                isPlaying = station.id.value == playingStationId,
-                onToggleFavorite = { onToggleFavorite(station) },
-                onClick = { onStationSelected(station) },
-            )
+        if (grouped) {
+            RadioStationGrouping.group(stations).forEach { group ->
+                item(key = "section-${group.section.name}") {
+                    RadioSectionHeader(group.section.label)
+                }
+                items(group.stations, key = { it.id.value }) { station ->
+                    RadioStationCard(
+                        station = station,
+                        isFavorite = station.id.value in favoriteIds,
+                        isPlaying = station.id.value == playingStationId,
+                        onToggleFavorite = { onToggleFavorite(station) },
+                        onClick = { onStationSelected(station) },
+                    )
+                }
+            }
+        } else {
+            items(stations, key = { it.id.value }) { station ->
+                RadioStationCard(
+                    station = station,
+                    isFavorite = station.id.value in favoriteIds,
+                    isPlaying = station.id.value == playingStationId,
+                    onToggleFavorite = { onToggleFavorite(station) },
+                    onClick = { onStationSelected(station) },
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun RadioSectionHeader(label: String) {
+    Text(
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 2.dp),
+        text = label,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable

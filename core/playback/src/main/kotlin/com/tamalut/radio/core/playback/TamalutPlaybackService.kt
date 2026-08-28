@@ -1,5 +1,7 @@
 package com.tamalut.radio.core.playback
 
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -59,13 +61,27 @@ class TamalutPlaybackService : MediaLibraryService() {
             .build()
             .also { it.addListener(playerListener) }
         player = exoPlayer
-        mediaLibrarySession = MediaLibrarySession.Builder(
+        val sessionBuilder = MediaLibrarySession.Builder(
             this,
             exoPlayer,
             PlaybackSessionCallback(::stopAndExit),
+        ).setMediaButtonPreferences(PlaybackControls.mediaButtonPreferences(includeStopExit = true))
+        createSessionActivityPendingIntent()?.let { pendingIntent ->
+            sessionBuilder.setSessionActivity(pendingIntent)
+        }
+        mediaLibrarySession = sessionBuilder.build()
+    }
+
+    private fun createSessionActivityPendingIntent(): PendingIntent? {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return null
+        launchIntent.action = PlaybackLaunchContract.ACTION_OPEN_NOW_PLAYING
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(
+            this,
+            PlaybackLaunchContract.REQUEST_CODE,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-            .setMediaButtonPreferences(PlaybackControls.mediaButtonPreferences(includeStopExit = true))
-            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
