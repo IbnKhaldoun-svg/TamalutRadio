@@ -348,7 +348,7 @@ The existing functional Radio and local Library features now enter a three-commi
 
 - [x] UI polish sub-step 2/3: Radio visual refinement. Keep existing catalog, favorites, tabs, playback gateway, and errors unchanged while refining header hierarchy, spacing, station cards, leading radio icon treatment, favorite action, borders/elevation, and current-station emphasis. A currently playing radio station must display a compact `LIVE` badge and an accessible `In riproduzione` state. Visuals must use Atlas Night semantic colors through `MaterialTheme`, with restrained Sahara Pulse sand/gold, Atlas green, and terracotta accents rather than hard-coded unrelated colors. Verification: `:feature:radio:testDebugUnitTest :app:assembleDebug` and structural checks that playback/favorites behavior remains wired.
 
-- [ ] UI polish sub-step 3/3: local Music visual refinement. Keep SAF selection/persisted permission/scanning/playback behavior unchanged while refining the screen header, selected-folder panel, actions, empty/loading/error presentation, local-track cards, leading music icon treatment, metadata hierarchy, borders/elevation, and current-track emphasis. The current local item must retain an accessible `In riproduzione` indication. Verification: `:feature:library:testDebugUnitTest :app:assembleDebug` plus merged-manifest checks confirming no broad storage permission was added.
+- [x] UI polish sub-step 3/3: local Music visual refinement. Keep SAF selection/persisted permission/scanning/playback behavior unchanged while refining the screen header, selected-folder panel, actions, empty/loading/error presentation, local-track cards, leading music icon treatment, metadata hierarchy, borders/elevation, and current-track emphasis. The current local item must retain an accessible `In riproduzione` indication. Verification: `:feature:library:testDebugUnitTest :app:assembleDebug` plus merged-manifest checks confirming no broad storage permission was added.
 
 Across all three sub-steps: do not add a second player, navigation framework migration, Google Drive implementation, Room changes, Hilt, sleep timer, equalizer, release signing changes, or APK artifact upload. Real debug APKs are built only for verification and are not published as GitHub Actions artifacts unless explicitly requested.
 
@@ -446,6 +446,11 @@ Do not implement yet:
 - [x] `:feature:library` sub-step 2/2: Media3 local-track playback, ordered queue Previous/Next, current-track indication, and shared-player radio/local replacement committed and verified.
 
 ## Decision log
+
+### 2026-08-28 — UI polish sub-step 3/3 completed
+
+Local Music visual refinement is implemented in `06b14638c286d119a8a0d03fc0abe05b57ee2c72`. The screen now uses a coherent Atlas Night header hierarchy, a shaped selected-folder SAF panel, refined actions and loading/empty/error states, and rounded bordered/elevated local-track cards with leading music icon treatment, clearer metadata hierarchy, and current-track emphasis retaining the accessible `In riproduzione` indication. SAF folder selection/persisted permission/scanning and `LibraryViewModel::playTrack` behavior remain unchanged, and playback still delegates to the existing shared Media3 service with no feature-level ExoPlayer. GitHub Actions run `33117308858` passed `:feature:library:testDebugUnitTest` and `:app:assembleDebug`, verified the local Music UI wiring, SAF boundaries, merged manifest, absence of `READ_MEDIA_AUDIO`, `READ_EXTERNAL_STORAGE`, and `MANAGE_EXTERNAL_STORAGE`, and produced a real debug APK. The APK SHA-256 was `7134761b3db31271385f0a6b1341f6ebcc6a11f3d19bdaea5e98e3862e80cdcc`; no APK artifact was uploaded. This completes the three-step Atlas Night / Material Air / Sahara Pulse visual refinement pass.
+
 
 ### 2026-08-27 — UI polish sub-step 2/3 completed
 
