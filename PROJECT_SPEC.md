@@ -76,6 +76,14 @@ This refinement is one cohesive playback-state objective split into three implem
 - Explicit tests must cover notification-launch destination routing, category grouping/order/coverage including unknown fallback, manual-rescan delegation, local-only mini-player mode projection/action delegation, and preservation of radio behavior.
 - Verification requirement: GitHub Actions must run `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` successfully, plus structural checks for the Media3 session activity and single-row mini-player, before code reaches `main`.
 
+### User-selectable radio filter and local queue repeat-default refinement contract
+
+- [ ] **1/2 — User-selectable radio filter.** Replace the always-stacked `Marocco / Italia / Sport` grouping under `Tutte le radio` with a single user-controlled filter selector above the list: `Tutte / Marocco / Italia / Sport`. Only stations matching the active filter are shown; `Tutte` shows the complete flat list. `Preferiti` remains independent and flat. Existing favorite toggles, selected/playing state, LIVE badge, fallback playback, notification/lock-screen behavior, and shared playback state must remain unchanged.
+- [ ] **Radio classification metadata stays presentation-only for now.** Do not add a persisted Room category column or migrate the database solely for this filter. Maintain explicit filter metadata for the built-in catalog in `:feature:radio`; unknown/custom stations remain visible under `Tutte` and are not silently dropped. `Radio Mars` must be classified as `Marocco`, not `Sport`; `Radio Sportiva` remains `Sport`.
+- [ ] **2/2 — New local queues reliably default to repeat ALL.** Every call that creates/replaces a local playback queue from Music must leave Media3 in `REPEAT_MODE_ALL` after the new queue has been installed, regardless of the previous local repeat mode. Reselecting any track from the Music list creates/replaces the queue and must therefore restore playlist loop `ALL`. User changes to `ONE` or `OFF` remain valid until another new local queue is created. Radio continues to force repeat OFF and shuffle OFF.
+- Explicit tests must cover filter options and station coverage, `Radio Mars -> Marocco`, unknown-station visibility under `Tutte`, flat unfiltered rendering semantics, and repeat-default restoration after a prior OFF/ONE state when a new local queue is created.
+- Verification requirement: a real GitHub Actions run must pass `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` with the persistent debug signing v1 setup before validated code is promoted to `main`.
+
 ## Approved UI / theme requirements
 
 The final UI uses centralized Material 3 design tokens in `:core:designsystem`.
