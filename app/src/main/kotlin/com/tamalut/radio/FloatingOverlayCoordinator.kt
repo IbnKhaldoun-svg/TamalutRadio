@@ -23,7 +23,7 @@ internal class FloatingOverlayCoordinator(
     private var latestPlaybackState: PlaybackState = playbackController.state.value
     private var sessionState = OverlaySessionState()
     private var appInForeground = true
-    private var suppressNextUserLeave = false
+    private val activityExitGate = OverlayActivityExitGate()
 
     private val window = FloatingOverlayWindow(
         context = appContext,
@@ -66,33 +66,37 @@ internal class FloatingOverlayCoordinator(
 
     fun onAppForeground() {
         appInForeground = true
-        suppressNextUserLeave = false
+        activityExitGate.onAppForeground()
         sessionState = sessionState.endExternalSession()
         window.hide()
     }
 
-    fun onUserLeaveHint() {
-        appInForeground = false
-        if (suppressNextUserLeave) {
-            suppressNextUserLeave = false
-            window.hide()
-            return
+    fun onAppStopped(isChangingConfigurations: Boolean) {
+        when (activityExitGate.onAppStopped(isChangingConfigurations)) {
+            OverlayActivityStopDecision.IGNORE_CONFIGURATION_CHANGE -> return
+            OverlayActivityStopDecision.SUPPRESS_EXTERNAL_SESSION -> {
+                appInForeground = false
+                window.hide()
+                return
+            }
+            OverlayActivityStopDecision.ADMIT_EXTERNAL_SESSION -> {
+                appInForeground = false
+                if (
+                    shouldAdmitExternalOverlaySession(
+                        overlayEnabled = latestPreferences.overlayEnabled,
+                        permissionGranted = permissionGranted(),
+                        isPlaying = latestPlaybackState.isPlaying,
+                    )
+                ) {
+                    sessionState = sessionState.beginExternalSession()
+                }
+                reconcile()
+            }
         }
-
-        if (
-            shouldAdmitExternalOverlaySession(
-                overlayEnabled = latestPreferences.overlayEnabled,
-                permissionGranted = permissionGranted(),
-                isPlaying = latestPlaybackState.isPlaying,
-            )
-        ) {
-            sessionState = sessionState.beginExternalSession()
-        }
-        reconcile()
     }
 
-    fun suppressNextUserLeave() {
-        suppressNextUserLeave = true
+    fun suppressNextAppStop() {
+        activityExitGate.suppressNextAppStop()
     }
 
     private fun reconcile() {

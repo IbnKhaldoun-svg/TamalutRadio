@@ -167,7 +167,7 @@ class MainActivity : ComponentActivity() {
                                 scope.launch { preferencesRepository.setOverlayEnabled(enabled) }
                             },
                             onRequestOverlayPermission = {
-                                overlayCoordinator.suppressNextUserLeave()
+                                overlayCoordinator.suppressNextAppStop()
                                 overlayPermissionLauncher.launch(
                                     Intent(
                                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -189,9 +189,9 @@ class MainActivity : ComponentActivity() {
         resumeTick.value += 1L
     }
 
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        overlayCoordinator.onUserLeaveHint()
+    override fun onStop() {
+        super.onStop()
+        overlayCoordinator.onAppStopped(isChangingConfigurations = isChangingConfigurations)
     }
 
     override fun onNewIntent(intent: Intent) {
