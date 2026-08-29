@@ -93,7 +93,7 @@ Validation record — radio filter and local repeat default refinement:
 
 ### Floating overlay implementation contract — sub-step 1/2
 
-- [ ] **1/2 — Foundation, permission and Settings.** Add the floating-player foundation without playback transport controls yet. The overlay must use Android `TYPE_APPLICATION_OVERLAY` and remain visible when the user leaves TamalutRadio with Home, without being tied to the `MainActivity` window lifecycle.
+- [x] **1/2 — Foundation, permission and Settings.** Add the floating-player foundation without playback transport controls yet. The overlay must use Android `TYPE_APPLICATION_OVERLAY` and remain visible when the user leaves TamalutRadio with Home, without being tied to the `MainActivity` window lifecycle.
 - Declare `android.permission.SYSTEM_ALERT_WINDOW`, but never treat it as an ordinary runtime permission or request it silently. Enabling the feature from `Impostazioni` must first show an in-app explanation that the optional permission allows the future floating player to stay above apps such as Maps/Waze; only explicit `Continua` opens `Settings.ACTION_MANAGE_OVERLAY_PERMISSION` for `package:com.tamalut.radio`.
 - Persist one `overlayEnabled` DataStore preference in `:core:preferences`, default `false`. A request to enable the overlay must not persist `true` until `Settings.canDrawOverlays(...)` confirms that the special permission is granted. Denial/cancellation keeps the preference disabled and the rest of the app fully functional.
 - Replace the current Settings placeholder with an Atlas Night `Player flottante` setting that exposes the enable/disable switch plus clear permission status. Disabling from Settings removes the overlay immediately and persists `false`.
@@ -104,6 +104,13 @@ Validation record — radio filter and local repeat default refinement:
 - Keep the overlay non-focusable/non-modal so it does not capture keyboard focus or block interaction with the underlying app outside its compact bounds. No broad storage permission, Room migration, playback-service duplication, Google Drive work, sleep timer, equalizer, or unrelated feature work belongs in this sub-step.
 - Explicit tests must cover the persisted overlay default/decoding and the enablement decision policy (`disable`, `show`, `request permission`). Structural verification must confirm `SYSTEM_ALERT_WINDOW`, `TYPE_APPLICATION_OVERLAY`, the explicit permission explanation/settings intent, persistence wiring, close-without-playback calls, and absence of a new overlay foreground service or player.
 - Verification requirement: a real GitHub Actions run must pass `:core:preferences:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` with persistent debug signer v1 before promotion to `main`; the final `main` snapshot must then be published through the permanent GitHub Releases debug workflow for physical testing.
+
+Validation record — floating overlay foundation sub-step 1/2:
+- Clean promoted implementation commit: `9d37f04cfc001fdb8f59bad8d6b47ff34cd458cc` (`feat: add floating overlay foundation`), preceded by spec-before commit `b4a42bd93b566a6635f832e9b8899293750937d1`.
+- GitHub Actions validation run `33236784011`, attempt 3, passed `:core:preferences:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`: BUILD SUCCESSFUL in 5m 56s, 183 actionable tasks (145 executed, 38 from cache), plus structural checks for `SYSTEM_ALERT_WINDOW`, `TYPE_APPLICATION_OVERLAY`, explicit overlay-permission settings routing, persistence wiring, and absence of an overlay ExoPlayer/foreground service.
+- Validation used persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`; validation APK SHA-256: `ad5fc4e7da9c44219d63c3cd6a7b087d3fc0b0000ef0655beeb1c654ba218fb7`.
+- `Impostazioni` now exposes the optional `Player flottante` switch and permission state. Enabling without permission shows an explicit explanation before Android's `Visualizza sopra altre app` screen; denial/revocation leaves the app functional and disables the preference safely.
+- The foundation overlay is application-process owned, non-focusable/non-modal, remains independent of the Activity when Home is pressed, and closing it removes only the window and disables the preference without touching Media3 playback. Transport controls remain intentionally deferred to sub-step 2/2 and must use the existing shared `PlaybackController`.
 
 ## Approved UI / theme requirements
 
@@ -535,7 +542,7 @@ Do not implement yet:
 
 ### Overlay flottante di controllo sopra altre app
 
-- **Implementazione autorizzata in 2 sotto-passaggi; sotto-passaggio 1/2 attivo: foundation + permesso + Impostazioni.**
+- **Sotto-passaggio 1/2 completato e verificato; sotto-passaggio 2/2 (controlli Media3 condivisi) resta da implementare.**
 - Prevedere un overlay flottante che possa restare visibile sopra altre app, incluse Google Maps e Waze, anche dopo l'uscita da TamalutRadio tramite tasto Home.
 - L'overlay dovrà offrire controlli minimi `precedente / pausa-play / successivo`, collegati alla stessa sessione Media3 condivisa e senza creare un secondo player.
 - L'utente dovrà poter chiudere l'overlay senza fermare la riproduzione in corso.
