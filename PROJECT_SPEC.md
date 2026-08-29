@@ -603,7 +603,7 @@ Do not implement yet:
 
 ### Overlay flottante di controllo sopra altre app
 
-- **Percorso overlay 1/2 + 1.5/2 + 2/2 completamente validato fisicamente il 2026-08-29: Home, Recenti, root Back, permesso/revoca, pausa, Impostazioni, drag/snap, dismiss session-only, controlli playback, sincronizzazione esterna, capability e transizioni RADIO↔LOCAL tutti confermati.**
+- **Percorso overlay 1/2 + 1.5/2 + 2/2 + refinement completamente validato in CI e fisicamente il 2026-08-29: Home, Recenti, root Back, permesso/revoca, pausa, Impostazioni, drag/snap, dismiss session-only, controlli playback, sincronizzazione esterna, capability, transizioni RADIO↔LOCAL, riconnessione RADIO al live edge, auto-collapse a 4 secondi e ritorno all'app tutti confermati.**
 - Prevedere un overlay flottante che possa restare visibile sopra altre app, incluse Google Maps e Waze, anche dopo l'uscita da TamalutRadio tramite tasto Home.
 - L'overlay dovrà offrire controlli minimi `precedente / pausa-play / successivo`, collegati alla stessa sessione Media3 condivisa e senza creare un secondo player.
 - L'utente dovrà poter chiudere l'overlay senza fermare la riproduzione in corso; la chiusura è temporanea per la sessione esterna corrente e non disattiva la preferenza permanente.
@@ -631,7 +631,7 @@ Validation record — floating overlay playback controls 2/2:
 - Transport click handlers are isolated from edge-tab drag/collapse and X dismissal. Drag, collapse and session-only close contain no playback action path; transport clicks do not mutate overlay expanded/session state.
 - Regression tests cover RADIO and LOCAL state/action paths, including preservation of local repeat/shuffle state and radio semantics.
 - Persistent debug signer SHA-256: `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`; validation APK SHA-256: `e30c34ee27bc499c1b831e1c36a5911e36b872976281e1bfc32f1544d31de004`.
-- CI validation is complete; final physical verification of the expanded overlay controls remains required before declaring the complete floating-overlay feature physically approved.
+- CI validation and physical verification of the expanded overlay controls are complete; sub-step 2/2 is physically approved as part of the fully validated floating-overlay path.
 
 ### Radio live resume + overlay inactivity/app-entry refinement contract
 
@@ -653,9 +653,13 @@ Validation record — radio live resume + overlay inactivity/app-entry refinemen
 - The expanded panel has a dedicated TamalutRadio app-entry control separated from Previous / Play-Pause / Next. Overlay and Media3 notification/session reuse `PlaybackLaunchContract.createNowPlayingPendingIntent(...)` / `ACTION_OPEN_NOW_PLAYING`; app-entry does not issue playback commands. `MainActivity.onResume()` remains the foreground/session-dismiss reset point.
 - Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`; validation APK SHA-256: `f502581dfcf48863ac5cb6487c909dad01112d731025c8324324fd65619732d3`.
 - Setup-only validation run `33265451507` failed before compilation because the temporary workflow lacked access to the private persistent debug-signing release; no product result is attributed to that run.
-- Status: implementation and CI validation are complete for all three refinements; physical validation A-D remains pending. This does not alter the already complete physical approval of overlay 1/2 + 1.5 + 2/2.
+- Status: implementation, CI validation, final Release verification, and physical validation A-D are complete for all three refinements. RADIO live pause→resume reconnect, 4,000 ms overlay auto-collapse, and the dedicated return-to-app affordance all passed physical testing on 2026-08-29. The complete floating-overlay path `1/2 + 1.5 + 2/2 + refinement` is therefore fully validated both in CI and physically.
 
 ## Decision log
+
+### 2026-08-29 — Floating overlay refinement physically approved; complete overlay path closed
+
+Physical checklist A-D completed with every case passing on the final Release `debug-20260829-210309-88c102a` targeting `88c102aee5db2b4e6e4d6a5567f090807cdb7dab`. RADIO pause→resume reconnects to the current live edge after a long pause while LOCAL resumes at the preserved track position; the expanded overlay auto-collapses after approximately 4 seconds of inactivity and correctly re-arms after interaction without affecting playback; the dedicated TamalutRadio app-entry affordance returns to Now Playing without issuing transport commands, and a subsequent external overlay session is created normally. APK SHA-256 `f502581dfcf48863ac5cb6487c909dad01112d731025c8324324fd65619732d3` and persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` were verified by final Release run `33274897181`. With the earlier 30/30 approval of overlay 1/2 + 1.5 + 2/2, the entire floating-overlay path including this refinement is now fully validated in CI and physically.
 
 ### 2026-08-29 — Complete overlay physically validated; live-resume and overlay polish authorized
 
