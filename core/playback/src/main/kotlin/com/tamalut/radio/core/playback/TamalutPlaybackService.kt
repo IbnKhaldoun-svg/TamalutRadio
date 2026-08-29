@@ -46,6 +46,20 @@ class TamalutPlaybackService : MediaLibraryService() {
             }
         }
 
+        override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+            val exoPlayer = player ?: return
+            val currentItem = exoPlayer.currentMediaItem
+            val plan = RadioMediaItemFactory.planFrom(currentItem)
+            val shouldReconnect = liveResumeGate.onPlaybackSuppressionReasonChanged(
+                isRadio = plan != null,
+                playbackSuppressionReason = playbackSuppressionReason,
+                playWhenReady = exoPlayer.playWhenReady,
+            )
+            if (shouldReconnect && currentItem != null && plan != null) {
+                reconnectCurrentRadioAtLiveEdge(exoPlayer, currentItem, plan)
+            }
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             val exoPlayer = player ?: return
             val plan = RadioMediaItemFactory.planFrom(exoPlayer.currentMediaItem) ?: return
