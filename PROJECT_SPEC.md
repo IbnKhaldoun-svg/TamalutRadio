@@ -91,6 +91,20 @@ Validation record — radio filter and local repeat default refinement:
 - Every new/replaced local Music queue installs its media items first and then applies Media3 `REPEAT_MODE_ALL` before prepare/play. A repeat-order test protects `set-items -> repeat-all -> prepare -> play`; user-selected OFF/ONE remains active only until another Music-list selection creates a new queue.
 - Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`; validation APK SHA-256: `aed3a8cc7fe9de5e25decbcefeeb6001d1c14a50e34baddfb157e15513824779`.
 
+### Floating overlay implementation contract — sub-step 1/2
+
+- [ ] **1/2 — Foundation, permission and Settings.** Add the floating-player foundation without playback transport controls yet. The overlay must use Android `TYPE_APPLICATION_OVERLAY` and remain visible when the user leaves TamalutRadio with Home, without being tied to the `MainActivity` window lifecycle.
+- Declare `android.permission.SYSTEM_ALERT_WINDOW`, but never treat it as an ordinary runtime permission or request it silently. Enabling the feature from `Impostazioni` must first show an in-app explanation that the optional permission allows the future floating player to stay above apps such as Maps/Waze; only explicit `Continua` opens `Settings.ACTION_MANAGE_OVERLAY_PERMISSION` for `package:com.tamalut.radio`.
+- Persist one `overlayEnabled` DataStore preference in `:core:preferences`, default `false`. A request to enable the overlay must not persist `true` until `Settings.canDrawOverlays(...)` confirms that the special permission is granted. Denial/cancellation keeps the preference disabled and the rest of the app fully functional.
+- Replace the current Settings placeholder with an Atlas Night `Player flottante` setting that exposes the enable/disable switch plus clear permission status. Disabling from Settings removes the overlay immediately and persists `false`.
+- The foundation window is application-process owned rather than Activity-window owned and must not add a second foreground service merely to keep the overlay alive. Android gives visible `TYPE_APPLICATION_OVERLAY` processes adjusted importance; the existing Media3 playback service remains the only playback/foreground-service authority.
+- The sub-step 1 overlay surface is intentionally minimal: TamalutRadio identity plus an accessible close action. `precedente / play-pausa / successivo` are reserved for sub-step 2/2, where they will observe/delegate to the existing shared `PlaybackController`; no temporary player or duplicate playback state is allowed here.
+- Closing the overlay removes only the overlay window, persists `overlayEnabled=false`, and must never stop, pause, clear, or otherwise mutate the current Media3 playback/session.
+- On app launch/resume, reconcile the persisted preference with the current special-permission state: enabled + granted restores/shows the window; revoked/missing permission hides it and safely resets the preference to disabled. Permission denial or later revocation must not crash or block Radio, Music, notification/lock-screen playback, or Now Playing.
+- Keep the overlay non-focusable/non-modal so it does not capture keyboard focus or block interaction with the underlying app outside its compact bounds. No broad storage permission, Room migration, playback-service duplication, Google Drive work, sleep timer, equalizer, or unrelated feature work belongs in this sub-step.
+- Explicit tests must cover the persisted overlay default/decoding and the enablement decision policy (`disable`, `show`, `request permission`). Structural verification must confirm `SYSTEM_ALERT_WINDOW`, `TYPE_APPLICATION_OVERLAY`, the explicit permission explanation/settings intent, persistence wiring, close-without-playback calls, and absence of a new overlay foreground service or player.
+- Verification requirement: a real GitHub Actions run must pass `:core:preferences:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` with persistent debug signer v1 before promotion to `main`; the final `main` snapshot must then be published through the permanent GitHub Releases debug workflow for physical testing.
+
 ## Approved UI / theme requirements
 
 The final UI uses centralized Material 3 design tokens in `:core:designsystem`.
@@ -521,7 +535,7 @@ Do not implement yet:
 
 ### Overlay flottante di controllo sopra altre app
 
-- **Approvato come proposta futura; non implementare durante il lavoro corrente su bug/stato condiviso/mini-player.**
+- **Implementazione autorizzata in 2 sotto-passaggi; sotto-passaggio 1/2 attivo: foundation + permesso + Impostazioni.**
 - Prevedere un overlay flottante che possa restare visibile sopra altre app, incluse Google Maps e Waze, anche dopo l'uscita da TamalutRadio tramite tasto Home.
 - L'overlay dovrà offrire controlli minimi `precedente / pausa-play / successivo`, collegati alla stessa sessione Media3 condivisa e senza creare un secondo player.
 - L'utente dovrà poter chiudere l'overlay senza fermare la riproduzione in corso.
