@@ -4,8 +4,10 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.provider.Settings
+import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -23,6 +25,18 @@ internal data class FloatingOverlayViewState(
     val expanded: Boolean,
 )
 
+private data class OverlayWindowHost(
+    val context: Context,
+    val manager: WindowManager,
+    val density: Float,
+    val touchSlop: Int,
+    val collapsedWidth: Int,
+    val expandedWidth: Int,
+    val windowHeight: Int,
+    val root: LinearLayout,
+    val params: WindowManager.LayoutParams,
+)
+
 internal class FloatingOverlayWindow(
     context: Context,
     private val onDismiss: () -> Unit,
@@ -30,35 +44,7 @@ internal class FloatingOverlayWindow(
     private val onPositionChanged: (OverlayEdge, Float) -> Unit,
 ) {
     private val appContext = context.applicationContext
-    private val overlayContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        appContext.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
-    } else {
-        appContext
-    }
-    private val manager = overlayContext.getSystemService(WindowManager::class.java)
-    private val density = overlayContext.resources.displayMetrics.density
-    private val touchSlop = ViewConfiguration.get(overlayContext).scaledTouchSlop
-    private val collapsedWidth = dp(36)
-    private val expandedWidth = dp(92)
-    private val windowHeight = dp(48)
-
-    private val root = LinearLayout(overlayContext).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        elevation = dp(10).toFloat()
-        contentDescription = "Player flottante TamalutRadio"
-    }
-
-    private val params = WindowManager.LayoutParams(
-        collapsedWidth,
-        windowHeight,
-        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-        PixelFormat.TRANSLUCENT,
-    ).apply {
-        gravity = Gravity.TOP or Gravity.START
-    }
+    private val hostSlot = LazyOverlayHostSlot(::createWindowHost)
 
     private var currentState: FloatingOverlayViewState? = null
     private var downRawX = 0f
@@ -69,85 +55,165 @@ internal class FloatingOverlayWindow(
 
     fun show(state: FloatingOverlayViewState): Boolean {
         if (!Settings.canDrawOverlays(appContext)) return false
+        val host = hostSlot.getOrCreate() ?: return false
         currentState = state
-        render(state)
-        if (root.isAttachedToWindow) return true
+        render(host, state)
+        if (host.root.isAttachedToWindow) return true
 
         return try {
-            manager.addView(root, params)
+            host.manager.addView(host.root, host.params)
             true
         } catch (_: SecurityException) {
             false
         } catch (_: WindowManager.BadTokenException) {
             false
+        } catch (_: IllegalStateException) {
+            false
         }
     }
 
     fun update(state: FloatingOverlayViewState) {
+        val host = hostSlot.existing() ?: return
         currentState = state
-        render(state)
+        render(host, state)
     }
 
     fun hide() {
-        if (!root.isAttachedToWindow) return
+        val host = hostSlot.existing() ?: return
+        if (!host.root.isAttachedToWindow) return
         try {
-            manager.removeView(root)
+            host.manager.removeView(host.root)
         } catch (_: IllegalArgumentException) {
             // Android may already have removed the overlay after permission revocation.
         }
     }
 
-    private fun render(state: FloatingOverlayViewState) {
-        val width = if (state.expanded) expandedWidth else collapsedWidth
-        val (screenWidth, screenHeight) = displaySize()
-        params.width = width
-        params.height = windowHeight
-        params.x = OverlayGeometry.xForEdge(state.edge, screenWidth, width)
-        params.y = OverlayGeometry.yFromNormalizedFraction(
+    private fun createWindowHost(): OverlayWindowHost? {
+        return try {
+            val overlayContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val displayManager = appContext.getSystemService(DisplayManager::class.java) ?: return null
+                val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY) ?: return null
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    appContext.createWindowContext(
+                        display,
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                        null,
+                    )
+                } else {
+                    appContext
+                        .createDisplayContext(display)
+                        .createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+                }
+            } else {
+                appContext
+            }
+
+            val manager = overlayContext.getSystemService(WindowManager::class.java) ?: return null
+            val density = overlayContext.resources.displayMetrics.density
+            fun dp(value: Int): Int = (value * density).toInt()
+
+            val collapsedWidth = dp(36)
+            val expandedWidth = dp(92)
+            val windowHeight = dp(48)
+            val root = LinearLayout(overlayContext).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                elevation = dp(10).toFloat()
+                contentDescription = "Player flottante TamalutRadio"
+            }
+            val params = WindowManager.LayoutParams(
+                collapsedWidth,
+                windowHeight,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                PixelFormat.TRANSLUCENT,
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+            }
+
+            OverlayWindowHost(
+                context = overlayContext,
+                manager = manager,
+                density = density,
+                touchSlop = ViewConfiguration.get(overlayContext).scaledTouchSlop,
+                collapsedWidth = collapsedWidth,
+                expandedWidth = expandedWidth,
+                windowHeight = windowHeight,
+                root = root,
+                params = params,
+            )
+        } catch (_: UnsupportedOperationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        } catch (_: SecurityException) {
+            null
+        }
+    }
+
+    private fun render(host: OverlayWindowHost, state: FloatingOverlayViewState) {
+        val width = if (state.expanded) host.expandedWidth else host.collapsedWidth
+        val (screenWidth, screenHeight) = displaySize(host)
+        host.params.width = width
+        host.params.height = host.windowHeight
+        host.params.x = OverlayGeometry.xForEdge(state.edge, screenWidth, width)
+        host.params.y = OverlayGeometry.yFromNormalizedFraction(
             fraction = state.verticalFraction,
             screenHeight = screenHeight,
-            windowHeight = windowHeight,
+            windowHeight = host.windowHeight,
         )
 
-        root.removeAllViews()
-        root.background = backgroundFor(state.edge)
+        host.root.removeAllViews()
+        host.root.background = backgroundFor(host, state.edge)
 
-        val tab = edgeTab(state)
-        val close = if (state.expanded) closeButton() else null
+        val tab = edgeTab(host, state)
+        val close = if (state.expanded) closeButton(host) else null
         if (state.edge == OverlayEdge.LEFT) {
-            root.addView(tab, LinearLayout.LayoutParams(collapsedWidth, windowHeight))
-            close?.let { root.addView(it, LinearLayout.LayoutParams(expandedWidth - collapsedWidth, windowHeight)) }
+            host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
+            close?.let {
+                host.root.addView(
+                    it,
+                    LinearLayout.LayoutParams(host.expandedWidth - host.collapsedWidth, host.windowHeight),
+                )
+            }
         } else {
-            close?.let { root.addView(it, LinearLayout.LayoutParams(expandedWidth - collapsedWidth, windowHeight)) }
-            root.addView(tab, LinearLayout.LayoutParams(collapsedWidth, windowHeight))
+            close?.let {
+                host.root.addView(
+                    it,
+                    LinearLayout.LayoutParams(host.expandedWidth - host.collapsedWidth, host.windowHeight),
+                )
+            }
+            host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
         }
 
-        if (root.isAttachedToWindow) {
-            runCatching { manager.updateViewLayout(root, params) }
+        if (host.root.isAttachedToWindow) {
+            runCatching { host.manager.updateViewLayout(host.root, host.params) }
         }
     }
 
-    private fun edgeTab(state: FloatingOverlayViewState): TextView = TextView(overlayContext).apply {
-        gravity = Gravity.CENTER
-        textSize = 24f
-        setTextColor(Color.rgb(216, 179, 106))
-        text = when {
-            !state.expanded && state.edge == OverlayEdge.LEFT -> "›"
-            !state.expanded && state.edge == OverlayEdge.RIGHT -> "‹"
-            state.expanded && state.edge == OverlayEdge.LEFT -> "‹"
-            else -> "›"
+    private fun edgeTab(host: OverlayWindowHost, state: FloatingOverlayViewState): TextView =
+        TextView(host.context).apply {
+            gravity = Gravity.CENTER
+            textSize = 24f
+            setTextColor(Color.rgb(216, 179, 106))
+            text = when {
+                !state.expanded && state.edge == OverlayEdge.LEFT -> "›"
+                !state.expanded && state.edge == OverlayEdge.RIGHT -> "‹"
+                state.expanded && state.edge == OverlayEdge.LEFT -> "‹"
+                else -> "›"
+            }
+            contentDescription = if (state.expanded) {
+                "Richiudi player flottante"
+            } else {
+                "Espandi player flottante"
+            }
+            setBackgroundColor(Color.TRANSPARENT)
+            setOnClickListener { onExpandedChanged(!state.expanded) }
+            setOnTouchListener(::handleDragTouch)
         }
-        contentDescription = if (state.expanded) {
-            "Richiudi player flottante"
-        } else {
-            "Espandi player flottante"
-        }
-        setBackgroundColor(Color.TRANSPARENT)
-        setOnClickListener { onExpandedChanged(!state.expanded) }
-        setOnTouchListener(::handleDragTouch)
-    }
 
-    private fun closeButton(): TextView = TextView(overlayContext).apply {
+    private fun closeButton(host: OverlayWindowHost): TextView = TextView(host.context).apply {
         gravity = Gravity.CENTER
         text = "×"
         textSize = 25f
@@ -158,12 +224,13 @@ internal class FloatingOverlayWindow(
     }
 
     private fun handleDragTouch(view: View, event: MotionEvent): Boolean {
+        val host = hostSlot.existing() ?: return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downRawX = event.rawX
                 downRawY = event.rawY
-                startX = params.x
-                startY = params.y
+                startX = host.params.x
+                startY = host.params.y
                 dragging = false
                 return true
             }
@@ -171,22 +238,22 @@ internal class FloatingOverlayWindow(
             MotionEvent.ACTION_MOVE -> {
                 val deltaX = event.rawX - downRawX
                 val deltaY = event.rawY - downRawY
-                if (!dragging && (abs(deltaX) > touchSlop || abs(deltaY) > touchSlop)) {
+                if (!dragging && (abs(deltaX) > host.touchSlop || abs(deltaY) > host.touchSlop)) {
                     dragging = true
                 }
                 if (dragging) {
-                    val (screenWidth, screenHeight) = displaySize()
-                    params.x = (startX + deltaX.toInt()).coerceIn(
+                    val (screenWidth, screenHeight) = displaySize(host)
+                    host.params.x = (startX + deltaX.toInt()).coerceIn(
                         0,
-                        (screenWidth - params.width).coerceAtLeast(0),
+                        (screenWidth - host.params.width).coerceAtLeast(0),
                     )
-                    params.y = OverlayGeometry.clampY(
+                    host.params.y = OverlayGeometry.clampY(
                         y = startY + deltaY.toInt(),
                         screenHeight = screenHeight,
-                        windowHeight = windowHeight,
+                        windowHeight = host.windowHeight,
                     )
-                    if (root.isAttachedToWindow) {
-                        runCatching { manager.updateViewLayout(root, params) }
+                    if (host.root.isAttachedToWindow) {
+                        runCatching { host.manager.updateViewLayout(host.root, host.params) }
                     }
                 }
                 return true
@@ -194,21 +261,21 @@ internal class FloatingOverlayWindow(
 
             MotionEvent.ACTION_UP -> {
                 if (dragging) {
-                    val (screenWidth, screenHeight) = displaySize()
+                    val (screenWidth, screenHeight) = displaySize(host)
                     val edge = OverlayGeometry.snapEdge(
-                        x = params.x,
+                        x = host.params.x,
                         screenWidth = screenWidth,
-                        windowWidth = params.width,
+                        windowWidth = host.params.width,
                     )
                     val fraction = OverlayGeometry.normalizedVerticalFraction(
-                        y = params.y,
+                        y = host.params.y,
                         screenHeight = screenHeight,
-                        windowHeight = windowHeight,
+                        windowHeight = host.windowHeight,
                     )
                     val updated = currentState?.copy(edge = edge, verticalFraction = fraction)
                     if (updated != null) {
                         currentState = updated
-                        view.post { render(updated) }
+                        view.post { render(host, updated) }
                     }
                     onPositionChanged(edge, fraction)
                 } else {
@@ -226,24 +293,26 @@ internal class FloatingOverlayWindow(
         return false
     }
 
-    private fun backgroundFor(edge: OverlayEdge): GradientDrawable = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        val radius = dp(18).toFloat()
-        cornerRadii = if (edge == OverlayEdge.LEFT) {
-            floatArrayOf(0f, 0f, radius, radius, radius, radius, 0f, 0f)
-        } else {
-            floatArrayOf(radius, radius, 0f, 0f, 0f, 0f, radius, radius)
+    private fun backgroundFor(host: OverlayWindowHost, edge: OverlayEdge): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            val radius = dp(host, 18).toFloat()
+            cornerRadii = if (edge == OverlayEdge.LEFT) {
+                floatArrayOf(0f, 0f, radius, radius, radius, radius, 0f, 0f)
+            } else {
+                floatArrayOf(radius, radius, 0f, 0f, 0f, 0f, radius, radius)
+            }
+            setColor(Color.rgb(22, 27, 34))
+            setStroke(dp(host, 1), Color.rgb(79, 138, 115))
         }
-        setColor(Color.rgb(22, 27, 34))
-        setStroke(dp(1), Color.rgb(79, 138, 115))
-    }
 
-    private fun displaySize(): Pair<Int, Int> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        manager.currentWindowMetrics.bounds.let { it.width() to it.height() }
-    } else {
-        @Suppress("DEPRECATION")
-        overlayContext.resources.displayMetrics.let { it.widthPixels to it.heightPixels }
-    }
+    private fun displaySize(host: OverlayWindowHost): Pair<Int, Int> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            host.manager.currentWindowMetrics.bounds.let { it.width() to it.height() }
+        } else {
+            @Suppress("DEPRECATION")
+            host.context.resources.displayMetrics.let { it.widthPixels to it.heightPixels }
+        }
 
-    private fun dp(value: Int): Int = (value * density).toInt()
+    private fun dp(host: OverlayWindowHost, value: Int): Int = (value * host.density).toInt()
 }
