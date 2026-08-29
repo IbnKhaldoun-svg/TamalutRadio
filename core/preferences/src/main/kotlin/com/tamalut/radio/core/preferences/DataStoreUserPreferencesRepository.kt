@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.tamalut.radio.core.model.MediaId
@@ -30,6 +31,8 @@ internal object PreferenceKeys {
     val lastStationId = stringPreferencesKey("last_station_id")
     val localFolderUri = stringPreferencesKey("local_folder_uri")
     val overlayEnabled = booleanPreferencesKey("overlay_enabled")
+    val overlayEdge = stringPreferencesKey("overlay_edge")
+    val overlayVerticalFraction = floatPreferencesKey("overlay_vertical_fraction")
 }
 
 class DataStoreUserPreferencesRepository(
@@ -105,6 +108,20 @@ class DataStoreUserPreferencesRepository(
             preferences[PreferenceKeys.overlayEnabled] = overlayEnabled
         }
     }
+
+    override suspend fun setOverlayPosition(
+        edge: OverlayEdge,
+        verticalFraction: Float,
+    ) {
+        val normalizedFraction = verticalFraction
+            .takeIf(Float::isFinite)
+            ?.coerceIn(0f, 1f)
+            ?: DEFAULT_OVERLAY_VERTICAL_FRACTION
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.overlayEdge] = edge.name
+            preferences[PreferenceKeys.overlayVerticalFraction] = normalizedFraction
+        }
+    }
 }
 
 internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
@@ -150,6 +167,13 @@ internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
         ?.trim()
         ?.takeIf(String::isNotEmpty)
     val overlayEnabled = preferences[PreferenceKeys.overlayEnabled] ?: false
+    val overlayEdge = OverlayEdge.entries.firstOrNull {
+        it.name == preferences[PreferenceKeys.overlayEdge]
+    } ?: OverlayEdge.RIGHT
+    val overlayVerticalFraction = preferences[PreferenceKeys.overlayVerticalFraction]
+        ?.takeIf(Float::isFinite)
+        ?.coerceIn(0f, 1f)
+        ?: DEFAULT_OVERLAY_VERTICAL_FRACTION
 
     return UserPreferences(
         themePreference = theme,
@@ -157,6 +181,8 @@ internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
         lastPlayed = lastPlayed,
         localFolderUri = localFolderUri,
         overlayEnabled = overlayEnabled,
+        overlayEdge = overlayEdge,
+        overlayVerticalFraction = overlayVerticalFraction,
     )
 }
 

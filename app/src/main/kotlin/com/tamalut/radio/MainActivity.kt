@@ -32,7 +32,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,9 +51,7 @@ import com.tamalut.radio.core.data.RadioStationRepository
 import com.tamalut.radio.core.database.TamalutDatabase
 import com.tamalut.radio.core.designsystem.TamalutRadioTheme
 import com.tamalut.radio.core.designsystem.ThemeMode
-import com.tamalut.radio.core.playback.Media3PlaybackController
 import com.tamalut.radio.core.playback.PlaybackLaunchContract
-import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
 import com.tamalut.radio.core.preferences.ThemePreference
 import com.tamalut.radio.core.preferences.UserPreferences
 import com.tamalut.radio.feature.library.LibraryRoute
@@ -80,8 +77,9 @@ internal enum class MainDestination(val label: String, val icon: ImageVector) {
 }
 
 class MainActivity : ComponentActivity() {
-    private val preferencesRepository by lazy { DataStoreUserPreferencesRepository(applicationContext) }
-    private val playbackController by lazy { Media3PlaybackController(applicationContext) }
+    private val preferencesRepository by lazy { TamalutRadioRuntime.preferences(applicationContext) }
+    private val playbackController by lazy { TamalutRadioRuntime.playback(applicationContext) }
+    private val overlayCoordinator by lazy { TamalutRadioRuntime.overlay(applicationContext) }
     private val selectedDestination = MutableStateFlow(MainDestination.RADIO)
     private val resumeTick = MutableStateFlow(0L)
 
@@ -125,22 +123,11 @@ class MainActivity : ComponentActivity() {
             val overlayPermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartActivityForResult(),
             ) {
-                val granted = Settings.canDrawOverlays(this@MainActivity)
-                scope.launch { preferencesRepository.setOverlayEnabled(granted) }
-                if (granted) FloatingOverlayWindow.show(this@MainActivity) else FloatingOverlayWindow.hide()
+                resumeTick.value += 1L
             }
 
-            LaunchedEffect(userPreferences.overlayEnabled, resumeVersion) {
-                val granted = Settings.canDrawOverlays(this@MainActivity)
-                when {
-                    userPreferences.overlayEnabled && granted -> FloatingOverlayWindow.show(this@MainActivity)
-                    userPreferences.overlayEnabled && !granted -> {
-                        FloatingOverlayWindow.hide()
-                        preferencesRepository.setOverlayEnabled(false)
-                    }
-                    else -> FloatingOverlayWindow.hide()
-                }
-            }
+            @Suppress("UNUSED_VARIABLE")
+            val permissionRefreshVersion = resumeVersion
 
             TamalutRadioTheme(themeMode = userPreferences.themePreference.toThemeMode()) {
                 Scaffold(
@@ -177,10 +164,10 @@ class MainActivity : ComponentActivity() {
                             overlayEnabled = userPreferences.overlayEnabled,
                             overlayPermissionGranted = overlayPermissionGranted,
                             onOverlayEnabledChange = { enabled ->
-                                if (enabled) FloatingOverlayWindow.show(this@MainActivity) else FloatingOverlayWindow.hide()
                                 scope.launch { preferencesRepository.setOverlayEnabled(enabled) }
                             },
                             onRequestOverlayPermission = {
+                                overlayCoordinator.suppressNextUserLeave()
                                 overlayPermissionLauncher.launch(
                                     Intent(
                                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -198,7 +185,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        overlayCoordinator.onAppForeground()
         resumeTick.value += 1L
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        overlayCoordinator.onUserLeaveHint()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -209,11 +202,6 @@ class MainActivity : ComponentActivity() {
 
     private fun handleLaunchIntent(intent: Intent?) {
         destinationForLaunchAction(intent?.action)?.let { selectedDestination.value = it }
-    }
-
-    override fun onDestroy() {
-        playbackController.release()
-        super.onDestroy()
     }
 }
 
@@ -249,33 +237,42 @@ private fun SettingsDestination(
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Player flottante", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(
-                                "Mostra un piccolo controllo sopra altre app.",
+                                "Mostra un piccolo controllo sopra altre app quando lasci TamalutRadio durante la riproduzione.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Switch(
-                            checked = overlayEnabled && overlayPermissionGranted,
+                            checked = overlayEnabled,
                             onCheckedChange = { requestedEnabled ->
                                 when (resolveOverlayToggleAction(requestedEnabled, overlayPermissionGranted)) {
                                     OverlayToggleAction.DISABLE -> onOverlayEnabledChange(false)
-                                    OverlayToggleAction.SHOW -> onOverlayEnabledChange(true)
-                                    OverlayToggleAction.REQUEST_PERMISSION -> showPermissionExplanation = true
+                                    OverlayToggleAction.ENABLE -> onOverlayEnabledChange(true)
+                                    OverlayToggleAction.ENABLE_AND_REQUEST_PERMISSION -> {
+                                        onOverlayEnabledChange(true)
+                                        showPermissionExplanation = true
+                                    }
                                 }
                             },
                         )
                     }
                     Text(
-                        if (overlayPermissionGranted) {
-                            if (overlayEnabled) "Permesso concesso · overlay attivo" else "Permesso concesso · overlay disattivato"
-                        } else {
-                            "Permesso “Visualizza sopra altre app” non concesso"
+                        when {
+                            overlayEnabled && overlayPermissionGranted -> "Attivo · permesso concesso"
+                            overlayEnabled -> "Attivo · permesso necessario"
+                            overlayPermissionGranted -> "Disattivato · permesso disponibile"
+                            else -> "Disattivato · permesso non concesso"
                         },
                         style = MaterialTheme.typography.labelLarge,
                         color = if (overlayPermissionGranted) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary,
                     )
+                    if (overlayEnabled && !overlayPermissionGranted) {
+                        TextButton(onClick = { showPermissionExplanation = true }) {
+                            Text("Concedi permesso")
+                        }
+                    }
                     Text(
-                        "È facoltativo: se non lo concedi, Radio, Musica e riproduzione in background continuano a funzionare normalmente.",
+                        "La preferenza resta memorizzata: chiudere la linguetta o revocare il permesso non disattiva automaticamente la funzione.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -290,7 +287,7 @@ private fun SettingsDestination(
             title = { Text("Consenti il player flottante?") },
             text = {
                 Text(
-                    "Per mantenere il player visibile sopra Maps, Waze e altre app, Android richiede il permesso speciale “Visualizza sopra altre app”. Il permesso è opzionale e puoi revocarlo in qualsiasi momento.",
+                    "Per mantenere il player visibile sopra Maps, Waze e altre app, Android richiede il permesso speciale “Visualizza sopra altre app”. Il permesso è opzionale e puoi revocarlo in qualsiasi momento senza perdere la preferenza Player flottante.",
                 )
             },
             confirmButton = {

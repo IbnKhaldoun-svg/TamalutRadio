@@ -23,4 +23,9 @@ interface UserPreferencesRepository {
     suspend fun setLocalFolderUri(localFolderUri: String?)
 
     suspend fun setOverlayEnabled(overlayEnabled: Boolean) = Unit
+
+    suspend fun setOverlayPosition(
+        edge: OverlayEdge,
+        verticalFraction: Float,
+    ) = Unit
 }

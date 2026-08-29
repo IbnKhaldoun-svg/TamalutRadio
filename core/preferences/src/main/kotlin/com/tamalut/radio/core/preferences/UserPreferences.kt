@@ -10,6 +10,13 @@ enum class ThemePreference {
     DARK,
 }
 
+enum class OverlayEdge {
+    LEFT,
+    RIGHT,
+}
+
+const val DEFAULT_OVERLAY_VERTICAL_FRACTION = 0.35f
+
 data class LastPlayedPreference(
     val sourceType: MediaSourceType,
     val mediaId: MediaId? = null,
@@ -35,4 +42,6 @@ data class UserPreferences(
     val lastPlayed: LastPlayedPreference? = null,
     val localFolderUri: String? = null,
     val overlayEnabled: Boolean = false,
+    val overlayEdge: OverlayEdge = OverlayEdge.RIGHT,
+    val overlayVerticalFraction: Float = DEFAULT_OVERLAY_VERTICAL_FRACTION,
 )
