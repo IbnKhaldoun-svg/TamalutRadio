@@ -603,16 +603,16 @@ Do not implement yet:
 
 ### Overlay flottante di controllo sopra altre app
 
-- **Sotto-passaggio 1/2 e raffinamento 1.5/2 completati e validati fisicamente; sotto-passaggio 2/2 (controlli Media3 condivisi) autorizzato.**
+- **Sotto-passaggi 1/2 e 1.5/2 validati fisicamente; sotto-passaggio 2/2 (controlli Media3 condivisi) implementato e verificato in CI, in attesa di validazione fisica finale.**
 - Prevedere un overlay flottante che possa restare visibile sopra altre app, incluse Google Maps e Waze, anche dopo l'uscita da TamalutRadio tramite tasto Home.
 - L'overlay dovrà offrire controlli minimi `precedente / pausa-play / successivo`, collegati alla stessa sessione Media3 condivisa e senza creare un secondo player.
 - L'utente dovrà poter chiudere l'overlay senza fermare la riproduzione in corso; la chiusura è temporanea per la sessione esterna corrente e non disattiva la preferenza permanente.
 - Richiede il permesso speciale Android **Visualizza sopra altre app** (`SYSTEM_ALERT_WINDOW`), da richiedere solo con azione e consenso espliciti dell'utente e con UX dedicata per stato permesso/negazione/revoca. La preferenza permanente resta separata dallo stato del permesso.
-- Il raffinamento 1.5 introduce edge-tab minimale, drag/snap ai bordi, posizione persistita e lifecycle Coordinator/SessionState; i controlli di trasporto restano esclusivamente nel 2/2.
+- Il raffinamento 1.5 introduce edge-tab minimale, drag/snap ai bordi, posizione persistita e lifecycle Coordinator/SessionState; il 2/2 aggiunge `precedente / play-pausa / successivo` nel solo pannello espanso, tutti collegati allo stato/controller Media3 condiviso.
 
 ### Floating overlay playback controls contract — sub-step 2/2
 
-- [ ] **2/2 — Shared playback transport controls in the expanded overlay.** Add `precedente / play-pausa / successivo` only to the expanded floating-overlay panel opened from the edge tab. The collapsed edge tab remains a minimal navigation affordance and must not gain transport actions.
+- [x] **2/2 — Shared playback transport controls in the expanded overlay.** Add `precedente / play-pausa / successivo` only to the expanded floating-overlay panel opened from the edge tab. The collapsed edge tab remains a minimal navigation affordance and must not gain transport actions.
 - The overlay must observe the exact same `PlaybackController.state` / `PlaybackState` already used by the persistent mini-player, notification/session surfaces, Radio/Music synchronization, and Now Playing. Do not create a second player, MediaBrowser/controller, MediaSession, foreground service, or feature-owned playback state.
 - Previous, play/pause, and next taps must delegate to the existing process-shared `PlaybackController` instance owned by `TamalutRadioRuntime`. Play/pause presentation must update from real shared `PlaybackState.isPlaying` changes regardless of whether the change originated from the overlay, notification/lock screen/media button, mini-player, or another in-app surface.
 - Previous/next enabled state must be driven directly by `PlaybackState.canSkipPrevious` / `canSkipNext`, matching the actual Media3 capabilities at that moment. Disabled transport controls must not dispatch playback commands.
@@ -621,6 +621,17 @@ Do not implement yet:
 - Keep the 1.5 lifecycle contract unchanged: Home/Recenti/root-Back admission through `onStop`, permission-Settings stop suppression, configuration-change suppression, session-only X dismissal, permission/preference separation, lazy WindowManager host, edge snap, and persisted normalized vertical placement.
 - Add deterministic unit tests for transport delegation to the shared controller, play/pause icon/state synchronization when the real state changes, previous/next capability gating, control taps preserving expanded/session state, and regression coverage for both RADIO and LOCAL playback projections/actions.
 - Verification requirement: a real GitHub Actions run must pass `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`, plus structural checks proving the overlay consumes shared playback state/controller and does not create another player/session/service. The persistent debug signing v1 certificate must be verified before promotion to `main`.
+
+Validation record — floating overlay playback controls 2/2:
+- Clean spec-before commit on `main`: `5f23f448dbee83eca5ec9ad54efe27c26e6b5073` (`docs: define floating overlay playback controls 2/2`).
+- Clean implementation commit on `main`: `8c934e3a8ae66e677b4dd2191d8e985f7bf0c28c` (`feat: add shared playback controls to floating overlay`); validated source implementation on the temporary branch: `60c2471a0dc0da25d56d09d0697e7b99c8c46ad7`.
+- GitHub Actions validation run `33263483135` passed `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`: BUILD SUCCESSFUL in 4m 42s, 193 actionable tasks (153 executed, 40 from cache).
+- Structural result `OVERLAY_PLAYBACK_SHARED_ARCHITECTURE=PASS`: the overlay observes `playbackController.state`, projects the current shared `PlaybackState`, delegates only to the same process-shared `PlaybackController`, and contains no additional ExoPlayer, MediaBrowser, MediaSession, or foreground service.
+- Play/Pause presentation is derived from real `PlaybackState.isPlaying`; Previous/Next enabled state and dispatch are gated by `canSkipPrevious` / `canSkipNext`. External state changes therefore reconcile back into the expanded overlay through the existing shared-state collector.
+- Transport click handlers are isolated from edge-tab drag/collapse and X dismissal. Drag, collapse and session-only close contain no playback action path; transport clicks do not mutate overlay expanded/session state.
+- Regression tests cover RADIO and LOCAL state/action paths, including preservation of local repeat/shuffle state and radio semantics.
+- Persistent debug signer SHA-256: `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`; validation APK SHA-256: `e30c34ee27bc499c1b831e1c36a5911e36b872976281e1bfc32f1544d31de004`.
+- CI validation is complete; final physical verification of the expanded overlay controls remains required before declaring the complete floating-overlay feature physically approved.
 
 ## Decision log
 
