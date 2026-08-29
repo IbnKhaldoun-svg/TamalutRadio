@@ -14,6 +14,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.tamalut.radio.core.preferences.OverlayEdge
@@ -23,6 +24,7 @@ internal data class FloatingOverlayViewState(
     val edge: OverlayEdge,
     val verticalFraction: Float,
     val expanded: Boolean,
+    val playbackControls: OverlayPlaybackControlsModel?,
 )
 
 private data class OverlayWindowHost(
@@ -32,6 +34,8 @@ private data class OverlayWindowHost(
     val touchSlop: Int,
     val collapsedWidth: Int,
     val expandedWidth: Int,
+    val closeWidth: Int,
+    val transportButtonWidth: Int,
     val windowHeight: Int,
     val root: LinearLayout,
     val params: WindowManager.LayoutParams,
@@ -42,6 +46,7 @@ internal class FloatingOverlayWindow(
     private val onDismiss: () -> Unit,
     private val onExpandedChanged: (Boolean) -> Unit,
     private val onPositionChanged: (OverlayEdge, Float) -> Unit,
+    private val onPlaybackAction: (OverlayPlaybackAction) -> Unit,
 ) {
     private val appContext = context.applicationContext
     private val hostSlot = LazyOverlayHostSlot(::createWindowHost)
@@ -113,7 +118,9 @@ internal class FloatingOverlayWindow(
             fun dp(value: Int): Int = (value * density).toInt()
 
             val collapsedWidth = dp(36)
-            val expandedWidth = dp(92)
+            val closeWidth = dp(36)
+            val transportButtonWidth = dp(48)
+            val expandedWidth = collapsedWidth + closeWidth + (transportButtonWidth * 3)
             val windowHeight = dp(48)
             val root = LinearLayout(overlayContext).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -139,6 +146,8 @@ internal class FloatingOverlayWindow(
                 touchSlop = ViewConfiguration.get(overlayContext).scaledTouchSlop,
                 collapsedWidth = collapsedWidth,
                 expandedWidth = expandedWidth,
+                closeWidth = closeWidth,
+                transportButtonWidth = transportButtonWidth,
                 windowHeight = windowHeight,
                 root = root,
                 params = params,
@@ -169,19 +178,26 @@ internal class FloatingOverlayWindow(
 
         val tab = edgeTab(host, state)
         val close = if (state.expanded) closeButton(host) else null
+        val transport = if (state.expanded) transportControls(host, state.playbackControls) else null
         if (state.edge == OverlayEdge.LEFT) {
             host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
-            close?.let {
+            transport?.let {
                 host.root.addView(
                     it,
-                    LinearLayout.LayoutParams(host.expandedWidth - host.collapsedWidth, host.windowHeight),
+                    LinearLayout.LayoutParams(host.transportButtonWidth * 3, host.windowHeight),
                 )
+            }
+            close?.let {
+                host.root.addView(it, LinearLayout.LayoutParams(host.closeWidth, host.windowHeight))
             }
         } else {
             close?.let {
+                host.root.addView(it, LinearLayout.LayoutParams(host.closeWidth, host.windowHeight))
+            }
+            transport?.let {
                 host.root.addView(
                     it,
-                    LinearLayout.LayoutParams(host.expandedWidth - host.collapsedWidth, host.windowHeight),
+                    LinearLayout.LayoutParams(host.transportButtonWidth * 3, host.windowHeight),
                 )
             }
             host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
@@ -212,6 +228,65 @@ internal class FloatingOverlayWindow(
             setOnClickListener { onExpandedChanged(!state.expanded) }
             setOnTouchListener(::handleDragTouch)
         }
+
+    private fun transportControls(
+        host: OverlayWindowHost,
+        model: OverlayPlaybackControlsModel?,
+    ): LinearLayout = LinearLayout(host.context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER
+        addView(
+            transportButton(
+                host = host,
+                iconRes = android.R.drawable.ic_media_previous,
+                description = "Precedente",
+                enabled = model?.previousEnabled == true,
+                action = OverlayPlaybackAction.PREVIOUS,
+            ),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+        )
+        addView(
+            transportButton(
+                host = host,
+                iconRes = if (model?.playPauseIcon == OverlayPlayPauseIcon.PAUSE) {
+                    android.R.drawable.ic_media_pause
+                } else {
+                    android.R.drawable.ic_media_play
+                },
+                description = if (model?.playPauseIcon == OverlayPlayPauseIcon.PAUSE) "Pausa" else "Riproduci",
+                enabled = model != null,
+                action = OverlayPlaybackAction.TOGGLE_PLAY_PAUSE,
+            ),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+        )
+        addView(
+            transportButton(
+                host = host,
+                iconRes = android.R.drawable.ic_media_next,
+                description = "Successivo",
+                enabled = model?.nextEnabled == true,
+                action = OverlayPlaybackAction.NEXT,
+            ),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+        )
+    }
+
+    private fun transportButton(
+        host: OverlayWindowHost,
+        iconRes: Int,
+        description: String,
+        enabled: Boolean,
+        action: OverlayPlaybackAction,
+    ): ImageButton = ImageButton(host.context).apply {
+        setImageResource(iconRes)
+        setColorFilter(Color.rgb(216, 179, 106))
+        contentDescription = description
+        setBackgroundColor(Color.TRANSPARENT)
+        isEnabled = enabled
+        alpha = if (enabled) 1f else 0.35f
+        setPadding(dp(host, 12), dp(host, 12), dp(host, 12), dp(host, 12))
+        setOnClickListener { if (isEnabled) onPlaybackAction(action) }
+    }
 
     private fun closeButton(host: OverlayWindowHost): TextView = TextView(host.context).apply {
         gravity = Gravity.CENTER

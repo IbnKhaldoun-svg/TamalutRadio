@@ -44,6 +44,9 @@ internal class FloatingOverlayCoordinator(
                 preferencesRepository.setOverlayPosition(edge, verticalFraction)
             }
         },
+        onPlaybackAction = { action ->
+            performOverlayPlaybackAction(action, latestPlaybackState, playbackController)
+        },
     )
 
     init {
@@ -124,6 +127,7 @@ internal class FloatingOverlayCoordinator(
                     edge = latestPreferences.overlayEdge,
                     verticalFraction = latestPreferences.overlayVerticalFraction,
                     expanded = sessionState.expanded,
+                    playbackControls = latestPlaybackState.toOverlayPlaybackControlsModel(),
                 ),
             )
         } else {
