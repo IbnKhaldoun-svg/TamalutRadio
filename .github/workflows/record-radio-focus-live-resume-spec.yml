@@ -1,0 +1,41 @@
+name: Record radio audio focus live resume spec
+
+on:
+  push:
+    paths:
+      - '.github/workflows/record-radio-focus-live-resume-spec.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Patch PROJECT_SPEC
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('PROJECT_SPEC.md')
+          text = p.read_text()
+          anchor = '## Local music\n\n'
+          if anchor not in text:
+              raise SystemExit('Local music anchor missing')
+          section = '''### Radio transient audio-focus live-edge resume refinement contract\n\n- [ ] **RADIO transient audio-focus loss -> gain resumes at the real live edge.** `TamalutPlaybackService` already delegates Android audio-focus handling to the single ExoPlayer through `setAudioAttributes(..., true)`; do not add a parallel player/session or a competing app-owned AudioManager focus stack. Extend the existing RADIO live-resume policy to observe Media3 playback suppression transitions: when an already-playing RADIO item enters `Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS`, remember that a focus-driven live resume is pending; when suppression returns to `Player.PLAYBACK_SUPPRESSION_REASON_NONE` while `playWhenReady` is still true, discard the stale paused radio buffer and reconnect the exact current radio/fallback MediaItem through the existing `stop() -> setMediaItem(currentItem) -> prepare() -> play()` path before audible resume.\n- The focus-driven reconnect is RADIO-only. LOCAL must keep normal ExoPlayer focus behavior and resume from the exact previous position after transient focus loss/gain; it must never be stopped/re-prepared merely because focus returns.\n- Manual pause/resume behavior remains unchanged: RADIO explicit pause -> Play still reconnects to live edge and LOCAL explicit pause -> Play remains position-preserving. If the user manually pauses while audio focus is transiently lost, focus gain must not force playback; the pending focus reconnect is cleared/consumed without auto-playing, and a later explicit RADIO Play follows the existing manual live-resume gate.\n- Preserve the current radio fallback plan/state and reuse `reconnectCurrentRadioAtLiveEdge(...)`; do not duplicate the stop/set/prepare/play sequence in a second implementation. Source changes to LOCAL and service stop/destroy must clear any pending focus-resume state.\n- Add deterministic unit coverage for RADIO transient focus loss -> gain reconnect, LOCAL transient focus loss -> gain no reconnect, gain without prior transient loss no reconnect, and manual pause during transient focus loss not auto-resuming on gain. Existing `RadioLiveResumeGateTest` manual-pause cases must remain green.\n- Verification requirement: a real GitHub Actions run must pass `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`; structural checks must prove the service handles `onPlaybackSuppressionReasonChanged`, keys specifically on `PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS`, reuses `reconnectCurrentRadioAtLiveEdge`, retains the single ExoPlayer/MediaLibrarySession architecture, and does not introduce a custom `AudioManager.OnAudioFocusChangeListener`. Verify persistent debug signer v1 and record APK SHA-256 before promotion.\n\n'''
+          if '### Radio transient audio-focus live-edge resume refinement contract' in text:
+              raise SystemExit('spec section already present')
+          text = text.replace(anchor, section + anchor, 1)
+          p.write_text(text)
+          PY
+          git diff --check
+          git diff -- PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs: define radio audio focus live resume'
+          git push origin HEAD:main
