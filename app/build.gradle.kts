@@ -75,6 +75,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":feature:radio"))
     implementation(project(":feature:library"))
+    implementation(project(":feature:drive"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material3:material3")
