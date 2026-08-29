@@ -603,14 +603,30 @@ Do not implement yet:
 
 ### Overlay flottante di controllo sopra altre app
 
-- **Sotto-passaggio 1/2 e raffinamento 1.5/2 completati e verificati in CI; sotto-passaggio 2/2 (controlli Media3 condivisi) resta da implementare dopo il test fisico del 1.5.**
+- **Sotto-passaggio 1/2 e raffinamento 1.5/2 completati e validati fisicamente; sotto-passaggio 2/2 (controlli Media3 condivisi) autorizzato.**
 - Prevedere un overlay flottante che possa restare visibile sopra altre app, incluse Google Maps e Waze, anche dopo l'uscita da TamalutRadio tramite tasto Home.
 - L'overlay dovrà offrire controlli minimi `precedente / pausa-play / successivo`, collegati alla stessa sessione Media3 condivisa e senza creare un secondo player.
 - L'utente dovrà poter chiudere l'overlay senza fermare la riproduzione in corso; la chiusura è temporanea per la sessione esterna corrente e non disattiva la preferenza permanente.
 - Richiede il permesso speciale Android **Visualizza sopra altre app** (`SYSTEM_ALERT_WINDOW`), da richiedere solo con azione e consenso espliciti dell'utente e con UX dedicata per stato permesso/negazione/revoca. La preferenza permanente resta separata dallo stato del permesso.
 - Il raffinamento 1.5 introduce edge-tab minimale, drag/snap ai bordi, posizione persistita e lifecycle Coordinator/SessionState; i controlli di trasporto restano esclusivamente nel 2/2.
 
+### Floating overlay playback controls contract — sub-step 2/2
+
+- [ ] **2/2 — Shared playback transport controls in the expanded overlay.** Add `precedente / play-pausa / successivo` only to the expanded floating-overlay panel opened from the edge tab. The collapsed edge tab remains a minimal navigation affordance and must not gain transport actions.
+- The overlay must observe the exact same `PlaybackController.state` / `PlaybackState` already used by the persistent mini-player, notification/session surfaces, Radio/Music synchronization, and Now Playing. Do not create a second player, MediaBrowser/controller, MediaSession, foreground service, or feature-owned playback state.
+- Previous, play/pause, and next taps must delegate to the existing process-shared `PlaybackController` instance owned by `TamalutRadioRuntime`. Play/pause presentation must update from real shared `PlaybackState.isPlaying` changes regardless of whether the change originated from the overlay, notification/lock screen/media button, mini-player, or another in-app surface.
+- Previous/next enabled state must be driven directly by `PlaybackState.canSkipPrevious` / `canSkipNext`, matching the actual Media3 capabilities at that moment. Disabled transport controls must not dispatch playback commands.
+- Transport taps must not collapse, dismiss, move, or end the external overlay session. Conversely, tapping X, collapsing the edge panel, or dragging/snapping the overlay must never invoke play/pause/previous/next or otherwise alter playback.
+- Radio and local music must use the same overlay transport path. Radio must preserve its existing fallback/live semantics; local music must preserve current queue ordering, repeat/shuffle behavior, and boundary capabilities including repeat-one/single-item cases.
+- Keep the 1.5 lifecycle contract unchanged: Home/Recenti/root-Back admission through `onStop`, permission-Settings stop suppression, configuration-change suppression, session-only X dismissal, permission/preference separation, lazy WindowManager host, edge snap, and persisted normalized vertical placement.
+- Add deterministic unit tests for transport delegation to the shared controller, play/pause icon/state synchronization when the real state changes, previous/next capability gating, control taps preserving expanded/session state, and regression coverage for both RADIO and LOCAL playback projections/actions.
+- Verification requirement: a real GitHub Actions run must pass `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`, plus structural checks proving the overlay consumes shared playback state/controller and does not create another player/session/service. The persistent debug signing v1 certificate must be verified before promotion to `main`.
+
 ## Decision log
+
+### 2026-08-29 — Floating overlay playback controls 2/2 authorized
+
+Physical validation of sub-step 1/2 plus refinement 1.5 is complete across Home, Recenti, root Back, permission/revocation, pause continuity, Settings suppression, drag/snap, collapse/expand, and session-only dismissal. Sub-step 2/2 is authorized to add Previous / Play-Pause / Next inside the expanded overlay only. The controls must project the existing shared Media3 `PlaybackState`, delegate exclusively to the process-shared `PlaybackController`, reflect external play/pause changes in real time, honor `canSkipPrevious` / `canSkipNext`, and preserve every 1.5 lifecycle/window interaction without playback side effects. Tests must include delegation, state synchronization, capability gating, and RADIO/LOCAL regressions before a real signed debug APK is promoted.
 
 ### 2026-08-29 — Floating overlay UX/lifecycle refinement 1.5 authorized
 
