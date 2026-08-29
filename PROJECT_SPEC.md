@@ -603,7 +603,7 @@ Do not implement yet:
 
 ### Overlay flottante di controllo sopra altre app
 
-- **Sotto-passaggi 1/2 e 1.5/2 validati fisicamente; sotto-passaggio 2/2 (controlli Media3 condivisi) implementato e verificato in CI, in attesa di validazione fisica finale.**
+- **Percorso overlay 1/2 + 1.5/2 + 2/2 completamente validato fisicamente il 2026-08-29: Home, Recenti, root Back, permesso/revoca, pausa, Impostazioni, drag/snap, dismiss session-only, controlli playback, sincronizzazione esterna, capability e transizioni RADIO↔LOCAL tutti confermati.**
 - Prevedere un overlay flottante che possa restare visibile sopra altre app, incluse Google Maps e Waze, anche dopo l'uscita da TamalutRadio tramite tasto Home.
 - L'overlay dovrà offrire controlli minimi `precedente / pausa-play / successivo`, collegati alla stessa sessione Media3 condivisa e senza creare un secondo player.
 - L'utente dovrà poter chiudere l'overlay senza fermare la riproduzione in corso; la chiusura è temporanea per la sessione esterna corrente e non disattiva la preferenza permanente.
@@ -633,7 +633,22 @@ Validation record — floating overlay playback controls 2/2:
 - Persistent debug signer SHA-256: `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`; validation APK SHA-256: `e30c34ee27bc499c1b831e1c36a5911e36b872976281e1bfc32f1544d31de004`.
 - CI validation is complete; final physical verification of the expanded overlay controls remains required before declaring the complete floating-overlay feature physically approved.
 
+### Radio live resume + overlay inactivity/app-entry refinement contract
+
+- [ ] **1/3 — Radio resume returns to the real live edge.** After a genuine pause→resume of an already-loaded RADIO item, `TamalutPlaybackService` must discard the paused source/buffer and re-install/re-prepare the same current radio `MediaItem` before continuing playback. LOCAL music must preserve ordinary position-preserving pause/resume and must never be re-prepared solely because playback resumes.
+- Preserve the active radio fallback item/plan, single ExoPlayer/MediaLibrarySession architecture, repeat/shuffle rules, and initial-start behaviour; initial radio start must not double-prepare.
+- [ ] **2/3 — Expanded overlay auto-collapses after inactivity.** Arm a **4,000 ms** inactivity timeout after expansion. Any explicit interaction with expanded controls re-arms it. Timeout collapses only the UI to the edge tab; it must not dismiss the external session, move the overlay, change persistence, or touch playback. Hide/foreground/session-end paths cancel pending timers.
+- [ ] **3/3 — Dedicated return-to-app affordance.** Add a clearly separate TamalutRadio app-entry control in the expanded panel, isolated from Previous / Play-Pause / Next. It must reuse the same Now Playing PendingIntent construction used by the Media3 session activity, foreground `MainActivity` on `ACTION_OPEN_NOW_PLAYING`, and never issue playback commands. `onAppForeground()` remains the reset point for temporary dismiss/session state.
+- Extract/reuse one shared Now Playing PendingIntent factory in `:core:playback`; notification/session and overlay must not maintain separate launch semantics.
+- Preserve every physically approved overlay behavior from 1/2 + 1.5 + 2/2 and all RADIO/LOCAL playback semantics outside these three refinements.
+- Add deterministic tests for RADIO pause→resume reconnect vs LOCAL normal resume, initial-start/source-transition safety, 4-second timer arm/re-arm/cancel/stale-task safety, and isolation of app-entry from transport. Structural verification must prove service and overlay use the same PendingIntent factory.
+- Verification requirement: a real GitHub Actions run must pass `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`; verify persistent debug signer v1 and APK SHA-256; structurally prove one player/session, RADIO-only re-prepare, LOCAL preservation, 4,000 ms timeout, shared app-launch PendingIntent, and no playback side effects from collapse/app-entry.
+
 ## Decision log
+
+### 2026-08-29 — Complete overlay physically validated; live-resume and overlay polish authorized
+
+Physical checklist 2/2 completed with all 30 cases passing across Radio, external notification synchronization, Previous/Next capabilities, overlay/playback independence, and RADIO↔LOCAL transitions. The entire floating-overlay path 1/2 + 1.5 + 2/2 is therefore physically approved. Follow-up authorized: RADIO pause→resume reconnects to the live edge; the expanded panel auto-collapses after 4 seconds of inactivity; and a dedicated transport-separated app-entry affordance reuses the notification Now Playing launch contract. LOCAL pause/resume and every already-approved overlay behavior are regression boundaries.
 
 ### 2026-08-29 — Floating overlay playback controls 2/2 authorized
 
