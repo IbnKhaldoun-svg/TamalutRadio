@@ -35,6 +35,8 @@ private data class OverlayWindowHost(
     val collapsedWidth: Int,
     val expandedWidth: Int,
     val closeWidth: Int,
+    val appEntryWidth: Int,
+    val dividerWidth: Int,
     val transportButtonWidth: Int,
     val windowHeight: Int,
     val root: LinearLayout,
@@ -47,6 +49,8 @@ internal class FloatingOverlayWindow(
     private val onExpandedChanged: (Boolean) -> Unit,
     private val onPositionChanged: (OverlayEdge, Float) -> Unit,
     private val onPlaybackAction: (OverlayPlaybackAction) -> Unit,
+    private val onOpenApp: () -> Unit,
+    private val onUserInteraction: () -> Unit,
 ) {
     private val appContext = context.applicationContext
     private val hostSlot = LazyOverlayHostSlot(::createWindowHost)
@@ -119,8 +123,10 @@ internal class FloatingOverlayWindow(
 
             val collapsedWidth = dp(36)
             val closeWidth = dp(36)
+            val appEntryWidth = dp(52)
+            val dividerWidth = dp(1).coerceAtLeast(1)
             val transportButtonWidth = dp(48)
-            val expandedWidth = collapsedWidth + closeWidth + (transportButtonWidth * 3)
+            val expandedWidth = collapsedWidth + closeWidth + appEntryWidth + dividerWidth + (transportButtonWidth * 3)
             val windowHeight = dp(48)
             val root = LinearLayout(overlayContext).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -147,6 +153,8 @@ internal class FloatingOverlayWindow(
                 collapsedWidth = collapsedWidth,
                 expandedWidth = expandedWidth,
                 closeWidth = closeWidth,
+                appEntryWidth = appEntryWidth,
+                dividerWidth = dividerWidth,
                 transportButtonWidth = transportButtonWidth,
                 windowHeight = windowHeight,
                 root = root,
@@ -178,9 +186,17 @@ internal class FloatingOverlayWindow(
 
         val tab = edgeTab(host, state)
         val close = if (state.expanded) closeButton(host) else null
+        val appEntry = if (state.expanded) appEntryButton(host) else null
+        val divider = if (state.expanded) appEntryDivider(host) else null
         val transport = if (state.expanded) transportControls(host, state.playbackControls) else null
         if (state.edge == OverlayEdge.LEFT) {
             host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
+            appEntry?.let {
+                host.root.addView(it, LinearLayout.LayoutParams(host.appEntryWidth, host.windowHeight))
+            }
+            divider?.let {
+                host.root.addView(it, LinearLayout.LayoutParams(host.dividerWidth, dp(host, 24)))
+            }
             transport?.let {
                 host.root.addView(
                     it,
@@ -199,6 +215,12 @@ internal class FloatingOverlayWindow(
                     it,
                     LinearLayout.LayoutParams(host.transportButtonWidth * 3, host.windowHeight),
                 )
+            }
+            divider?.let {
+                host.root.addView(it, LinearLayout.LayoutParams(host.dividerWidth, dp(host, 24)))
+            }
+            appEntry?.let {
+                host.root.addView(it, LinearLayout.LayoutParams(host.appEntryWidth, host.windowHeight))
             }
             host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
         }
@@ -225,9 +247,30 @@ internal class FloatingOverlayWindow(
                 "Espandi player flottante"
             }
             setBackgroundColor(Color.TRANSPARENT)
-            setOnClickListener { onExpandedChanged(!state.expanded) }
+            setOnClickListener {
+                onUserInteraction()
+                onExpandedChanged(!state.expanded)
+            }
             setOnTouchListener(::handleDragTouch)
         }
+
+    private fun appEntryButton(host: OverlayWindowHost): ImageButton = ImageButton(host.context).apply {
+        setImageResource(R.mipmap.ic_launcher)
+        contentDescription = "Torna a TamalutRadio"
+        setBackgroundColor(Color.TRANSPARENT)
+        scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+        setPadding(dp(host, 8), dp(host, 8), dp(host, 8), dp(host, 8))
+        setOnClickListener {
+            onUserInteraction()
+            onOpenApp()
+        }
+    }
+
+    private fun appEntryDivider(host: OverlayWindowHost): View = View(host.context).apply {
+        setBackgroundColor(Color.rgb(79, 138, 115))
+        alpha = 0.45f
+        contentDescription = null
+    }
 
     private fun transportControls(
         host: OverlayWindowHost,
@@ -285,7 +328,10 @@ internal class FloatingOverlayWindow(
         isEnabled = enabled
         alpha = if (enabled) 1f else 0.35f
         setPadding(dp(host, 12), dp(host, 12), dp(host, 12), dp(host, 12))
-        setOnClickListener { if (isEnabled) onPlaybackAction(action) }
+        setOnClickListener {
+            onUserInteraction()
+            if (isEnabled) onPlaybackAction(action)
+        }
     }
 
     private fun closeButton(host: OverlayWindowHost): TextView = TextView(host.context).apply {
@@ -295,13 +341,17 @@ internal class FloatingOverlayWindow(
         setTextColor(Color.rgb(198, 106, 70))
         contentDescription = "Nascondi player flottante per questa sessione"
         setBackgroundColor(Color.TRANSPARENT)
-        setOnClickListener { onDismiss() }
+        setOnClickListener {
+            onUserInteraction()
+            onDismiss()
+        }
     }
 
     private fun handleDragTouch(view: View, event: MotionEvent): Boolean {
         val host = hostSlot.existing() ?: return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                if (currentState?.expanded == true) onUserInteraction()
                 downRawX = event.rawX
                 downRawY = event.rawY
                 startX = host.params.x

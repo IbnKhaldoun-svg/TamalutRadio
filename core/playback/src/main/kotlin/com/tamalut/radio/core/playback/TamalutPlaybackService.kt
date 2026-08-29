@@ -1,7 +1,6 @@
 package com.tamalut.radio.core.playback
 
 import android.app.PendingIntent
-import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -18,14 +17,33 @@ import androidx.media3.session.MediaSession
 class TamalutPlaybackService : MediaLibraryService() {
     private var player: ExoPlayer? = null
     private var mediaLibrarySession: MediaLibrarySession? = null
+    private val liveResumeGate = RadioLiveResumeGate()
 
     var currentRadioFallbackState: RadioFallbackState = RadioFallbackState.Inactive
         private set
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            currentRadioFallbackState = RadioMediaItemFactory.planFrom(mediaItem)?.asState()
-                ?: RadioFallbackState.Inactive
+            val exoPlayer = player
+            val plan = RadioMediaItemFactory.planFrom(mediaItem)
+            liveResumeGate.onMediaItemChanged(
+                isRadio = plan != null,
+                playWhenReady = exoPlayer?.playWhenReady == true,
+            )
+            currentRadioFallbackState = plan?.asState() ?: RadioFallbackState.Inactive
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            val exoPlayer = player ?: return
+            val currentItem = exoPlayer.currentMediaItem
+            val plan = RadioMediaItemFactory.planFrom(currentItem)
+            val shouldReconnect = liveResumeGate.onPlayWhenReadyChanged(
+                isRadio = plan != null,
+                playWhenReady = playWhenReady,
+            )
+            if (shouldReconnect && currentItem != null && plan != null) {
+                reconnectCurrentRadioAtLiveEdge(exoPlayer, currentItem, plan)
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -66,28 +84,29 @@ class TamalutPlaybackService : MediaLibraryService() {
             exoPlayer,
             PlaybackSessionCallback(::stopAndExit),
         ).setMediaButtonPreferences(PlaybackControls.mediaButtonPreferences(includeStopExit = true))
-        createSessionActivityPendingIntent()?.let { pendingIntent ->
+        PlaybackLaunchContract.createNowPlayingPendingIntent(this)?.let { pendingIntent ->
             sessionBuilder.setSessionActivity(pendingIntent)
         }
         mediaLibrarySession = sessionBuilder.build()
     }
 
-    private fun createSessionActivityPendingIntent(): PendingIntent? {
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return null
-        launchIntent.action = PlaybackLaunchContract.ACTION_OPEN_NOW_PLAYING
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        return PendingIntent.getActivity(
-            this,
-            PlaybackLaunchContract.REQUEST_CODE,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+    private fun reconnectCurrentRadioAtLiveEdge(
+        exoPlayer: ExoPlayer,
+        currentItem: MediaItem,
+        plan: RadioFallbackPlan,
+    ) {
+        currentRadioFallbackState = plan.asState()
+        exoPlayer.stop()
+        exoPlayer.setMediaItem(currentItem)
+        exoPlayer.prepare()
+        exoPlayer.play()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
         mediaLibrarySession
 
     private fun stopAndExit() {
+        liveResumeGate.reset()
         currentRadioFallbackState = RadioFallbackState.Inactive
         player?.stop()
         player?.clearMediaItems()
@@ -95,6 +114,7 @@ class TamalutPlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        liveResumeGate.reset()
         mediaLibrarySession?.release()
         mediaLibrarySession = null
         player?.removeListener(playerListener)

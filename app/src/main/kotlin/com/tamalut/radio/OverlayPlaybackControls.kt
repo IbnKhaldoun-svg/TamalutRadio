@@ -40,3 +40,7 @@ internal fun performOverlayPlaybackAction(
         OverlayPlaybackAction.NEXT -> if (state.canSkipNext) controller.skipToNext()
     }
 }
+
+internal fun performOverlayAppEntry(openApp: () -> Unit) {
+    openApp()
+}

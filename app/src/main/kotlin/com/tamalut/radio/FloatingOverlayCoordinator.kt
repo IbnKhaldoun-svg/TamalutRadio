@@ -3,12 +3,14 @@ package com.tamalut.radio
 import android.content.Context
 import android.provider.Settings
 import com.tamalut.radio.core.playback.PlaybackController
+import com.tamalut.radio.core.playback.PlaybackLaunchContract
 import com.tamalut.radio.core.playback.PlaybackState
 import com.tamalut.radio.core.preferences.UserPreferences
 import com.tamalut.radio.core.preferences.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
@@ -24,15 +26,32 @@ internal class FloatingOverlayCoordinator(
     private var sessionState = OverlaySessionState()
     private var appInForeground = true
     private val activityExitGate = OverlayActivityExitGate()
+    private val autoCollapseTimer = OverlayAutoCollapseTimer(
+        schedule = { delayMillis, action ->
+            val job = scope.launch {
+                delay(delayMillis)
+                action()
+            }
+            OverlayScheduledTask { job.cancel() }
+        },
+        onTimeout = {
+            if (sessionState.externalSessionActive && sessionState.expanded && !appInForeground) {
+                sessionState = sessionState.setExpanded(false)
+                reconcile()
+            }
+        },
+    )
 
     private val window = FloatingOverlayWindow(
         context = appContext,
         onDismiss = {
+            autoCollapseTimer.cancel()
             sessionState = sessionState.dismissForCurrentSession()
             reconcile()
         },
         onExpandedChanged = { expanded ->
             sessionState = sessionState.setExpanded(expanded)
+            if (expanded) autoCollapseTimer.arm() else autoCollapseTimer.cancel()
             reconcile()
         },
         onPositionChanged = { edge, verticalFraction ->
@@ -40,12 +59,25 @@ internal class FloatingOverlayCoordinator(
                 overlayEdge = edge,
                 overlayVerticalFraction = verticalFraction,
             )
+            if (sessionState.expanded) autoCollapseTimer.arm()
             scope.launch {
                 preferencesRepository.setOverlayPosition(edge, verticalFraction)
             }
         },
         onPlaybackAction = { action ->
+            if (sessionState.expanded) autoCollapseTimer.arm()
             performOverlayPlaybackAction(action, latestPlaybackState, playbackController)
+        },
+        onOpenApp = {
+            autoCollapseTimer.cancel()
+            performOverlayAppEntry {
+                PlaybackLaunchContract.createNowPlayingPendingIntent(appContext)?.let { pendingIntent ->
+                    runCatching { pendingIntent.send() }
+                }
+            }
+        },
+        onUserInteraction = {
+            if (sessionState.externalSessionActive && sessionState.expanded) autoCollapseTimer.arm()
         },
     )
 
@@ -69,6 +101,7 @@ internal class FloatingOverlayCoordinator(
 
     fun onAppForeground() {
         appInForeground = true
+        autoCollapseTimer.cancel()
         activityExitGate.onAppForeground()
         sessionState = sessionState.endExternalSession()
         window.hide()
@@ -79,11 +112,13 @@ internal class FloatingOverlayCoordinator(
             OverlayActivityStopDecision.IGNORE_CONFIGURATION_CHANGE -> return
             OverlayActivityStopDecision.SUPPRESS_EXTERNAL_SESSION -> {
                 appInForeground = false
+                autoCollapseTimer.cancel()
                 window.hide()
                 return
             }
             OverlayActivityStopDecision.ADMIT_EXTERNAL_SESSION -> {
                 appInForeground = false
+                autoCollapseTimer.cancel()
                 if (
                     shouldAdmitExternalOverlaySession(
                         overlayEnabled = latestPreferences.overlayEnabled,
@@ -104,12 +139,14 @@ internal class FloatingOverlayCoordinator(
 
     private fun reconcile() {
         if (!latestPreferences.overlayEnabled) {
+            autoCollapseTimer.cancel()
             sessionState = sessionState.endExternalSession()
             window.hide()
             return
         }
 
         if (sessionState.externalSessionActive && !latestPlaybackState.hasCurrentItem) {
+            autoCollapseTimer.cancel()
             sessionState = sessionState.endExternalSession()
         }
 
@@ -131,6 +168,7 @@ internal class FloatingOverlayCoordinator(
                 ),
             )
         } else {
+            autoCollapseTimer.cancel()
             window.hide()
         }
     }
