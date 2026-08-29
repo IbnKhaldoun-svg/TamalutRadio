@@ -34,4 +34,5 @@ data class UserPreferences(
     val languageTag: String? = null,
     val lastPlayed: LastPlayedPreference? = null,
     val localFolderUri: String? = null,
+    val overlayEnabled: Boolean = false,
 )

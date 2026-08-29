@@ -21,4 +21,6 @@ interface UserPreferencesRepository {
     suspend fun clearLastPlayed()
 
     suspend fun setLocalFolderUri(localFolderUri: String?)
+
+    suspend fun setOverlayEnabled(overlayEnabled: Boolean) = Unit
 }

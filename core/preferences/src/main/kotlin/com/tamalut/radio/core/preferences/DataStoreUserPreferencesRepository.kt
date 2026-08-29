@@ -3,6 +3,7 @@ package com.tamalut.radio.core.preferences
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -28,6 +29,7 @@ internal object PreferenceKeys {
     val lastMediaId = stringPreferencesKey("last_media_id")
     val lastStationId = stringPreferencesKey("last_station_id")
     val localFolderUri = stringPreferencesKey("local_folder_uri")
+    val overlayEnabled = booleanPreferencesKey("overlay_enabled")
 }
 
 class DataStoreUserPreferencesRepository(
@@ -97,6 +99,12 @@ class DataStoreUserPreferencesRepository(
             )
         }
     }
+
+    override suspend fun setOverlayEnabled(overlayEnabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.overlayEnabled] = overlayEnabled
+        }
+    }
 }
 
 internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
@@ -141,12 +149,14 @@ internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
     val localFolderUri = preferences[PreferenceKeys.localFolderUri]
         ?.trim()
         ?.takeIf(String::isNotEmpty)
+    val overlayEnabled = preferences[PreferenceKeys.overlayEnabled] ?: false
 
     return UserPreferences(
         themePreference = theme,
         languageTag = languageTag,
         lastPlayed = lastPlayed,
         localFolderUri = localFolderUri,
+        overlayEnabled = overlayEnabled,
     )
 }
 

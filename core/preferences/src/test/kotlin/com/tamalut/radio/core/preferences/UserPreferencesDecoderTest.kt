@@ -3,6 +3,8 @@ package com.tamalut.radio.core.preferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import com.tamalut.radio.core.model.MediaSourceType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -15,6 +17,7 @@ class UserPreferencesDecoderTest {
         assertNull(decoded.languageTag)
         assertNull(decoded.lastPlayed)
         assertNull(decoded.localFolderUri)
+        assertFalse(decoded.overlayEnabled)
     }
 
     @Test
@@ -40,6 +43,7 @@ class UserPreferencesDecoderTest {
             PreferenceKeys.lastMediaId to "radio-media",
             PreferenceKeys.lastStationId to "radio-azawan",
             PreferenceKeys.localFolderUri to "content://com.example/tree/Music",
+            PreferenceKeys.overlayEnabled to true,
         )
 
         val decoded = decodeUserPreferences(preferences)
@@ -50,6 +54,7 @@ class UserPreferencesDecoderTest {
         assertEquals("radio-media", decoded.lastPlayed?.mediaId?.value)
         assertEquals("radio-azawan", decoded.lastPlayed?.stationId?.value)
         assertEquals("content://com.example/tree/Music", decoded.localFolderUri)
+        assertTrue(decoded.overlayEnabled)
     }
 
     @Test
