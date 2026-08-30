@@ -28,6 +28,40 @@ object GoogleDriveAuthorizationRequestFactory {
         .build()
 }
 
+class GoogleDrivePickerGrant internal constructor(
+    val folderId: String,
+    val accessToken: String,
+) {
+    override fun toString(): String =
+        "GoogleDrivePickerGrant(folderId=${redactDriveId(folderId)}, accessToken=<redacted>)"
+}
+
+object GoogleDriveAuthorizationResultParser {
+    const val PICKED_FILE_IDS_PARAM = "picked_file_ids"
+
+    internal fun parsePickedFolderId(rawPickedIds: String?): String? = rawPickedIds
+        ?.split(',')
+        ?.asSequence()
+        ?.map(String::trim)
+        ?.firstOrNull(String::isNotBlank)
+
+    fun requirePickerGrant(result: AuthorizationResult): GoogleDrivePickerGrant {
+        check(GoogleDriveAuthorizationPolicy.DRIVE_FILE_SCOPE in result.grantedScopes) {
+            "Google Drive drive.file scope was not granted"
+        }
+        val accessToken = result.accessToken?.takeIf(String::isNotBlank)
+            ?: error("Google Drive authorization returned no access token")
+        val pickedFolderId = parsePickedFolderId(
+            result.tokenResponseParams?.getString(PICKED_FILE_IDS_PARAM),
+        ) ?: error("Google Picker returned no selected folder ID")
+
+        return GoogleDrivePickerGrant(
+            folderId = pickedFolderId,
+            accessToken = accessToken,
+        )
+    }
+}
+
 /**
  * Thin adapter over Google Play services AuthorizationClient.
  *
