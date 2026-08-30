@@ -888,3 +888,13 @@ Validation record - radio audio focus live resume - physical approval:
 - Repeated Instagram/video focus-loss path and the existing manual pause -> Play live-edge path both passed physical validation.
 - Approved physical-test APK: `TamalutRadio-debug-67d5d57.apk`, tag `debug-20260829-223213-67d5d57`, target `67d5d5774682c70898669f05922f190818f87f93`.
 - APK SHA-256: `e6725c5fd05000d940b5d972602b2b5749c79b0a3ba533a4f50ae48e97362da9`; signer SHA-256: `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
+
+### Google Drive folder access probe contract
+
+- [ ] Before implementing the permanent Drive library UX, perform one real-device authorization/picker probe using only the already-approved `https://www.googleapis.com/auth/drive.file` scope.
+- The probe must use the existing Google Play services `AuthorizationClient` request with `PICKER_OAUTH_TRIGGER=true`, `PICKER_ALLOW_FOLDER_SELECTION=true`, `setOptOutIncludingGrantedScopes(true)`, and consent/account selection prompts; legacy Google Sign-In remains forbidden.
+- The selected folder ID must be obtained from `AuthorizationResult.getTokenResponseParams()` / `picked_file_ids`; the access token may be used only in memory for Drive API calls and must never be persisted, logged, committed, or written to DataStore/Room/files.
+- The probe must call Drive API v3 `files.list` with a parent query for the selected folder, return direct children metadata, locate at least one child folder when present, and repeat `files.list` on that child folder to verify nested access with `drive.file`.
+- The physical-test UI may be a temporary diagnostic surface under Settings, but it must clearly report authorization, selected folder ID in redacted form, direct-child result, nested-folder result, and recoverable network/API errors. It must not become the final Music/Drive UX and must not start playback.
+- No automatic fallback to `drive.readonly` or broader Drive scopes is allowed. If direct or nested enumeration fails because `drive.file` does not grant access to existing children, stop at the gate and record the exact result before changing scope or UX.
+- Verification before physical testing: unit tests for picked-ID parsing, Drive query/JSON parsing and nested-probe decision flow; real GitHub Actions build of `:feature:drive:testDebugUnitTest`, app regression tests and `:app:assembleDebug`; structural checks must prove `drive.file` only, no legacy GoogleSignIn, no offline/server auth, and no token persistence.
