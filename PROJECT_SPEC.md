@@ -879,3 +879,12 @@ Authorized the first `:feature:radio` commit for the repository-backed Compose s
 ### 2026-08-27 — Feature radio playback sub-step 2/2 completed
 
 `:feature:radio` is completed in commit `795efb516febdab473f45483c798e06044351e41`. The Radio ViewModel now delegates station selection to a feature-level Media3 playback gateway backed by `MediaBrowser` and the existing `TamalutPlaybackService`; it sends the selected repository-backed `RadioStation` through `RadioMediaItemFactory`, then prepares and starts playback without creating a second player. The full primary/fallback plan is preserved for every station. The Radio UI exposes playback success/failure state while retaining the repository-backed `Preferiti` / `Tutte le radio` tabs and favorite mutations. The temporary app-level `Prepara Radio Azawan` path and its dedicated browser callback were removed, making the Radio screen the app-level radio playback entry point. GitHub Actions run `33097183525` passed `./gradlew :feature:radio:testDebugUnitTest :app:assembleDebug`, verified the merged MediaLibraryService and absence of the temporary test button, produced a real debug APK, and verified SHA-256 `45f01b4ac53a819c887386356e9f05c1ea35bc3c47386486377b5aedca8486d7`. This completes both `:feature:radio` implementation sub-steps.
+
+Validation record - radio audio focus live resume - physical approval:
+- [x] Physical checklist A-E completed and approved on 2026-08-30.
+- RADIO transient audio-focus loss followed by gain resumes at the current live edge rather than the frozen pre-loss buffer.
+- LOCAL transient audio-focus loss followed by gain preserves the exact playback position with no radio-style reconnect.
+- Critical manual-intent guard approved: if the user manually pauses RADIO while transient audio focus is lost, focus gain / suppression clear does not auto-resume playback; the later explicit Play reconnects to the current live edge.
+- Repeated Instagram/video focus-loss path and the existing manual pause -> Play live-edge path both passed physical validation.
+- Approved physical-test APK: `TamalutRadio-debug-67d5d57.apk`, tag `debug-20260829-223213-67d5d57`, target `67d5d5774682c70898669f05922f190818f87f93`.
+- APK SHA-256: `e6725c5fd05000d940b5d972602b2b5749c79b0a3ba533a4f50ae48e97362da9`; signer SHA-256: `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
