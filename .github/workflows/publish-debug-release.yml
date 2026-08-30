@@ -7,10 +7,6 @@ on:
         description: Git ref or commit to build
         required: false
         default: main
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/publish-debug-release.yml
 
 permissions:
   contents: write
@@ -29,16 +25,14 @@ jobs:
       - name: Resolve exact build commit
         shell: bash
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            TARGET_REF='${{ inputs.ref }}'
-          else
-            TARGET_REF='ac394b41434c1663cbf3d7f5691442785514d618'
+          TARGET_REF='${{ inputs.ref }}'
+          if [[ -z "$TARGET_REF" ]]; then
+            TARGET_REF='main'
           fi
 
           git fetch origin --tags --force
           TARGET_SHA="$(git rev-parse "${TARGET_REF}^{commit}")"
           SHORT_SHA="$(git rev-parse --short=7 "$TARGET_SHA")"
-          test "$TARGET_SHA" = 'ac394b41434c1663cbf3d7f5691442785514d618'
           git checkout --detach "$TARGET_SHA"
 
           echo "TARGET_SHA=$TARGET_SHA" >> "$GITHUB_ENV"
@@ -77,7 +71,7 @@ jobs:
         shell: bash
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify persistent debug signer and validation checksum
+      - name: Verify persistent debug signer
         shell: bash
         run: |
           set -euo pipefail
@@ -88,10 +82,7 @@ jobs:
           EXPECTED_CERT_SHA="$(tr -d '[:space:]' < .github/signing/debug-cert-v1.sha256)"
           test -n "$CERT_SHA"
           test "$CERT_SHA" = "$EXPECTED_CERT_SHA"
-          APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"
-          test "$APK_SHA" = 'd840232ec718c37606f4dd972978886021efc6382475383e19af212436e3f960'
           echo "SIGNED_APK_CERT_SHA256=$CERT_SHA"
-          echo "VERIFIED_APK_SHA256=$APK_SHA"
 
       - name: Publish APK as GitHub prerelease
         id: release
@@ -105,7 +96,6 @@ jobs:
           ASSET="TamalutRadio-debug-${SHORT_SHA}.apk"
           cp "$APK" "$ASSET"
           APK_SHA256="$(sha256sum "$ASSET" | awk '{print $1}')"
-          test "$APK_SHA256" = 'd840232ec718c37606f4dd972978886021efc6382475383e19af212436e3f960'
           STAMP="$(date -u +%Y%m%d-%H%M%S)"
           TAG="debug-${STAMP}-${SHORT_SHA}"
 
@@ -116,7 +106,6 @@ jobs:
           - Debug signer SHA-256: \`$(tr -d '[:space:]' < .github/signing/debug-cert-v1.sha256)\`
           - APK SHA-256: \`${APK_SHA256}\`
           - Build task: \`:app:assembleDebug\`
-          - Validation: Google Drive drive.file folder/direct-child/nested-folder probe.
           - Distribution: GitHub Release asset; no Actions artifact storage used.
           EOF
 
