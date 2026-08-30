@@ -1,5 +1,6 @@
 package com.tamalut.radio.feature.drive
 
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -7,7 +8,7 @@ import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-internal const val GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
+internal const val GOOGLE_DRIVE_FOLDER_MIME_TYPE = GoogleDriveAuthorizationPolicy.DRIVE_FOLDER_MIME_TYPE
 
 data class GoogleDriveProbeItem(
     val id: String,
@@ -44,7 +45,14 @@ class GoogleDriveApiException(
     },
 )
 
-fun interface GoogleDriveChildrenReader {
+class GoogleDriveSelectionException : IOException(
+    "La selezione Google Drive non è una cartella. Scegli una cartella e riprova.",
+)
+
+interface GoogleDriveReadOnlyReader {
+    @Throws(IOException::class)
+    fun getItem(accessToken: String, itemId: String): GoogleDriveProbeItem
+
     @Throws(IOException::class)
     fun listChildren(accessToken: String, folderId: String): List<GoogleDriveProbeItem>
 }
@@ -54,13 +62,14 @@ internal data class DriveHttpResponse(
     val body: String,
 )
 
-internal fun interface DriveHttpTransport {
+internal fun interface DriveReadOnlyHttpTransport {
     @Throws(IOException::class)
     fun get(url: String, accessToken: String): DriveHttpResponse
 }
 
-internal class UrlConnectionDriveHttpTransport : DriveHttpTransport {
+internal class UrlConnectionDriveReadOnlyHttpTransport : DriveReadOnlyHttpTransport {
     override fun get(url: String, accessToken: String): DriveHttpResponse {
+        GoogleDriveReadOnlyPolicy.requireAllowedGet(url)
         val connection = URI(url).toURL().openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
@@ -80,9 +89,18 @@ internal class UrlConnectionDriveHttpTransport : DriveHttpTransport {
 }
 
 class GoogleDriveApiClient internal constructor(
-    private val transport: DriveHttpTransport,
-) : GoogleDriveChildrenReader {
-    constructor() : this(UrlConnectionDriveHttpTransport())
+    private val transport: DriveReadOnlyHttpTransport,
+) : GoogleDriveReadOnlyReader {
+    constructor() : this(UrlConnectionDriveReadOnlyHttpTransport())
+
+    override fun getItem(accessToken: String, itemId: String): GoogleDriveProbeItem {
+        require(accessToken.isNotBlank()) { "Access token is required" }
+        require(itemId.isNotBlank()) { "Drive item ID is required" }
+
+        val response = transport.get(buildItemMetadataUrl(itemId), accessToken)
+        requireSuccessfulResponse(response)
+        return parseDriveItem(response.body)
+    }
 
     override fun listChildren(accessToken: String, folderId: String): List<GoogleDriveProbeItem> {
         require(accessToken.isNotBlank()) { "Access token is required" }
@@ -95,9 +113,7 @@ class GoogleDriveApiClient internal constructor(
         do {
             check(pageCount++ < MAX_PAGES) { "Drive pagination exceeded $MAX_PAGES pages" }
             val response = transport.get(buildChildrenUrl(folderId, pageToken), accessToken)
-            if (response.statusCode !in 200..299) {
-                throw GoogleDriveApiException(response.statusCode, parseGoogleErrorReason(response.body))
-            }
+            requireSuccessfulResponse(response)
             val page = parseChildrenPage(response.body)
             children += page.items
             pageToken = page.nextPageToken
@@ -106,21 +122,32 @@ class GoogleDriveApiClient internal constructor(
         return children
     }
 
+    private fun requireSuccessfulResponse(response: DriveHttpResponse) {
+        if (response.statusCode !in 200..299) {
+            throw GoogleDriveApiException(response.statusCode, parseGoogleErrorReason(response.body))
+        }
+    }
+
     companion object {
         private const val MAX_PAGES = 100
     }
 }
 
 class GoogleDriveFolderProbeRunner(
-    private val childrenReader: GoogleDriveChildrenReader,
+    private val reader: GoogleDriveReadOnlyReader,
 ) {
-    fun probe(accessToken: String, selectedFolderId: String): GoogleDriveFolderProbeReport {
-        val directChildren = childrenReader.listChildren(accessToken, selectedFolderId)
+    fun probe(accessToken: String, selectedItemId: String): GoogleDriveFolderProbeReport {
+        val selectedItem = reader.getItem(accessToken, selectedItemId)
+        if (!selectedItem.isFolder) {
+            throw GoogleDriveSelectionException()
+        }
+
+        val directChildren = reader.listChildren(accessToken, selectedItem.id)
         val nestedFolder = directChildren.firstOrNull { it.isFolder }
 
         if (nestedFolder == null) {
             return GoogleDriveFolderProbeReport(
-                selectedFolderId = selectedFolderId,
+                selectedFolderId = selectedItem.id,
                 directChildren = directChildren,
                 nestedFolder = null,
                 nestedChildren = null,
@@ -129,9 +156,9 @@ class GoogleDriveFolderProbeRunner(
         }
 
         return try {
-            val nestedChildren = childrenReader.listChildren(accessToken, nestedFolder.id)
+            val nestedChildren = reader.listChildren(accessToken, nestedFolder.id)
             GoogleDriveFolderProbeReport(
-                selectedFolderId = selectedFolderId,
+                selectedFolderId = selectedItem.id,
                 directChildren = directChildren,
                 nestedFolder = nestedFolder,
                 nestedChildren = nestedChildren,
@@ -139,7 +166,7 @@ class GoogleDriveFolderProbeRunner(
             )
         } catch (error: Exception) {
             GoogleDriveFolderProbeReport(
-                selectedFolderId = selectedFolderId,
+                selectedFolderId = selectedItem.id,
                 directChildren = directChildren,
                 nestedFolder = nestedFolder,
                 nestedChildren = null,
@@ -153,6 +180,17 @@ internal data class DriveChildrenPage(
     val items: List<GoogleDriveProbeItem>,
     val nextPageToken: String?,
 )
+
+internal fun buildItemMetadataUrl(itemId: String): String {
+    val fields = "id,name,mimeType,size"
+    return buildString {
+        append("https://www.googleapis.com/drive/v3/files/")
+        append(encodeQueryComponent(itemId))
+        append("?fields=")
+        append(encodeQueryComponent(fields))
+        append("&supportsAllDrives=true")
+    }
+}
 
 internal fun buildChildrenUrl(folderId: String, pageToken: String?): String {
     val escapedFolderId = folderId.replace("\\", "\\\\").replace("'", "\\'")
@@ -178,17 +216,15 @@ internal fun buildChildrenUrl(folderId: String, pageToken: String?): String {
     }
 }
 
+internal fun parseDriveItem(json: String): GoogleDriveProbeItem =
+    parseDriveItemObject(JsonParser.parseString(json).asJsonObject)
+        .also { check(it.id.isNotBlank()) { "Drive files.get returned no item ID" } }
+
 internal fun parseChildrenPage(json: String): DriveChildrenPage {
     val root = JsonParser.parseString(json).asJsonObject
     val files = root.getAsJsonArray("files")
     val items = files?.map { element ->
-        val file = element.asJsonObject
-        GoogleDriveProbeItem(
-            id = file.get("id")?.asString.orEmpty(),
-            name = file.get("name")?.asString.orEmpty(),
-            mimeType = file.get("mimeType")?.asString.orEmpty(),
-            sizeBytes = file.get("size")?.takeIf { !it.isJsonNull }?.asLong,
-        )
+        parseDriveItemObject(element.asJsonObject)
     }.orEmpty().filter { it.id.isNotBlank() }
 
     return DriveChildrenPage(
@@ -196,6 +232,13 @@ internal fun parseChildrenPage(json: String): DriveChildrenPage {
         nextPageToken = root.get("nextPageToken")?.takeIf { !it.isJsonNull }?.asString,
     )
 }
+
+private fun parseDriveItemObject(file: JsonObject): GoogleDriveProbeItem = GoogleDriveProbeItem(
+    id = file.get("id")?.asString.orEmpty(),
+    name = file.get("name")?.asString.orEmpty(),
+    mimeType = file.get("mimeType")?.asString.orEmpty(),
+    sizeBytes = file.get("size")?.takeIf { !it.isJsonNull }?.asLong,
+)
 
 internal fun parseGoogleErrorReason(json: String): String? = runCatching {
     val error = JsonParser.parseString(json).asJsonObject.getAsJsonObject("error")

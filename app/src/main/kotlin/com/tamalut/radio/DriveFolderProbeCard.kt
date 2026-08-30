@@ -30,52 +30,70 @@ import com.tamalut.radio.feature.drive.GoogleDriveAuthorizationGateway
 import com.tamalut.radio.feature.drive.GoogleDriveAuthorizationResultParser
 import com.tamalut.radio.feature.drive.GoogleDriveFolderProbeReport
 import com.tamalut.radio.feature.drive.GoogleDriveFolderProbeRunner
+import com.tamalut.radio.feature.drive.GoogleDriveSelectionException
 import com.tamalut.radio.feature.drive.redactDriveId
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
-private sealed interface DriveProbeUiState {
-    data object Idle : DriveProbeUiState
-    data object Authorizing : DriveProbeUiState
-    data object Reading : DriveProbeUiState
-    data class Success(val report: GoogleDriveFolderProbeReport) : DriveProbeUiState
-    data class Error(val message: String) : DriveProbeUiState
+private const val DRIVE_PROBE_TIMEOUT_MILLIS = 45_000L
+
+private sealed interface DriveProbeResultState {
+    data object Idle : DriveProbeResultState
+    data class Success(val report: GoogleDriveFolderProbeReport) : DriveProbeResultState
+    data class Error(val message: String) : DriveProbeResultState
 }
 
 @Composable
 internal fun DriveFolderProbeCard() {
     val context = LocalContext.current
-    val authorizationGateway = remember(context) { GoogleDriveAuthorizationGateway.create(context) }
     val probeRunner = remember { GoogleDriveFolderProbeRunner(GoogleDriveApiClient()) }
     val overlayCoordinator = remember(context) { TamalutRadioRuntime.overlay(context.applicationContext) }
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf<DriveProbeUiState>(DriveProbeUiState.Idle) }
+    var resultState by remember { mutableStateOf<DriveProbeResultState>(DriveProbeResultState.Idle) }
+    var attemptState by remember { mutableStateOf(DriveProbeAttemptState()) }
+    var pendingPickerAttemptId by remember { mutableStateOf<Long?>(null) }
 
-    val consumeAuthorizationResult: (AuthorizationResult) -> Unit = { authorizationResult ->
-        val grant = runCatching {
-            GoogleDriveAuthorizationResultParser.requirePickerGrant(authorizationResult)
-        }.getOrElse { error ->
-            state = DriveProbeUiState.Error(error.safeDriveProbeMessage())
-            null
+    val finishWithError: (Long, String) -> Unit = { attemptId, message ->
+        if (attemptState.activeAttemptId == attemptId) {
+            resultState = DriveProbeResultState.Error(message)
+            attemptState = attemptState.finish(attemptId)
         }
+    }
 
-        if (grant != null) {
-            state = DriveProbeUiState.Reading
-            scope.launch {
-                val result = runCatching {
-                    withContext(Dispatchers.IO) {
-                        probeRunner.probe(
-                            accessToken = grant.accessToken,
-                            selectedFolderId = grant.folderId,
+    val consumeAuthorizationResult: (Long, AuthorizationResult) -> Unit = { attemptId, authorizationResult ->
+        if (attemptState.activeAttemptId == attemptId) {
+            val grant = runCatching {
+                GoogleDriveAuthorizationResultParser.requirePickerGrant(authorizationResult)
+            }.getOrElse { error ->
+                finishWithError(attemptId, error.safeDriveProbeMessage())
+                null
+            }
+
+            if (grant != null && attemptState.activeAttemptId == attemptId) {
+                attemptState = attemptState.markReading(attemptId)
+                scope.launch {
+                    val result = runCatching {
+                        withTimeout(DRIVE_PROBE_TIMEOUT_MILLIS) {
+                            withContext(Dispatchers.IO) {
+                                probeRunner.probe(
+                                    accessToken = grant.accessToken,
+                                    selectedItemId = grant.pickedItemId,
+                                )
+                            }
+                        }
+                    }
+                    if (attemptState.activeAttemptId == attemptId) {
+                        resultState = result.fold(
+                            onSuccess = { DriveProbeResultState.Success(it) },
+                            onFailure = { DriveProbeResultState.Error(it.safeDriveProbeMessage()) },
                         )
+                        attemptState = attemptState.finish(attemptId)
                     }
                 }
-                state = result.fold(
-                    onSuccess = { DriveProbeUiState.Success(it) },
-                    onFailure = { DriveProbeUiState.Error(it.safeDriveProbeMessage()) },
-                )
             }
         }
     }
@@ -83,18 +101,25 @@ internal fun DriveFolderProbeCard() {
     val authorizationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
     ) { activityResult ->
+        val attemptId = pendingPickerAttemptId
+        pendingPickerAttemptId = null
+        if (attemptId == null || attemptState.activeAttemptId != attemptId) {
+            return@rememberLauncherForActivityResult
+        }
         if (activityResult.resultCode != Activity.RESULT_OK) {
-            state = DriveProbeUiState.Error("Selezione Google Drive annullata.")
+            finishWithError(attemptId, "Selezione Google Drive annullata. Puoi riprovare subito.")
             return@rememberLauncherForActivityResult
         }
         val data = activityResult.data
         if (data == null) {
-            state = DriveProbeUiState.Error("Google Picker non ha restituito un risultato.")
+            finishWithError(attemptId, "Google Picker non ha restituito un risultato. Puoi riprovare subito.")
             return@rememberLauncherForActivityResult
         }
-        runCatching { authorizationGateway.resultFromIntent(data) }
-            .onSuccess(consumeAuthorizationResult)
-            .onFailure { state = DriveProbeUiState.Error(it.safeDriveProbeMessage()) }
+
+        val resultGateway = GoogleDriveAuthorizationGateway.create(context)
+        runCatching { resultGateway.resultFromIntent(data) }
+            .onSuccess { consumeAuthorizationResult(attemptId, it) }
+            .onFailure { finishWithError(attemptId, it.safeDriveProbeMessage()) }
     }
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -108,55 +133,84 @@ internal fun DriveFolderProbeCard() {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "Verifica reale di drive.file: scegli la cartella test; TamalutRadio leggerà i figli diretti e poi la prima sottocartella trovata. Nessun token viene salvato e non viene avviata alcuna riproduzione.",
+                "Scope: drive.file. Il Picker è filtrato sulle sole cartelle; TamalutRadio verifica inoltre con files.get che l'elemento scelto sia davvero una cartella, poi usa soltanto files.list per i figli diretti e la prima sottocartella. Le chiamate Drive del probe sono esclusivamente GET: nessuna creazione, modifica o eliminazione.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             TextButton(
-                enabled = state !is DriveProbeUiState.Authorizing && state !is DriveProbeUiState.Reading,
+                enabled = attemptState.canStart,
                 onClick = {
-                    state = DriveProbeUiState.Authorizing
+                    if (!attemptState.canStart) return@TextButton
+
+                    val started = attemptState.begin()
+                    attemptState = started
+                    resultState = DriveProbeResultState.Idle
+                    val attemptId = requireNotNull(started.activeAttemptId)
+                    val authorizationGateway = GoogleDriveAuthorizationGateway.create(context)
+
                     authorizationGateway.authorizeFolderSelection()
                         .addOnSuccessListener { authorizationResult ->
+                            if (attemptState.activeAttemptId != attemptId) return@addOnSuccessListener
+
                             if (authorizationResult.hasResolution()) {
                                 val pendingIntent = authorizationResult.pendingIntent
                                 if (pendingIntent == null) {
-                                    state = DriveProbeUiState.Error("Google Authorization non ha restituito il Picker.")
-                                } else {
-                                    overlayCoordinator.suppressNextAppStop()
-                                    authorizationLauncher.launch(
-                                        IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+                                    finishWithError(
+                                        attemptId,
+                                        "Google Authorization non ha restituito il Picker. Puoi riprovare subito.",
                                     )
+                                } else {
+                                    pendingPickerAttemptId = attemptId
+                                    overlayCoordinator.suppressNextAppStop()
+                                    runCatching {
+                                        authorizationLauncher.launch(
+                                            IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+                                        )
+                                    }.onFailure { error ->
+                                        pendingPickerAttemptId = null
+                                        finishWithError(attemptId, error.safeDriveProbeMessage())
+                                    }
                                 }
                             } else {
-                                consumeAuthorizationResult(authorizationResult)
+                                finishWithError(
+                                    attemptId,
+                                    "Google Authorization non ha aperto un nuovo Picker. Tocca di nuovo il pulsante per riprovare.",
+                                )
                             }
                         }
                         .addOnFailureListener { error ->
-                            state = DriveProbeUiState.Error(error.safeDriveProbeMessage())
+                            finishWithError(attemptId, error.safeDriveProbeMessage())
                         }
                 },
             ) {
-                Text("Scegli cartella Drive e verifica")
+                Text(
+                    if (resultState is DriveProbeResultState.Idle) {
+                        "Scegli cartella Drive e verifica"
+                    } else {
+                        "Scegli un'altra cartella Drive e verifica"
+                    },
+                )
             }
 
-            DriveProbeResult(state)
+            when (attemptState.phase) {
+                DriveProbeAttemptPhase.AUTHORIZING -> Text("Stato: apertura account / Google Picker…")
+                DriveProbeAttemptPhase.READING -> Text("Stato: cartella verificata, interrogazione Drive API in sola lettura…")
+                DriveProbeAttemptPhase.READY -> DriveProbeResult(resultState)
+            }
         }
     }
 }
 
 @Composable
-private fun DriveProbeResult(state: DriveProbeUiState) {
+private fun DriveProbeResult(state: DriveProbeResultState) {
     when (state) {
-        DriveProbeUiState.Idle -> Text(
+        DriveProbeResultState.Idle -> Text(
             "Stato: non eseguito.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        DriveProbeUiState.Authorizing -> Text("Stato: apertura account / Google Picker…")
-        DriveProbeUiState.Reading -> Text("Stato: cartella scelta, interrogazione Drive API…")
-        is DriveProbeUiState.Error -> {
+        is DriveProbeResultState.Error -> {
             Text(
                 "ESITO: ERRORE",
                 style = MaterialTheme.typography.labelLarge,
@@ -164,7 +218,7 @@ private fun DriveProbeResult(state: DriveProbeUiState) {
             )
             Text(state.message, style = MaterialTheme.typography.bodyMedium)
         }
-        is DriveProbeUiState.Success -> DriveProbeSuccess(state.report)
+        is DriveProbeResultState.Success -> DriveProbeSuccess(state.report)
     }
 }
 
@@ -233,7 +287,9 @@ private fun DriveProbeSuccess(report: GoogleDriveFolderProbeReport) {
 }
 
 private fun Throwable.safeDriveProbeMessage(): String = when (this) {
+    is GoogleDriveSelectionException -> message ?: "Seleziona una cartella Google Drive e riprova."
     is GoogleDriveApiException -> message ?: "Google Drive API ha rifiutato la richiesta."
+    is TimeoutCancellationException -> "La lettura Google Drive ha superato il tempo massimo. Puoi riprovare subito."
     is IOException -> "Errore di rete: verifica la connessione internet e riprova."
     else -> message?.takeIf { it.isNotBlank() } ?: "Operazione Google Drive non riuscita."
 }

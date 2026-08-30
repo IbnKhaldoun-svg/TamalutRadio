@@ -9,13 +9,23 @@ import org.junit.Test
 
 class GoogleDriveFolderProbeTest {
     @Test
-    fun pickedFolderIdParserUsesFirstNonBlankPickerId() {
+    fun pickedItemIdParserUsesFirstNonBlankPickerId() {
         assertEquals(
             "folder-123",
-            GoogleDriveAuthorizationResultParser.parsePickedFolderId("  folder-123 , folder-456 "),
+            GoogleDriveAuthorizationResultParser.parsePickedItemId("  folder-123 , folder-456 "),
         )
-        assertNull(GoogleDriveAuthorizationResultParser.parsePickedFolderId(" ,  "))
-        assertNull(GoogleDriveAuthorizationResultParser.parsePickedFolderId(null))
+        assertNull(GoogleDriveAuthorizationResultParser.parsePickedItemId(" ,  "))
+        assertNull(GoogleDriveAuthorizationResultParser.parsePickedItemId(null))
+    }
+
+    @Test
+    fun itemMetadataUrlUsesFilesGetReadOnlyEndpoint() {
+        val url = buildItemMetadataUrl("folder-123")
+
+        assertTrue(url.startsWith("https://www.googleapis.com/drive/v3/files/folder-123?"))
+        assertTrue(url.contains("fields=id%2Cname%2CmimeType%2Csize"))
+        assertTrue(url.contains("supportsAllDrives=true"))
+        assertEquals(GoogleDriveReadOperation.FILES_GET, GoogleDriveReadOnlyPolicy.requireAllowedGet(url))
     }
 
     @Test
@@ -30,22 +40,27 @@ class GoogleDriveFolderProbeTest {
         assertTrue(url.contains("includeItemsFromAllDrives=true"))
         assertTrue(url.contains("pageToken=page%20two"))
         assertFalse(url.contains("drive.readonly"))
+        assertEquals(GoogleDriveReadOperation.FILES_LIST, GoogleDriveReadOnlyPolicy.requireAllowedGet(url))
     }
 
     @Test
-    fun childrenPageParsesFilesFoldersSizesAndNextPageToken() {
+    fun driveItemAndChildrenPageParseFolderAndAudioMetadata() {
+        val selected = parseDriveItem(
+            """{"id":"folder-1","name":"Scelta","mimeType":"application/vnd.google-apps.folder"}""",
+        )
         val page = parseChildrenPage(
             """
             {
               "nextPageToken": "next-1",
               "files": [
                 {"id":"audio-1","name":"Brano 1.mp3","mimeType":"audio/mpeg","size":"12345"},
-                {"id":"folder-1","name":"Sottocartella","mimeType":"application/vnd.google-apps.folder"}
+                {"id":"folder-2","name":"Sottocartella","mimeType":"application/vnd.google-apps.folder"}
               ]
             }
             """.trimIndent(),
         )
 
+        assertTrue(selected.isFolder)
         assertEquals("next-1", page.nextPageToken)
         assertEquals(2, page.items.size)
         assertEquals(12345L, page.items[0].sizeBytes)
@@ -55,37 +70,43 @@ class GoogleDriveFolderProbeTest {
     }
 
     @Test
-    fun apiClientPaginatesAndNeverExposesTokenInRequestUrl() {
+    fun apiClientReadsSelectedMetadataThenPaginatesWithoutExposingTokenInUrl() {
         val seenUrls = mutableListOf<String>()
         val seenTokens = mutableListOf<String>()
-        val transport = DriveHttpTransport { url, token ->
+        val transport = DriveReadOnlyHttpTransport { url, token ->
             seenUrls += url
             seenTokens += token
-            if (seenUrls.size == 1) {
-                DriveHttpResponse(
+            when {
+                "/drive/v3/files/root?" in url -> DriveHttpResponse(
+                    200,
+                    """{"id":"root","name":"Root","mimeType":"application/vnd.google-apps.folder"}""",
+                )
+                seenUrls.count { "/drive/v3/files?" in it } == 1 -> DriveHttpResponse(
                     200,
                     """{"nextPageToken":"next","files":[{"id":"one","name":"One","mimeType":"audio/mpeg"}]}""",
                 )
-            } else {
-                DriveHttpResponse(
+                else -> DriveHttpResponse(
                     200,
                     """{"files":[{"id":"two","name":"Two","mimeType":"audio/mpeg"}]}""",
                 )
             }
         }
 
-        val items = GoogleDriveApiClient(transport).listChildren("secret-token", "root")
+        val client = GoogleDriveApiClient(transport)
+        val selected = client.getItem("secret-token", "root")
+        val items = client.listChildren("secret-token", "root")
 
+        assertTrue(selected.isFolder)
         assertEquals(listOf("one", "two"), items.map { it.id })
-        assertEquals(listOf("secret-token", "secret-token"), seenTokens)
-        assertEquals(2, seenUrls.size)
+        assertEquals(listOf("secret-token", "secret-token", "secret-token"), seenTokens)
+        assertEquals(3, seenUrls.size)
         assertTrue(seenUrls.none { it.contains("secret-token") })
     }
 
     @Test
     fun apiClientSurfacesSafeGoogleErrorReason() {
         val client = GoogleDriveApiClient(
-            DriveHttpTransport { _, _ ->
+            DriveReadOnlyHttpTransport { _, _ ->
                 DriveHttpResponse(
                     403,
                     """{"error":{"status":"PERMISSION_DENIED","errors":[{"reason":"insufficientPermissions"}]}}""",
@@ -93,7 +114,7 @@ class GoogleDriveFolderProbeTest {
             },
         )
 
-        val error = runCatching { client.listChildren("token", "root") }.exceptionOrNull()
+        val error = runCatching { client.getItem("token", "root") }.exceptionOrNull()
 
         assertTrue(error is GoogleDriveApiException)
         error as GoogleDriveApiException
@@ -103,30 +124,63 @@ class GoogleDriveFolderProbeTest {
     }
 
     @Test
+    fun runnerRejectsNonFolderSelectionBeforeListingChildren() {
+        var listCalled = false
+        val reader = object : GoogleDriveReadOnlyReader {
+            override fun getItem(accessToken: String, itemId: String) =
+                GoogleDriveProbeItem(itemId, "Song.mp3", "audio/mpeg", 42L)
+
+            override fun listChildren(accessToken: String, folderId: String): List<GoogleDriveProbeItem> {
+                listCalled = true
+                return emptyList()
+            }
+        }
+
+        val error = runCatching {
+            GoogleDriveFolderProbeRunner(reader).probe("token", "audio-file")
+        }.exceptionOrNull()
+
+        assertTrue(error is GoogleDriveSelectionException)
+        assertFalse(listCalled)
+    }
+
+    @Test
     fun runnerListsDirectChildrenThenFirstNestedFolder() {
         val calls = mutableListOf<String>()
-        val reader = GoogleDriveChildrenReader { _, folderId ->
-            calls += folderId
-            when (folderId) {
-                "root" -> listOf(
-                    GoogleDriveProbeItem("song", "Song.mp3", "audio/mpeg", 99L),
-                    GoogleDriveProbeItem(
-                        "nested",
-                        "Sottocartella",
-                        GOOGLE_DRIVE_FOLDER_MIME_TYPE,
-                        null,
-                    ),
+        val reader = object : GoogleDriveReadOnlyReader {
+            override fun getItem(accessToken: String, itemId: String): GoogleDriveProbeItem {
+                calls += "get:$itemId"
+                return GoogleDriveProbeItem(
+                    itemId,
+                    "Cartella test",
+                    GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+                    null,
                 )
-                "nested" -> listOf(
-                    GoogleDriveProbeItem("deep-song", "Deep.mp3", "audio/mpeg", 100L),
-                )
-                else -> emptyList()
+            }
+
+            override fun listChildren(accessToken: String, folderId: String): List<GoogleDriveProbeItem> {
+                calls += "list:$folderId"
+                return when (folderId) {
+                    "root" -> listOf(
+                        GoogleDriveProbeItem("song", "Song.mp3", "audio/mpeg", 99L),
+                        GoogleDriveProbeItem(
+                            "nested",
+                            "Sottocartella",
+                            GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+                            null,
+                        ),
+                    )
+                    "nested" -> listOf(
+                        GoogleDriveProbeItem("deep-song", "Deep.mp3", "audio/mpeg", 100L),
+                    )
+                    else -> emptyList()
+                }
             }
         }
 
         val report = GoogleDriveFolderProbeRunner(reader).probe("token", "root")
 
-        assertEquals(listOf("root", "nested"), calls)
+        assertEquals(listOf("get:root", "list:root", "list:nested"), calls)
         assertEquals(2, report.directChildren.size)
         assertEquals("Sottocartella", report.nestedFolder?.name)
         assertEquals(listOf("Deep.mp3"), report.nestedChildren?.map { it.name })
@@ -136,18 +190,23 @@ class GoogleDriveFolderProbeTest {
 
     @Test
     fun runnerReportsNestedFailureWithoutDiscardingDirectListing() {
-        val reader = GoogleDriveChildrenReader { _, folderId ->
-            if (folderId == "root") {
-                listOf(
-                    GoogleDriveProbeItem(
-                        "nested",
-                        "Sottocartella",
-                        GOOGLE_DRIVE_FOLDER_MIME_TYPE,
-                        null,
-                    ),
-                )
-            } else {
-                throw IOException("network details that must not be surfaced")
+        val reader = object : GoogleDriveReadOnlyReader {
+            override fun getItem(accessToken: String, itemId: String) =
+                GoogleDriveProbeItem(itemId, "Cartella test", GOOGLE_DRIVE_FOLDER_MIME_TYPE, null)
+
+            override fun listChildren(accessToken: String, folderId: String): List<GoogleDriveProbeItem> {
+                return if (folderId == "root") {
+                    listOf(
+                        GoogleDriveProbeItem(
+                            "nested",
+                            "Sottocartella",
+                            GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+                            null,
+                        ),
+                    )
+                } else {
+                    throw IOException("network details that must not be surfaced")
+                }
             }
         }
 
@@ -161,11 +220,15 @@ class GoogleDriveFolderProbeTest {
 
     @Test
     fun runnerDoesNotClaimNestedVerificationWhenNoSubfolderExists() {
-        val report = GoogleDriveFolderProbeRunner(
-            GoogleDriveChildrenReader { _, _ ->
+        val reader = object : GoogleDriveReadOnlyReader {
+            override fun getItem(accessToken: String, itemId: String) =
+                GoogleDriveProbeItem(itemId, "Cartella test", GOOGLE_DRIVE_FOLDER_MIME_TYPE, null)
+
+            override fun listChildren(accessToken: String, folderId: String) =
                 listOf(GoogleDriveProbeItem("song", "Song.mp3", "audio/mpeg", 1L))
-            },
-        ).probe("token", "root")
+        }
+
+        val report = GoogleDriveFolderProbeRunner(reader).probe("token", "root")
 
         assertFalse(report.nestedAccessVerified)
         assertNull(report.nestedFolder)

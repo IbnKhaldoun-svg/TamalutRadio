@@ -25,21 +25,25 @@ object GoogleDriveAuthorizationRequestFactory {
             AuthorizationRequest.ResourceParameter.PICKER_ALLOW_FOLDER_SELECTION,
             "true",
         )
+        .addResourceParameter(
+            AuthorizationRequest.ResourceParameter.PICKER_MIMETYPES,
+            GoogleDriveAuthorizationPolicy.DRIVE_FOLDER_MIME_TYPE,
+        )
         .build()
 }
 
 class GoogleDrivePickerGrant internal constructor(
-    val folderId: String,
+    val pickedItemId: String,
     val accessToken: String,
 ) {
     override fun toString(): String =
-        "GoogleDrivePickerGrant(folderId=${redactDriveId(folderId)}, accessToken=<redacted>)"
+        "GoogleDrivePickerGrant(pickedItemId=${redactDriveId(pickedItemId)}, accessToken=<redacted>)"
 }
 
 object GoogleDriveAuthorizationResultParser {
     const val PICKED_FILE_IDS_PARAM = "picked_file_ids"
 
-    internal fun parsePickedFolderId(rawPickedIds: String?): String? = rawPickedIds
+    internal fun parsePickedItemId(rawPickedIds: String?): String? = rawPickedIds
         ?.split(',')
         ?.asSequence()
         ?.map(String::trim)
@@ -51,12 +55,12 @@ object GoogleDriveAuthorizationResultParser {
         }
         val accessToken = result.accessToken?.takeIf(String::isNotBlank)
             ?: error("Google Drive authorization returned no access token")
-        val pickedFolderId = parsePickedFolderId(
+        val pickedItemId = parsePickedItemId(
             result.tokenResponseParams?.getString(PICKED_FILE_IDS_PARAM),
-        ) ?: error("Google Picker returned no selected folder ID")
+        ) ?: error("Google Picker returned no selected item ID")
 
         return GoogleDrivePickerGrant(
-            folderId = pickedFolderId,
+            pickedItemId = pickedItemId,
             accessToken = accessToken,
         )
     }
