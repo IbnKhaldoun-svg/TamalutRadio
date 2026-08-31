@@ -1026,7 +1026,7 @@ The Drive folder-access/A1-A2-B-C gate is closed with the product conclusion tha
 
 ### Sleep Timer custom duration contract — approved 2026-08-31
 
-- [ ] **Custom duration — hours + minutes.** Extend the existing shared Sleep Timer v1 with one `Personalizzato…` entry while preserving the quick presets `Off / 15 / 30 / 45 / 60 min`.
+- [x] **Custom duration — hours + minutes.** Extend the existing shared Sleep Timer v1 with one `Personalizzato…` entry while preserving the quick presets `Off / 15 / 30 / 45 / 60 min`.
 - `Personalizzato…` opens a Material 3 dialog titled `Timer personalizzato` with two numeric fields: `Ore` and `Minuti`, numeric keyboard, a human-readable duration preview, and `Annulla` / `Imposta` actions.
 - Input range is **1 minute through 12 hours inclusive** (`1..720` total minutes). `0 h 0 min` is invalid and must not silently map to `Off`; the `Imposta` action remains disabled. Hours are `0..12`, minutes are `0..59`, and when hours are `12`, minutes must be `0`.
 - Reopening the dialog while a custom timer is active shows the **original custom duration that was set**, not the currently remaining duration. Confirming again replaces/restarts the timer from the newly entered duration.
@@ -1041,3 +1041,16 @@ Known open follow-up — explicitly **out of scope for this custom-duration obje
 - the Sleep Timer control/countdown presentation in the persistent mini-player does not yet meet the agreed UI contract and will be corrected in the next separate objective;
 - the `60 min` preset exists in code but is horizontally off-screen in the current Now Playing chip row; discoverability/layout of all preset choices will be corrected together with the mini-player follow-up;
 - do not opportunistically change those two UI issues in this custom-duration cycle.
+
+
+Validation record — Sleep Timer custom duration implementation:
+- Spec-before commit: `2469c893dc255f42f7b2d84e72a309c70a689905` (`docs: define custom Sleep Timer duration`).
+- Clean product commit: `1c5c55e73c6e80d8a11f493dc0dbc1c3dabc5788` (`feat: add custom Sleep Timer duration`), with the spec-before commit as its direct parent and exactly five product/test files changed.
+- Real GitHub Actions validation run `33394958379`, job `99497167248`, passed `SLEEP_TIMER_CUSTOM_SHARED_ARCHITECTURE=PASS`, deterministic `:core:playback`, `:feature:radio`, `:feature:library`, and `:app` unit/regression tests, plus `:app:assembleDebug`.
+- Unit/regression build: `BUILD SUCCESSFUL in 2m 4s`, 147 actionable tasks (114 executed, 33 from cache). APK build: `BUILD SUCCESSFUL in 1m 44s`, 165 actionable tasks (46 executed, 119 up-to-date).
+- Deterministic coverage includes 1 minute, 12 hours, rejection of 0 and values above 12 hours, preset -> custom, custom -> preset, custom -> Off, and exactly one expiry callback using the injected fake scheduler/clock path; no test waits real minutes/hours.
+- Preset and custom durations converge on the same `SleepTimerController` deadline/scheduling path. Structural validation found no new ExoPlayer, MediaSession/MediaLibrarySession, service, AlarmManager playback stack, or parallel playback source of truth.
+- Validated APK size: `23,549,300` bytes. APK SHA-256: `66267059cf1db9525ed9769a5082bcefb137887b425a7085a9a386dcba0d3180`. Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
+- Product commit was promoted fast-forward to `main` only after the complete validation run passed.
+- Physical custom-duration validation is still pending and must include at least one real 1-minute custom expiry before the objective is physically closed.
+- Known UI follow-up remains intentionally open and was not changed by this objective: the persistent mini-player timer presentation does not yet meet the agreed explicit-control/countdown UX, and the existing `60 min` quick preset is present in code but can sit off-screen in the horizontally scrollable Now Playing chip row. These two issues are the next separate objective after custom-duration physical validation.
