@@ -151,11 +151,9 @@ internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {
                 stationId = it,
             )
         }
-        MediaSourceType.LOCAL,
-        MediaSourceType.DRIVE,
-        -> mediaId?.let {
+        MediaSourceType.LOCAL -> mediaId?.let {
             LastPlayedPreference(
-                sourceType = sourceType,
+                sourceType = MediaSourceType.LOCAL,
                 mediaId = it,
                 stationId = stationId,
             )

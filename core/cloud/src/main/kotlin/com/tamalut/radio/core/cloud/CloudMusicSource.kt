@@ -1,41 +1,10 @@
 package com.tamalut.radio.core.cloud
 
-import com.tamalut.radio.core.model.MediaId
-
-@JvmInline
-value class CloudProviderId(val value: String) {
-    init {
-        require(value.isNotBlank()) { "Cloud provider ID must not be blank" }
-    }
-}
-
-@JvmInline
-value class CloudFolderId(val value: String) {
-    init {
-        require(value.isNotBlank()) { "Cloud folder ID must not be blank" }
-    }
-}
-
-data class CloudMusicTrack(
-    val mediaId: MediaId,
-    val remoteId: String,
-    val title: String,
-    val mimeType: String? = null,
-) {
-    init {
-        require(remoteId.isNotBlank()) { "Cloud remote ID must not be blank" }
-        require(title.isNotBlank()) { "Cloud track title must not be blank" }
-    }
-}
-
 /**
- * Minimal provider-neutral boundary for cloud-backed music libraries.
+ * Provider-neutral marker for a possible future cloud music source.
  *
- * Provider authorization, pickers, networking and playback authentication stay in
- * provider/features and are intentionally not modeled here.
+ * No cloud provider is active in TamalutRadio. Concrete provider contracts,
+ * credentials, networking, pickers and playback behavior must be introduced only
+ * by a future explicitly approved provider implementation.
  */
-interface CloudMusicSource {
-    val providerId: CloudProviderId
-
-    suspend fun listMusic(folderId: CloudFolderId): List<CloudMusicTrack>
-}
+interface CloudMusicSource

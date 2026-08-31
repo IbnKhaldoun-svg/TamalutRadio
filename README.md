@@ -1,6 +1,6 @@
 # TamalutRadio
 
-TamalutRadio is a native Android application for listening to internet radio and, in later development phases, local and Google Drive music. The project is designed around reliable background playback, favorites-first radio browsing, Android media controls, Android Auto compatibility, and a lightweight Atlas-inspired visual identity.
+TamalutRadio is a native Android application for listening to internet radio and local music selected through Android Storage Access Framework. The project is designed around reliable background playback, favorites-first radio browsing, Android media controls, Android Auto compatibility, and a lightweight Atlas-inspired visual identity.
 
 The application is distributed as an APK for direct sideloading. Google Play distribution is not required.
 
@@ -94,11 +94,11 @@ The approved architecture is modular and will include:
 - `:core:preferences`
 - `:core:playback`
 - `:core:designsystem`
+- `:core:cloud` (empty provider-neutral future seam)
 - `:feature:radio`
 - `:feature:library`
 - `:feature:nowplaying`
 - `:feature:settings`
-- `:feature:drive`
 - `:feature:widget`
 
 Playback is planned around AndroidX Media3 / ExoPlayer with `MediaLibraryService` and `MediaLibrarySession`, with Room and DataStore handling their separate persistence responsibilities.

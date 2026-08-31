@@ -65,7 +65,6 @@ fun PlaybackState.toPlaybackChromeModel(): PlaybackChromeModel? {
         sourceLabel = when (sourceType) {
             MediaSourceType.RADIO -> "Radio · LIVE"
             MediaSourceType.LOCAL -> "Musica locale"
-            MediaSourceType.DRIVE -> "Google Drive"
             null -> ""
         },
         isPlaying = isPlaying,

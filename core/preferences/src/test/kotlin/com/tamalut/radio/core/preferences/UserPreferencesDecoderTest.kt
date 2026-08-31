@@ -97,6 +97,18 @@ class UserPreferencesDecoderTest {
     }
 
     @Test
+    fun legacyDriveLastPlayedStateIsIgnoredInsteadOfBeingReinterpretedAsLocal() {
+        val preferences = mutablePreferencesOf(
+            PreferenceKeys.lastSourceType to "DRIVE",
+            PreferenceKeys.lastMediaId to "legacy-cloud-id",
+        )
+
+        val decoded = decodeUserPreferences(preferences)
+
+        assertNull(decoded.lastPlayed)
+    }
+
+    @Test
     fun incompleteLastPlayedStateIsIgnored() {
         val preferences = mutablePreferencesOf(
             PreferenceKeys.lastSourceType to MediaSourceType.LOCAL.name,

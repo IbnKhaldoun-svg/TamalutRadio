@@ -27,9 +27,7 @@ data class LastPlayedPreference(
             MediaSourceType.RADIO -> require(stationId != null) {
                 "A radio last-played preference requires stationId"
             }
-            MediaSourceType.LOCAL,
-            MediaSourceType.DRIVE,
-            -> require(mediaId != null) {
+            MediaSourceType.LOCAL -> require(mediaId != null) {
                 "A track last-played preference requires mediaId"
             }
         }

@@ -3,7 +3,6 @@ package com.tamalut.radio.core.model
 enum class MediaSourceType {
     RADIO,
     LOCAL,
-    DRIVE,
 }
 
 data class MediaItemSummary(

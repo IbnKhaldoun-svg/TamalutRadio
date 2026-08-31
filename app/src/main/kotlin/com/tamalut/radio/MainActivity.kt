@@ -284,7 +284,6 @@ private fun SettingsDestination(
                 }
             }
 
-            DriveMultiFilePickerCard()
         }
     }
 
