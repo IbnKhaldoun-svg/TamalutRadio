@@ -141,9 +141,7 @@ class MainActivity : ComponentActivity() {
                             PersistentMiniPlayer(
                                 state = playbackState,
                                 controller = playbackController,
-                                sleepTimerState = sleepTimerState,
-                                onSleepTimerPresetSelected = sleepTimerController::setPreset,
-                                onCustomSleepTimerRequested = { showCustomSleepTimerDialog = true },
+                                onOpenNowPlaying = { selectedDestination.value = MainDestination.NOW_PLAYING },
                             )
                             NavigationBar {
                                 MainDestination.entries.forEach { item ->

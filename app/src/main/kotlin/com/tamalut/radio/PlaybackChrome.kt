@@ -3,7 +3,6 @@ package com.tamalut.radio
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +25,6 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -176,14 +173,10 @@ fun performPlaybackChromeAction(
 fun PersistentMiniPlayer(
     state: PlaybackState,
     controller: PlaybackController,
-    sleepTimerState: SleepTimerState,
-    onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
-    onCustomSleepTimerRequested: () -> Unit,
+    onOpenNowPlaying: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val model = state.toPlaybackChromeModel() ?: return
-    val sleepTimerModel = sleepTimerState.toSleepTimerUiModel()
-    var timerMenuExpanded by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -211,55 +204,25 @@ fun PersistentMiniPlayer(
                     )
                 }
             }
-            Box(
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 8.dp)
+                    .clickable(onClick = onOpenNowPlaying),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { timerMenuExpanded = true },
-                ) {
-                    Text(
-                        text = model.title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "${model.sourceLabel} · ${sleepTimerModel.compactLabel}",
-                        maxLines = 1,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (sleepTimerModel.isActive) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-                DropdownMenu(
-                    expanded = timerMenuExpanded,
-                    onDismissRequest = { timerMenuExpanded = false },
-                ) {
-                    sleepTimerPresetOptions.forEach { preset ->
-                        DropdownMenuItem(
-                            text = { Text(preset.displayLabel()) },
-                            onClick = {
-                                timerMenuExpanded = false
-                                onSleepTimerPresetSelected(preset)
-                            },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text("Personalizzato…") },
-                        onClick = {
-                            timerMenuExpanded = false
-                            onCustomSleepTimerRequested()
-                        },
-                    )
-                }
+                Text(
+                    text = model.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = model.sourceLabel,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (model.showLocalPlaybackModes) {
                 IconButton(
@@ -338,7 +301,9 @@ fun NowPlayingDestination(
     Surface(modifier = modifier) {
         if (model == null) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
@@ -359,27 +324,27 @@ fun NowPlayingDestination(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 28.dp),
+                .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 modifier = Modifier.fillMaxWidth(),
                 text = "IN RIPRODUZIONE",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
 
             Surface(
-                modifier = Modifier.size(184.dp),
+                modifier = Modifier.size(168.dp),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.primaryContainer,
                 tonalElevation = 2.dp,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        modifier = Modifier.size(72.dp),
+                        modifier = Modifier.size(68.dp),
                         imageVector = if (state.sourceType == MediaSourceType.RADIO) Icons.Filled.Radio else Icons.Filled.LibraryMusic,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -387,27 +352,32 @@ fun NowPlayingDestination(
                 }
             }
 
-            Text(
-                text = model.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = model.sourceLabel,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    text = if (model.isPlaying) "In riproduzione" else "In pausa",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    text = model.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
                 )
+                Text(
+                    text = model.sourceLabel,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+                ) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                        text = if (model.isPlaying) "In riproduzione" else "In pausa",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
             }
 
             Card(
@@ -437,20 +407,35 @@ fun NowPlayingDestination(
                         },
                     )
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        sleepTimerPresetOptions.forEach { preset ->
+                        sleepTimerPresetOptions.take(3).forEach { preset ->
                             FilterChip(
+                                modifier = Modifier.weight(1f),
                                 selected = !sleepTimerState.isCustom && sleepTimerState.preset == preset,
                                 onClick = { onSleepTimerPresetSelected(preset) },
-                                label = { Text(preset.displayLabel()) },
+                                label = { Text(preset.displayLabel(), maxLines = 1) },
                             )
                         }
                     }
-                    TextButton(onClick = onCustomSleepTimerRequested) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        sleepTimerPresetOptions.drop(3).forEach { preset ->
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = !sleepTimerState.isCustom && sleepTimerState.preset == preset,
+                                onClick = { onSleepTimerPresetSelected(preset) },
+                                label = { Text(preset.displayLabel(), maxLines = 1) },
+                            )
+                        }
+                    }
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onCustomSleepTimerRequested,
+                    ) {
                         Text("Personalizzato…")
                     }
                 }
@@ -460,7 +445,7 @@ fun NowPlayingDestination(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
@@ -468,12 +453,12 @@ fun NowPlayingDestination(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(
-                        text = if (model.showLocalPlaybackModes) "Modalità musica locale" else "Dettagli radio",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
                     if (model.showLocalPlaybackModes) {
+                        Text(
+                            text = "Riproduzione locale",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                         PlaybackModeSummary(
                             icon = Icons.Filled.Shuffle,
                             label = if (model.shuffleEnabled) "Shuffle attivo" else "Shuffle disattivato",
@@ -484,7 +469,12 @@ fun NowPlayingDestination(
                         )
                     } else {
                         Text(
-                            text = "Streaming LIVE. Shuffle e loop sono disponibili soltanto per la musica locale.",
+                            text = "Radio LIVE",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Streaming in diretta. Shuffle e loop restano disponibili solo per la musica locale.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -494,7 +484,7 @@ fun NowPlayingDestination(
 
             Text(
                 modifier = Modifier.fillMaxWidth(),
-                text = "I controlli di trasporto restano sempre disponibili nel mini-player qui sotto.",
+                text = "I controlli di trasporto restano nel mini-player qui sotto.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
