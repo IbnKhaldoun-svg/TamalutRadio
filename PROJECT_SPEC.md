@@ -1079,3 +1079,11 @@ Validation record — Sleep Timer custom duration implementation:
 - [x] The same run passed `:app:assembleDebug`: BUILD SUCCESSFUL in 1m 46s, 165 actionable tasks (46 executed, 119 up-to-date).
 - [x] Validation APK: `23,549,300` bytes; SHA-256 `bfcc24d7e239aceb9bce011bd1e532d91a2541f040b1a46568c54f780278513e`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - [x] Exact validated product commit `d2ca1216dd4c7243d0dd56188e31a2dba4ff37e4` was fast-forward promoted to `main` after validation. Physical verification remains required for real 1-minute Radio expiry: audio/network teardown, media notification removal, overlay removal, Recents task removal, and clean relaunch.
+
+### Physical closure — Sleep Timer expiry shutdown + custom accessibility (2026-08-31)
+
+- [x] **Physical validation PASS.** Real-device verification confirmed the approved full functional shutdown behavior at Sleep Timer expiry.
+- [x] At expiry, active audio terminates rather than remaining paused; the media notification and floating overlay disappear; TamalutRadio is removed from Recents; no playback reconnect/restart or continuing stream activity was observed.
+- [x] Reopening TamalutRadio from the launcher after expiry behaves as a normal fresh app launch with no ghost playback/session.
+- [x] The `Personalizzato…` action is reachable from `In Riproduzione` after the compact-display vertical-scroll fix.
+- [x] The Sleep Timer expiry-shutdown/custom-accessibility hotfix cycle is therefore physically closed. The next separate objective is the approved `In Riproduzione` UI redesign plus mini-player cleanup; no code for that follow-up is included in this closure.
