@@ -66,6 +66,7 @@ interface PlaybackController {
     fun skipToNext()
     fun setLocalRepeatMode(mode: PlaybackRepeatMode)
     fun setLocalShuffleEnabled(enabled: Boolean)
+    fun stopPlayback() = Unit
     fun release()
 }
 
@@ -212,6 +213,10 @@ class Media3PlaybackController(
         executeSilently { connectedBrowser ->
             connectedBrowser.shuffleModeEnabled = media3Shuffle
         }
+    }
+
+    override fun stopPlayback() {
+        executeSilently { connectedBrowser -> connectedBrowser.stop() }
     }
 
     private fun executeSilently(action: (MediaBrowser) -> Unit) {

@@ -1,6 +1,8 @@
 package com.tamalut.radio
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Pause
@@ -20,12 +23,19 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +47,8 @@ import com.tamalut.radio.core.playback.PlaybackController
 import com.tamalut.radio.core.playback.PlaybackModePolicy
 import com.tamalut.radio.core.playback.PlaybackRepeatMode
 import com.tamalut.radio.core.playback.PlaybackState
+import com.tamalut.radio.core.playback.SleepTimerPreset
+import com.tamalut.radio.core.playback.SleepTimerState
 
 data class PlaybackChromeModel(
     val title: String,
@@ -49,12 +61,50 @@ data class PlaybackChromeModel(
     val shuffleEnabled: Boolean,
 )
 
+data class SleepTimerUiModel(
+    val compactLabel: String,
+    val detailLabel: String,
+    val isActive: Boolean,
+)
+
 enum class PlaybackChromeAction {
     PREVIOUS,
     TOGGLE_PLAY_PAUSE,
     NEXT,
     TOGGLE_SHUFFLE,
     CYCLE_REPEAT,
+}
+
+internal val sleepTimerPresetOptions: List<SleepTimerPreset> = SleepTimerPreset.entries.toList()
+
+fun SleepTimerState.toSleepTimerUiModel(): SleepTimerUiModel = if (isActive) {
+    val remaining = formatSleepTimerRemaining(remainingSeconds)
+    SleepTimerUiModel(
+        compactLabel = "Timer $remaining",
+        detailLabel = "$remaining rimanenti",
+        isActive = true,
+    )
+} else {
+    SleepTimerUiModel(
+        compactLabel = "Timer",
+        detailLabel = "Off",
+        isActive = false,
+    )
+}
+
+internal fun SleepTimerPreset.displayLabel(): String = when (this) {
+    SleepTimerPreset.OFF -> "Off"
+    SleepTimerPreset.MINUTES_15 -> "15 min"
+    SleepTimerPreset.MINUTES_30 -> "30 min"
+    SleepTimerPreset.MINUTES_45 -> "45 min"
+    SleepTimerPreset.MINUTES_60 -> "60 min"
+}
+
+internal fun formatSleepTimerRemaining(remainingSeconds: Long): String {
+    val safeSeconds = remainingSeconds.coerceAtLeast(0L)
+    val minutes = safeSeconds / 60L
+    val seconds = safeSeconds % 60L
+    return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
 
 fun PlaybackState.toPlaybackChromeModel(): PlaybackChromeModel? {
@@ -102,9 +152,14 @@ fun performPlaybackChromeAction(
 fun PersistentMiniPlayer(
     state: PlaybackState,
     controller: PlaybackController,
+    sleepTimerState: SleepTimerState,
+    onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val model = state.toPlaybackChromeModel() ?: return
+    val sleepTimerModel = sleepTimerState.toSleepTimerUiModel()
+    var timerMenuExpanded by remember { mutableStateOf(false) }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         tonalElevation = 3.dp,
@@ -131,24 +186,48 @@ fun PersistentMiniPlayer(
                     )
                 }
             }
-            Column(
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp),
             ) {
-                Text(
-                    text = model.title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = model.sourceLabel,
-                    maxLines = 1,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { timerMenuExpanded = true },
+                ) {
+                    Text(
+                        text = model.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "${model.sourceLabel} · ${sleepTimerModel.compactLabel}",
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (sleepTimerModel.isActive) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+                DropdownMenu(
+                    expanded = timerMenuExpanded,
+                    onDismissRequest = { timerMenuExpanded = false },
+                ) {
+                    sleepTimerPresetOptions.forEach { preset ->
+                        DropdownMenuItem(
+                            text = { Text(preset.displayLabel()) },
+                            onClick = {
+                                timerMenuExpanded = false
+                                onSleepTimerPresetSelected(preset)
+                            },
+                        )
+                    }
+                }
             }
             if (model.showLocalPlaybackModes) {
                 IconButton(
@@ -217,9 +296,12 @@ fun PersistentMiniPlayer(
 @Composable
 fun NowPlayingDestination(
     state: PlaybackState,
+    sleepTimerState: SleepTimerState,
+    onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val model = state.toPlaybackChromeModel()
+    val sleepTimerModel = sleepTimerState.toSleepTimerUiModel()
     Surface(modifier = modifier) {
         if (model == null) {
             Column(
@@ -292,6 +374,49 @@ fun NowPlayingDestination(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = "Timer spegnimento",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = sleepTimerModel.detailLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (sleepTimerModel.isActive) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        sleepTimerPresetOptions.forEach { preset ->
+                            FilterChip(
+                                selected = sleepTimerState.preset == preset,
+                                onClick = { onSleepTimerPresetSelected(preset) },
+                                label = { Text(preset.displayLabel()) },
+                            )
+                        }
+                    }
+                }
             }
 
             Card(

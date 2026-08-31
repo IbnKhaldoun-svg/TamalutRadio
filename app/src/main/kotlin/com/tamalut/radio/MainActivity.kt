@@ -81,6 +81,7 @@ internal enum class MainDestination(val label: String, val icon: ImageVector) {
 class MainActivity : ComponentActivity() {
     private val preferencesRepository by lazy { TamalutRadioRuntime.preferences(applicationContext) }
     private val playbackController by lazy { TamalutRadioRuntime.playback(applicationContext) }
+    private val sleepTimerController by lazy { TamalutRadioRuntime.sleepTimer(applicationContext) }
     private val overlayCoordinator by lazy { TamalutRadioRuntime.overlay(applicationContext) }
     private val selectedDestination = MutableStateFlow(MainDestination.RADIO)
     private val resumeTick = MutableStateFlow(0L)
@@ -118,6 +119,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val userPreferences by preferencesRepository.userPreferences.collectAsState(initial = UserPreferences())
             val playbackState by playbackController.state.collectAsState()
+            val sleepTimerState by sleepTimerController.state.collectAsState()
             val destination by selectedDestination.collectAsState()
             val resumeVersion by resumeTick.collectAsState()
             val scope = rememberCoroutineScope()
@@ -135,7 +137,12 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     bottomBar = {
                         Column {
-                            PersistentMiniPlayer(state = playbackState, controller = playbackController)
+                            PersistentMiniPlayer(
+                                state = playbackState,
+                                controller = playbackController,
+                                sleepTimerState = sleepTimerState,
+                                onSleepTimerPresetSelected = sleepTimerController::setPreset,
+                            )
                             NavigationBar {
                                 MainDestination.entries.forEach { item ->
                                     NavigationBarItem(
@@ -160,6 +167,8 @@ class MainActivity : ComponentActivity() {
                         )
                         MainDestination.NOW_PLAYING -> NowPlayingDestination(
                             state = playbackState,
+                            sleepTimerState = sleepTimerState,
+                            onSleepTimerPresetSelected = sleepTimerController::setPreset,
                             modifier = Modifier.fillMaxSize().padding(contentPadding),
                         )
                         MainDestination.SETTINGS -> SettingsDestination(

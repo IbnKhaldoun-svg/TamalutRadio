@@ -1,13 +1,16 @@
 package com.tamalut.radio
 
 import android.content.Context
+import com.tamalut.radio.core.playback.HandlerSleepTimerScheduler
 import com.tamalut.radio.core.playback.Media3PlaybackController
+import com.tamalut.radio.core.playback.SleepTimerController
 import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
 
 internal object TamalutRadioRuntime {
     private var preferencesRepository: DataStoreUserPreferencesRepository? = null
     private var playbackController: Media3PlaybackController? = null
     private var overlayCoordinator: FloatingOverlayCoordinator? = null
+    private var sleepTimerController: SleepTimerController? = null
 
     @Synchronized
     fun preferences(context: Context): DataStoreUserPreferencesRepository =
@@ -19,6 +22,15 @@ internal object TamalutRadioRuntime {
     fun playback(context: Context): Media3PlaybackController =
         playbackController ?: Media3PlaybackController(context.applicationContext).also {
             playbackController = it
+        }
+
+    @Synchronized
+    fun sleepTimer(context: Context): SleepTimerController =
+        sleepTimerController ?: SleepTimerController(
+            scheduler = HandlerSleepTimerScheduler(),
+            onExpired = playback(context)::stopPlayback,
+        ).also {
+            sleepTimerController = it
         }
 
     @Synchronized
