@@ -1,6 +1,7 @@
 package com.tamalut.radio
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -29,8 +31,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,12 +45,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.tamalut.radio.core.model.MediaSourceType
 import com.tamalut.radio.core.playback.PlaybackController
 import com.tamalut.radio.core.playback.PlaybackModePolicy
 import com.tamalut.radio.core.playback.PlaybackRepeatMode
 import com.tamalut.radio.core.playback.PlaybackState
+import com.tamalut.radio.core.playback.SleepTimerCustomDuration
 import com.tamalut.radio.core.playback.SleepTimerPreset
 import com.tamalut.radio.core.playback.SleepTimerState
 
@@ -102,9 +108,26 @@ internal fun SleepTimerPreset.displayLabel(): String = when (this) {
 
 internal fun formatSleepTimerRemaining(remainingSeconds: Long): String {
     val safeSeconds = remainingSeconds.coerceAtLeast(0L)
-    val minutes = safeSeconds / 60L
+    val hours = safeSeconds / 3_600L
+    val minutes = (safeSeconds % 3_600L) / 60L
     val seconds = safeSeconds % 60L
-    return "$minutes:${seconds.toString().padStart(2, '0')}"
+    return if (hours > 0L) {
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    } else {
+        "$minutes:${seconds.toString().padStart(2, '0')}"
+    }
+}
+
+internal fun sleepTimerCustomDurationOrNull(hoursText: String, minutesText: String): SleepTimerCustomDuration? {
+    val hours = hoursText.toIntOrNull() ?: return null
+    val minutes = minutesText.toIntOrNull() ?: return null
+    return SleepTimerCustomDuration.fromPartsOrNull(hours, minutes)
+}
+
+internal fun SleepTimerCustomDuration.toPreviewLabel(): String = when {
+    hours > 0 && minutes > 0 -> "$hours h $minutes min"
+    hours > 0 -> "$hours h"
+    else -> "$minutes min"
 }
 
 fun PlaybackState.toPlaybackChromeModel(): PlaybackChromeModel? {
@@ -154,6 +177,7 @@ fun PersistentMiniPlayer(
     controller: PlaybackController,
     sleepTimerState: SleepTimerState,
     onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
+    onCustomSleepTimerRequested: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val model = state.toPlaybackChromeModel() ?: return
@@ -227,6 +251,13 @@ fun PersistentMiniPlayer(
                             },
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text("Personalizzato…") },
+                        onClick = {
+                            timerMenuExpanded = false
+                            onCustomSleepTimerRequested()
+                        },
+                    )
                 }
             }
             if (model.showLocalPlaybackModes) {
@@ -298,6 +329,7 @@ fun NowPlayingDestination(
     state: PlaybackState,
     sleepTimerState: SleepTimerState,
     onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
+    onCustomSleepTimerRequested: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val model = state.toPlaybackChromeModel()
@@ -410,11 +442,14 @@ fun NowPlayingDestination(
                     ) {
                         sleepTimerPresetOptions.forEach { preset ->
                             FilterChip(
-                                selected = sleepTimerState.preset == preset,
+                                selected = !sleepTimerState.isCustom && sleepTimerState.preset == preset,
                                 onClick = { onSleepTimerPresetSelected(preset) },
                                 label = { Text(preset.displayLabel()) },
                             )
                         }
+                    }
+                    TextButton(onClick = onCustomSleepTimerRequested) {
+                        Text("Personalizzato…")
                     }
                 }
             }
@@ -464,6 +499,64 @@ fun NowPlayingDestination(
             )
         }
     }
+}
+
+@Composable
+fun SleepTimerCustomDialog(
+    initialDurationMinutes: Int?,
+    onDismiss: () -> Unit,
+    onConfirm: (SleepTimerCustomDuration) -> Unit,
+) {
+    val initial = remember(initialDurationMinutes) {
+        SleepTimerCustomDuration.fromTotalMinutes(initialDurationMinutes ?: 30)
+    }
+    var hoursText by remember(initialDurationMinutes) { mutableStateOf(initial.hours.toString()) }
+    var minutesText by remember(initialDurationMinutes) { mutableStateOf(initial.minutes.toString()) }
+    val duration = sleepTimerCustomDurationOrNull(hoursText, minutesText)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Timer personalizzato") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        modifier = Modifier.weight(1f),
+                        value = hoursText,
+                        onValueChange = { value ->
+                            if (value.length <= 2 && value.all(Char::isDigit)) hoursText = value
+                        },
+                        label = { Text("Ore") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        modifier = Modifier.weight(1f),
+                        value = minutesText,
+                        onValueChange = { value ->
+                            if (value.length <= 2 && value.all(Char::isDigit)) minutesText = value
+                        },
+                        label = { Text("Minuti") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+                }
+                Text(
+                    text = duration?.let { "Il timer scadrà tra ${it.toPreviewLabel()}" }
+                        ?: "Inserisci una durata tra 1 minuto e 12 ore.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = duration != null,
+                onClick = { duration?.let(onConfirm) },
+            ) { Text("Imposta") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } },
+    )
 }
 
 @Composable

@@ -123,6 +123,7 @@ class MainActivity : ComponentActivity() {
             val destination by selectedDestination.collectAsState()
             val resumeVersion by resumeTick.collectAsState()
             val scope = rememberCoroutineScope()
+            var showCustomSleepTimerDialog by remember { mutableStateOf(false) }
             val overlayPermissionGranted = Settings.canDrawOverlays(this@MainActivity)
             val overlayPermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartActivityForResult(),
@@ -142,6 +143,7 @@ class MainActivity : ComponentActivity() {
                                 controller = playbackController,
                                 sleepTimerState = sleepTimerState,
                                 onSleepTimerPresetSelected = sleepTimerController::setPreset,
+                                onCustomSleepTimerRequested = { showCustomSleepTimerDialog = true },
                             )
                             NavigationBar {
                                 MainDestination.entries.forEach { item ->
@@ -169,6 +171,7 @@ class MainActivity : ComponentActivity() {
                             state = playbackState,
                             sleepTimerState = sleepTimerState,
                             onSleepTimerPresetSelected = sleepTimerController::setPreset,
+                            onCustomSleepTimerRequested = { showCustomSleepTimerDialog = true },
                             modifier = Modifier.fillMaxSize().padding(contentPadding),
                         )
                         MainDestination.SETTINGS -> SettingsDestination(
@@ -189,6 +192,16 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize().padding(contentPadding),
                         )
                     }
+                }
+                if (showCustomSleepTimerDialog) {
+                    SleepTimerCustomDialog(
+                        initialDurationMinutes = sleepTimerState.customDurationMinutes,
+                        onDismiss = { showCustomSleepTimerDialog = false },
+                        onConfirm = { duration ->
+                            sleepTimerController.setCustomDuration(duration)
+                            showCustomSleepTimerDialog = false
+                        },
+                    )
                 }
             }
         }

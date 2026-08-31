@@ -15,25 +15,47 @@ enum class SleepTimerPreset(val durationMinutes: Int?) {
     MINUTES_60(60),
 }
 
-data class SleepTimerState(
-    val preset: SleepTimerPreset = SleepTimerPreset.OFF,
-    val remainingSeconds: Long = 0L,
+data class SleepTimerCustomDuration private constructor(
+    val totalMinutes: Int,
 ) {
-    val isActive: Boolean
-        get() = preset != SleepTimerPreset.OFF && remainingSeconds > 0L
+    val hours: Int get() = totalMinutes / 60
+    val minutes: Int get() = totalMinutes % 60
+
+    companion object {
+        const val MIN_TOTAL_MINUTES = 1
+        const val MAX_TOTAL_MINUTES = 12 * 60
+
+        fun fromTotalMinutes(totalMinutes: Int): SleepTimerCustomDuration {
+            require(totalMinutes in MIN_TOTAL_MINUTES..MAX_TOTAL_MINUTES) {
+                "Sleep timer duration must be between 1 minute and 12 hours"
+            }
+            return SleepTimerCustomDuration(totalMinutes)
+        }
+
+        fun fromPartsOrNull(hours: Int, minutes: Int): SleepTimerCustomDuration? {
+            if (hours !in 0..12 || minutes !in 0..59) return null
+            val totalMinutes = hours * 60 + minutes
+            if (totalMinutes !in MIN_TOTAL_MINUTES..MAX_TOTAL_MINUTES) return null
+            return SleepTimerCustomDuration(totalMinutes)
+        }
+    }
 }
 
-fun interface SleepTimerHandle {
-    fun cancel()
+data class SleepTimerState(
+    val preset: SleepTimerPreset = SleepTimerPreset.OFF,
+    val customDurationMinutes: Int? = null,
+    val remainingSeconds: Long = 0L,
+) {
+    val isCustom: Boolean get() = customDurationMinutes != null
+    val isActive: Boolean
+        get() = remainingSeconds > 0L && (preset != SleepTimerPreset.OFF || isCustom)
 }
+
+fun interface SleepTimerHandle { fun cancel() }
 
 interface SleepTimerScheduler {
     fun nowMillis(): Long
-
-    fun schedule(
-        delayMillis: Long,
-        action: () -> Unit,
-    ): SleepTimerHandle
+    fun schedule(delayMillis: Long, action: () -> Unit): SleepTimerHandle
 }
 
 class HandlerSleepTimerScheduler(
@@ -41,11 +63,7 @@ class HandlerSleepTimerScheduler(
     private val clockMillis: () -> Long = SystemClock::elapsedRealtime,
 ) : SleepTimerScheduler {
     override fun nowMillis(): Long = clockMillis()
-
-    override fun schedule(
-        delayMillis: Long,
-        action: () -> Unit,
-    ): SleepTimerHandle {
+    override fun schedule(delayMillis: Long, action: () -> Unit): SleepTimerHandle {
         val runnable = Runnable(action)
         handler.postDelayed(runnable, delayMillis.coerceAtLeast(0L))
         return SleepTimerHandle { handler.removeCallbacks(runnable) }
@@ -64,33 +82,53 @@ class SleepTimerController(
     private var generation: Long = 0L
 
     fun setPreset(preset: SleepTimerPreset) {
+        if (preset == SleepTimerPreset.OFF) {
+            cancel()
+            return
+        }
+        replaceTimer(
+            durationMinutes = requireNotNull(preset.durationMinutes),
+            preset = preset,
+            customDurationMinutes = null,
+        )
+    }
+
+    fun setCustomDuration(duration: SleepTimerCustomDuration) {
+        replaceTimer(
+            durationMinutes = duration.totalMinutes,
+            preset = SleepTimerPreset.OFF,
+            customDurationMinutes = duration.totalMinutes,
+        )
+    }
+
+    private fun cancel() {
         generation += 1L
         scheduledHandle?.cancel()
         scheduledHandle = null
+        deadlineMillis = null
+        _state.value = SleepTimerState()
+    }
 
-        if (preset == SleepTimerPreset.OFF) {
-            deadlineMillis = null
-            _state.value = SleepTimerState()
-            return
-        }
-
-        val durationMinutes = requireNotNull(preset.durationMinutes)
+    private fun replaceTimer(
+        durationMinutes: Int,
+        preset: SleepTimerPreset,
+        customDurationMinutes: Int?,
+    ) {
+        generation += 1L
+        scheduledHandle?.cancel()
+        scheduledHandle = null
         val deadline = scheduler.nowMillis() + durationMinutes * MILLIS_PER_MINUTE
         deadlineMillis = deadline
-        updateAndSchedule(
-            preset = preset,
-            deadline = deadline,
-            expectedGeneration = generation,
-        )
+        updateAndSchedule(preset, customDurationMinutes, deadline, generation)
     }
 
     private fun updateAndSchedule(
         preset: SleepTimerPreset,
+        customDurationMinutes: Int?,
         deadline: Long,
         expectedGeneration: Long,
     ) {
         if (expectedGeneration != generation || deadlineMillis != deadline) return
-
         val remainingMillis = deadline - scheduler.nowMillis()
         if (remainingMillis <= 0L) {
             deadlineMillis = null
@@ -99,17 +137,13 @@ class SleepTimerController(
             onExpired()
             return
         }
-
         _state.value = SleepTimerState(
             preset = preset,
+            customDurationMinutes = customDurationMinutes,
             remainingSeconds = (remainingMillis + MILLIS_PER_SECOND - 1L) / MILLIS_PER_SECOND,
         )
         scheduledHandle = scheduler.schedule(minOf(MILLIS_PER_SECOND, remainingMillis)) {
-            updateAndSchedule(
-                preset = preset,
-                deadline = deadline,
-                expectedGeneration = expectedGeneration,
-            )
+            updateAndSchedule(preset, customDurationMinutes, deadline, expectedGeneration)
         }
     }
 
