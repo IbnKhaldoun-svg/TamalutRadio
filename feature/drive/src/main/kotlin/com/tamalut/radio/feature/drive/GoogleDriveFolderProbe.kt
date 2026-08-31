@@ -15,19 +15,55 @@ data class GoogleDriveProbeItem(
     val name: String,
     val mimeType: String,
     val sizeBytes: Long?,
+    val parentIds: List<String> = emptyList(),
 ) {
     val isFolder: Boolean get() = mimeType == GOOGLE_DRIVE_FOLDER_MIME_TYPE
 }
 
-data class GoogleDriveFolderProbeReport(
-    val selectedFolderId: String,
-    val directChildren: List<GoogleDriveProbeItem>,
-    val nestedFolder: GoogleDriveProbeItem?,
-    val nestedChildren: List<GoogleDriveProbeItem>?,
-    val nestedError: String?,
+data class GoogleDriveDiagnosticPage(
+    val pageNumber: Int,
+    val items: List<GoogleDriveProbeItem>,
+    val hasNextPage: Boolean,
+    val incompleteSearch: Boolean,
+)
+
+data class GoogleDriveDiagnosticMeasurement(
+    val label: String,
+    val pageSize: Int,
+    val parentFiltered: Boolean,
+    val pages: List<GoogleDriveDiagnosticPage>,
 ) {
-    val nestedAccessVerified: Boolean
-        get() = nestedFolder != null && nestedChildren != null && nestedError == null
+    val items: List<GoogleDriveProbeItem>
+        get() = pages.flatMap { it.items }
+
+    val itemIds: Set<String>
+        get() = items.mapTo(linkedSetOf()) { it.id }
+
+    val anyIncompleteSearch: Boolean
+        get() = pages.any { it.incompleteSearch }
+}
+
+enum class GoogleDriveDiagnosticVerdict {
+    INCOMPLETE_SEARCH,
+    SAME_TOKEN_PARENT_RESULTS_DIFFER,
+    FORCED_PAGINATION_MISMATCH,
+    AUTHORIZED_UNIVERSE_SINGLE_ITEM,
+    AUTHORIZED_UNIVERSE_SELECTED_FOLDER_PLUS_SINGLE_CHILD,
+    PARENT_QUERY_SPECIFIC_BROADER_UNIVERSE,
+    AUTHORIZED_UNIVERSE_DIFFERS_FROM_PARENT_RESULT,
+    CONSISTENT_OTHER,
+}
+
+data class GoogleDriveFolderProbeReport(
+    val selectedFolder: GoogleDriveProbeItem,
+    val a1: GoogleDriveDiagnosticMeasurement,
+    val a2: GoogleDriveDiagnosticMeasurement,
+    val b: GoogleDriveDiagnosticMeasurement,
+    val c: GoogleDriveDiagnosticMeasurement,
+    val verdict: GoogleDriveDiagnosticVerdict,
+) {
+    val selectedFolderId: String get() = selectedFolder.id
+    val directChildren: List<GoogleDriveProbeItem> get() = a1.items
 }
 
 class GoogleDriveApiException(
@@ -49,18 +85,29 @@ class GoogleDriveSelectionException : IOException(
     "La selezione Google Drive non è una cartella. Scegli una cartella e riprova.",
 )
 
-interface GoogleDriveReadOnlyReader {
-    @Throws(IOException::class)
-    fun getItem(accessToken: String, itemId: String): GoogleDriveProbeItem
-
-    @Throws(IOException::class)
-    fun listChildren(accessToken: String, folderId: String): List<GoogleDriveProbeItem>
-}
-
 internal data class DriveHttpResponse(
     val statusCode: Int,
     val body: String,
 )
+
+internal data class DriveFilesPage(
+    val items: List<GoogleDriveProbeItem>,
+    val nextPageToken: String?,
+    val incompleteSearch: Boolean,
+)
+
+internal interface GoogleDriveReadOnlyReader {
+    @Throws(IOException::class)
+    fun getItem(accessToken: String, itemId: String): GoogleDriveProbeItem
+
+    @Throws(IOException::class)
+    fun listPage(
+        accessToken: String,
+        query: String,
+        pageSize: Int,
+        pageToken: String?,
+    ): DriveFilesPage
+}
 
 internal fun interface DriveReadOnlyHttpTransport {
     @Throws(IOException::class)
@@ -88,7 +135,7 @@ internal class UrlConnectionDriveReadOnlyHttpTransport : DriveReadOnlyHttpTransp
     }
 }
 
-class GoogleDriveApiClient internal constructor(
+internal class GoogleDriveApiClient internal constructor(
     private val transport: DriveReadOnlyHttpTransport,
 ) : GoogleDriveReadOnlyReader {
     constructor() : this(UrlConnectionDriveReadOnlyHttpTransport())
@@ -102,24 +149,26 @@ class GoogleDriveApiClient internal constructor(
         return parseDriveItem(response.body)
     }
 
-    override fun listChildren(accessToken: String, folderId: String): List<GoogleDriveProbeItem> {
+    override fun listPage(
+        accessToken: String,
+        query: String,
+        pageSize: Int,
+        pageToken: String?,
+    ): DriveFilesPage {
         require(accessToken.isNotBlank()) { "Access token is required" }
-        require(folderId.isNotBlank()) { "Folder ID is required" }
+        require(query.isNotBlank()) { "Drive query is required" }
+        require(pageSize in 1..1000) { "Drive pageSize must be between 1 and 1000" }
 
-        val children = mutableListOf<GoogleDriveProbeItem>()
-        var pageToken: String? = null
-        var pageCount = 0
-
-        do {
-            check(pageCount++ < MAX_PAGES) { "Drive pagination exceeded $MAX_PAGES pages" }
-            val response = transport.get(buildChildrenUrl(folderId, pageToken), accessToken)
-            requireSuccessfulResponse(response)
-            val page = parseChildrenPage(response.body)
-            children += page.items
-            pageToken = page.nextPageToken
-        } while (!pageToken.isNullOrBlank())
-
-        return children
+        val response = transport.get(
+            buildFilesListUrl(
+                query = query,
+                pageSize = pageSize,
+                pageToken = pageToken,
+            ),
+            accessToken,
+        )
+        requireSuccessfulResponse(response)
+        return parseFilesPage(response.body)
     }
 
     private fun requireSuccessfulResponse(response: DriveHttpResponse) {
@@ -127,62 +176,128 @@ class GoogleDriveApiClient internal constructor(
             throw GoogleDriveApiException(response.statusCode, parseGoogleErrorReason(response.body))
         }
     }
-
-    companion object {
-        private const val MAX_PAGES = 100
-    }
 }
 
-class GoogleDriveFolderProbeRunner(
+class GoogleDriveFolderProbeRunner internal constructor(
     private val reader: GoogleDriveReadOnlyReader,
 ) {
+    constructor() : this(GoogleDriveApiClient())
+
     fun probe(accessToken: String, selectedItemId: String): GoogleDriveFolderProbeReport {
         val selectedItem = reader.getItem(accessToken, selectedItemId)
         if (!selectedItem.isFolder) {
             throw GoogleDriveSelectionException()
         }
 
-        val directChildren = reader.listChildren(accessToken, selectedItem.id)
-        val nestedFolder = directChildren.firstOrNull { it.isFolder }
+        val parentQuery = buildParentQuery(selectedItem.id)
+        val a1 = readMeasurement(
+            accessToken = accessToken,
+            label = "A1",
+            query = parentQuery,
+            pageSize = 1000,
+            parentFiltered = true,
+        )
+        val a2 = readMeasurement(
+            accessToken = accessToken,
+            label = "A2",
+            query = parentQuery,
+            pageSize = 1000,
+            parentFiltered = true,
+        )
+        val b = readMeasurement(
+            accessToken = accessToken,
+            label = "B",
+            query = parentQuery,
+            pageSize = 1,
+            parentFiltered = true,
+        )
+        val c = readMeasurement(
+            accessToken = accessToken,
+            label = "C",
+            query = DRIVE_VISIBLE_UNIVERSE_QUERY,
+            pageSize = 1000,
+            parentFiltered = false,
+        )
 
-        if (nestedFolder == null) {
-            return GoogleDriveFolderProbeReport(
+        return GoogleDriveFolderProbeReport(
+            selectedFolder = selectedItem,
+            a1 = a1,
+            a2 = a2,
+            b = b,
+            c = c,
+            verdict = classifyDiagnostic(
                 selectedFolderId = selectedItem.id,
-                directChildren = directChildren,
-                nestedFolder = null,
-                nestedChildren = null,
-                nestedError = null,
-            )
-        }
+                a1 = a1,
+                a2 = a2,
+                b = b,
+                c = c,
+            ),
+        )
+    }
 
-        return try {
-            val nestedChildren = reader.listChildren(accessToken, nestedFolder.id)
-            GoogleDriveFolderProbeReport(
-                selectedFolderId = selectedItem.id,
-                directChildren = directChildren,
-                nestedFolder = nestedFolder,
-                nestedChildren = nestedChildren,
-                nestedError = null,
+    private fun readMeasurement(
+        accessToken: String,
+        label: String,
+        query: String,
+        pageSize: Int,
+        parentFiltered: Boolean,
+    ): GoogleDriveDiagnosticMeasurement {
+        val pages = mutableListOf<GoogleDriveDiagnosticPage>()
+        val seenNextTokens = mutableSetOf<String>()
+        var pageToken: String? = null
+        var pageNumber = 1
+
+        do {
+            check(pageNumber <= MAX_DIAGNOSTIC_PAGES) {
+                "Drive diagnostic pagination exceeded $MAX_DIAGNOSTIC_PAGES pages"
+            }
+
+            val page = reader.listPage(
+                accessToken = accessToken,
+                query = query,
+                pageSize = pageSize,
+                pageToken = pageToken,
             )
-        } catch (error: Exception) {
-            GoogleDriveFolderProbeReport(
-                selectedFolderId = selectedItem.id,
-                directChildren = directChildren,
-                nestedFolder = nestedFolder,
-                nestedChildren = null,
-                nestedError = error.toSafeProbeMessage(),
+            val nextPageToken = page.nextPageToken?.takeIf { it.isNotBlank() }
+            if (nextPageToken != null) {
+                check(seenNextTokens.add(nextPageToken)) {
+                    "Drive API repeated a pagination token during measurement $label"
+                }
+            }
+
+            pages += GoogleDriveDiagnosticPage(
+                pageNumber = pageNumber,
+                items = page.items,
+                hasNextPage = nextPageToken != null,
+                incompleteSearch = page.incompleteSearch,
             )
-        }
+
+            pageToken = nextPageToken
+            pageNumber += 1
+        } while (pageToken != null)
+
+        return GoogleDriveDiagnosticMeasurement(
+            label = label,
+            pageSize = pageSize,
+            parentFiltered = parentFiltered,
+            pages = pages,
+        )
+    }
+
+    companion object {
+        private const val MAX_DIAGNOSTIC_PAGES = 5000
     }
 }
 
-internal data class DriveChildrenPage(
-    val items: List<GoogleDriveProbeItem>,
-    val nextPageToken: String?,
-)
+internal const val DRIVE_VISIBLE_UNIVERSE_QUERY = "trashed = false"
+
+internal fun buildParentQuery(folderId: String): String {
+    val escapedFolderId = folderId.replace("\\", "\\\\").replace("'", "\\'")
+    return "'$escapedFolderId' in parents and trashed = false"
+}
 
 internal fun buildItemMetadataUrl(itemId: String): String {
-    val fields = "id,name,mimeType,size"
+    val fields = "id,name,mimeType,size,parents"
     return buildString {
         append("https://www.googleapis.com/drive/v3/files/")
         append(encodeQueryComponent(itemId))
@@ -192,14 +307,18 @@ internal fun buildItemMetadataUrl(itemId: String): String {
     }
 }
 
-internal fun buildChildrenUrl(folderId: String, pageToken: String?): String {
-    val escapedFolderId = folderId.replace("\\", "\\\\").replace("'", "\\'")
-    val query = "'$escapedFolderId' in parents and trashed = false"
-    val fields = "nextPageToken,files(id,name,mimeType,size)"
+internal fun buildFilesListUrl(
+    query: String,
+    pageSize: Int,
+    pageToken: String?,
+): String {
+    val fields = "nextPageToken,incompleteSearch,files(id,name,mimeType,size,parents)"
     val parameters = linkedMapOf(
         "q" to query,
+        "corpora" to "user",
         "spaces" to "drive",
-        "pageSize" to "1000",
+        "pageSize" to pageSize.toString(),
+        "orderBy" to "name_natural",
         "fields" to fields,
         "supportsAllDrives" to "true",
         "includeItemsFromAllDrives" to "true",
@@ -220,16 +339,20 @@ internal fun parseDriveItem(json: String): GoogleDriveProbeItem =
     parseDriveItemObject(JsonParser.parseString(json).asJsonObject)
         .also { check(it.id.isNotBlank()) { "Drive files.get returned no item ID" } }
 
-internal fun parseChildrenPage(json: String): DriveChildrenPage {
+internal fun parseFilesPage(json: String): DriveFilesPage {
     val root = JsonParser.parseString(json).asJsonObject
     val files = root.getAsJsonArray("files")
     val items = files?.map { element ->
         parseDriveItemObject(element.asJsonObject)
     }.orEmpty().filter { it.id.isNotBlank() }
 
-    return DriveChildrenPage(
+    return DriveFilesPage(
         items = items,
         nextPageToken = root.get("nextPageToken")?.takeIf { !it.isJsonNull }?.asString,
+        incompleteSearch = root.get("incompleteSearch")
+            ?.takeIf { !it.isJsonNull }
+            ?.asBoolean
+            ?: false,
     )
 }
 
@@ -238,7 +361,55 @@ private fun parseDriveItemObject(file: JsonObject): GoogleDriveProbeItem = Googl
     name = file.get("name")?.asString.orEmpty(),
     mimeType = file.get("mimeType")?.asString.orEmpty(),
     sizeBytes = file.get("size")?.takeIf { !it.isJsonNull }?.asLong,
+    parentIds = file.getAsJsonArray("parents")
+        ?.mapNotNull { parent -> parent.takeIf { !it.isJsonNull }?.asString }
+        .orEmpty(),
 )
+
+internal fun classifyDiagnostic(
+    selectedFolderId: String,
+    a1: GoogleDriveDiagnosticMeasurement,
+    a2: GoogleDriveDiagnosticMeasurement,
+    b: GoogleDriveDiagnosticMeasurement,
+    c: GoogleDriveDiagnosticMeasurement,
+): GoogleDriveDiagnosticVerdict {
+    if (listOf(a1, a2, b, c).any { it.anyIncompleteSearch }) {
+        return GoogleDriveDiagnosticVerdict.INCOMPLETE_SEARCH
+    }
+
+    val a1Ids = a1.itemIds
+    val a2Ids = a2.itemIds
+    val bIds = b.itemIds
+    val cIds = c.itemIds
+
+    if (a1Ids != a2Ids) {
+        return GoogleDriveDiagnosticVerdict.SAME_TOKEN_PARENT_RESULTS_DIFFER
+    }
+    if (bIds != a1Ids) {
+        return GoogleDriveDiagnosticVerdict.FORCED_PAGINATION_MISMATCH
+    }
+
+    if (a1Ids.size == 1) {
+        if (cIds == a1Ids) {
+            return GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_SINGLE_ITEM
+        }
+
+        val cWithoutSelectedFolder = cIds - selectedFolderId
+        if (cWithoutSelectedFolder == a1Ids && cIds.size == a1Ids.size + 1) {
+            return GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_SELECTED_FOLDER_PLUS_SINGLE_CHILD
+        }
+
+        if (cWithoutSelectedFolder.containsAll(a1Ids) && cWithoutSelectedFolder.size > a1Ids.size) {
+            return GoogleDriveDiagnosticVerdict.PARENT_QUERY_SPECIFIC_BROADER_UNIVERSE
+        }
+
+        if (cWithoutSelectedFolder != a1Ids) {
+            return GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_DIFFERS_FROM_PARENT_RESULT
+        }
+    }
+
+    return GoogleDriveDiagnosticVerdict.CONSISTENT_OTHER
+}
 
 internal fun parseGoogleErrorReason(json: String): String? = runCatching {
     val error = JsonParser.parseString(json).asJsonObject.getAsJsonObject("error")
@@ -250,16 +421,10 @@ internal fun parseGoogleErrorReason(json: String): String? = runCatching {
         ?: error?.get("status")?.asString
 }.getOrNull()
 
-fun redactDriveId(folderId: String): String = when {
-    folderId.length <= 8 -> "••••"
-    else -> folderId.take(4) + "…" + folderId.takeLast(4)
+fun redactDriveId(itemId: String): String = when {
+    itemId.length <= 8 -> "••••"
+    else -> itemId.take(4) + "…" + itemId.takeLast(4)
 }
 
 private fun encodeQueryComponent(value: String): String =
     URLEncoder.encode(value, StandardCharsets.UTF_8.toString()).replace("+", "%20")
-
-private fun Throwable.toSafeProbeMessage(): String = when (this) {
-    is GoogleDriveApiException -> message ?: "Errore Google Drive API"
-    is IOException -> "Errore di rete durante la lettura della sottocartella"
-    else -> "Errore durante la verifica della sottocartella"
-}
