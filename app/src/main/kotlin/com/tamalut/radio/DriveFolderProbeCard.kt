@@ -24,12 +24,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.auth.api.identity.AuthorizationResult
-import com.tamalut.radio.feature.drive.GoogleDriveApiClient
 import com.tamalut.radio.feature.drive.GoogleDriveApiException
 import com.tamalut.radio.feature.drive.GoogleDriveAuthorizationGateway
 import com.tamalut.radio.feature.drive.GoogleDriveAuthorizationResultParser
+import com.tamalut.radio.feature.drive.GoogleDriveDiagnosticMeasurement
+import com.tamalut.radio.feature.drive.GoogleDriveDiagnosticVerdict
 import com.tamalut.radio.feature.drive.GoogleDriveFolderProbeReport
 import com.tamalut.radio.feature.drive.GoogleDriveFolderProbeRunner
+import com.tamalut.radio.feature.drive.GoogleDriveProbeItem
 import com.tamalut.radio.feature.drive.GoogleDriveSelectionException
 import com.tamalut.radio.feature.drive.redactDriveId
 import java.io.IOException
@@ -39,7 +41,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
-private const val DRIVE_PROBE_TIMEOUT_MILLIS = 45_000L
+private const val DRIVE_PROBE_TIMEOUT_MILLIS = 120_000L
+private const val DRIVE_DIAGNOSTIC_ITEMS_PER_PAGE_PREVIEW = 30
 
 private sealed interface DriveProbeResultState {
     data object Idle : DriveProbeResultState
@@ -50,7 +53,7 @@ private sealed interface DriveProbeResultState {
 @Composable
 internal fun DriveFolderProbeCard() {
     val context = LocalContext.current
-    val probeRunner = remember { GoogleDriveFolderProbeRunner(GoogleDriveApiClient()) }
+    val probeRunner = remember { GoogleDriveFolderProbeRunner() }
     val overlayCoordinator = remember(context) { TamalutRadioRuntime.overlay(context.applicationContext) }
     val scope = rememberCoroutineScope()
     var resultState by remember { mutableStateOf<DriveProbeResultState>(DriveProbeResultState.Idle) }
@@ -128,12 +131,12 @@ internal fun DriveFolderProbeCard() {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                "Probe Google Drive · temporaneo",
+                "Probe Google Drive A1/A2/B/C · temporaneo",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "Scope: drive.file. Il Picker è filtrato sulle sole cartelle; TamalutRadio verifica inoltre con files.get che l'elemento scelto sia davvero una cartella, poi usa soltanto files.list per i figli diretti e la prima sottocartella. Le chiamate Drive del probe sono esclusivamente GET: nessuna creazione, modifica o eliminazione.",
+                "Scope invariato: drive.file. Una sola selezione e un solo access token in memoria eseguono A1, A2, B e C in sequenza. Il probe usa esclusivamente GET (files.get/files.list), non salva token o cartella e non esegue alcuna scrittura.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -186,16 +189,18 @@ internal fun DriveFolderProbeCard() {
             ) {
                 Text(
                     if (resultState is DriveProbeResultState.Idle) {
-                        "Scegli cartella Drive e verifica"
+                        "Scegli cartella Drive ed esegui A1/A2/B/C"
                     } else {
-                        "Scegli un'altra cartella Drive e verifica"
+                        "Scegli un'altra cartella e ripeti A1/A2/B/C"
                     },
                 )
             }
 
             when (attemptState.phase) {
                 DriveProbeAttemptPhase.AUTHORIZING -> Text("Stato: apertura account / Google Picker…")
-                DriveProbeAttemptPhase.READING -> Text("Stato: cartella verificata, interrogazione Drive API in sola lettura…")
+                DriveProbeAttemptPhase.READING -> Text(
+                    "Stato: stessa sessione/token · esecuzione A1 → A2 → B → C…",
+                )
                 DriveProbeAttemptPhase.READY -> DriveProbeResult(resultState)
             }
         }
@@ -218,78 +223,147 @@ private fun DriveProbeResult(state: DriveProbeResultState) {
             )
             Text(state.message, style = MaterialTheme.typography.bodyMedium)
         }
-        is DriveProbeResultState.Success -> DriveProbeSuccess(state.report)
+        is DriveProbeResultState.Success -> DriveProbeDiagnosticSuccess(state.report)
     }
 }
 
 @Composable
-private fun DriveProbeSuccess(report: GoogleDriveFolderProbeReport) {
-    val nestedFolder = report.nestedFolder
-    val nestedError = report.nestedError
-    val nestedChildren = report.nestedChildren
+private fun DriveProbeDiagnosticSuccess(report: GoogleDriveFolderProbeReport) {
+    Text(
+        "Cartella: ${report.selectedFolder.name.ifBlank { "(nome non disponibile)" }}",
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        "ID: ${redactDriveId(report.selectedFolderId)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 
     Text(
-        "Cartella selezionata: ${redactDriveId(report.selectedFolderId)}",
-        style = MaterialTheme.typography.labelLarge,
-    )
-    Text(
-        "Figli diretti visibili: ${report.directChildren.size}",
+        diagnosticVerdictText(report),
         style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = when (report.verdict) {
+            GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_SINGLE_ITEM,
+            GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_SELECTED_FOLDER_PLUS_SINGLE_CHILD ->
+                MaterialTheme.colorScheme.secondary
+
+            GoogleDriveDiagnosticVerdict.PARENT_QUERY_SPECIFIC_BROADER_UNIVERSE,
+            GoogleDriveDiagnosticVerdict.SAME_TOKEN_PARENT_RESULTS_DIFFER,
+            GoogleDriveDiagnosticVerdict.FORCED_PAGINATION_MISMATCH,
+            GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_DIFFERS_FROM_PARENT_RESULT,
+            GoogleDriveDiagnosticVerdict.INCOMPLETE_SEARCH,
+            GoogleDriveDiagnosticVerdict.CONSISTENT_OTHER ->
+                MaterialTheme.colorScheme.tertiary
+        },
     )
-    if (report.directChildren.isNotEmpty()) {
-        Text(
-            report.directChildren.take(8).joinToString(prefix = "Diretti: ", separator = " · ") { item ->
-                if (item.isFolder) "📁 ${item.name}" else "♪ ${item.name}"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+
+    DiagnosticMeasurement(report.a1)
+    DiagnosticMeasurement(report.a2)
+    DiagnosticMeasurement(report.b)
+    DiagnosticMeasurement(report.c)
+
+    val cWithoutSelected = report.c.itemIds - report.selectedFolderId
+    Text(
+        "Confronto C: ${report.c.itemIds.size} ID visibili totali; ${cWithoutSelected.size} escludendo la cartella selezionata.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun DiagnosticMeasurement(measurement: GoogleDriveDiagnosticMeasurement) {
+    val queryDescription = if (measurement.parentFiltered) {
+        "parent + trashed=false"
     } else {
-        Text(
-            "La lista diretta è vuota. Se la cartella test contiene file, questo è il segnale critico da riportare: drive.file non sta esponendo i figli preesistenti.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.tertiary,
-        )
+        "solo trashed=false (nessun parent)"
     }
 
-    when {
-        nestedFolder == null -> Text(
-            "Sottocartella: non trovata tra i figli visibili. Per completare il gate usa una cartella test che contenga almeno una sottocartella.",
+    Text(
+        "${measurement.label} · $queryDescription · pageSize=${measurement.pageSize}",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+    )
+
+    measurement.pages.forEach { page ->
+        Text(
+            "Pagina ${page.pageNumber}: ${page.items.size} elementi · next=${if (page.hasNextPage) "sì" else "no"} · incompleteSearch=${page.incompleteSearch}",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.tertiary,
         )
-        nestedError != null -> {
+
+        if (page.items.isEmpty()) {
             Text(
-                "Sottocartella '${nestedFolder.name}': ERRORE",
-                color = MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.SemiBold,
+                "— pagina vuota —",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(nestedError, style = MaterialTheme.typography.bodySmall)
-        }
-        report.nestedAccessVerified -> {
+        } else {
             Text(
-                "Sottocartella '${nestedFolder.name}': ACCESSO OK · ${nestedChildren.orEmpty().size} figli visibili",
-                color = MaterialTheme.colorScheme.secondary,
-                fontWeight = FontWeight.SemiBold,
+                page.items
+                    .take(DRIVE_DIAGNOSTIC_ITEMS_PER_PAGE_PREVIEW)
+                    .joinToString(separator = "\n") { item -> diagnosticItemText(item) },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (nestedChildren.orEmpty().isNotEmpty()) {
+            if (page.items.size > DRIVE_DIAGNOSTIC_ITEMS_PER_PAGE_PREVIEW) {
                 Text(
-                    nestedChildren.orEmpty().take(8).joinToString(
-                        prefix = "Dentro: ",
-                        separator = " · ",
-                    ) { item -> if (item.isFolder) "📁 ${item.name}" else "♪ ${item.name}" },
+                    "… altri ${page.items.size - DRIVE_DIAGNOSTIC_ITEMS_PER_PAGE_PREVIEW} elementi in questa pagina",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
     }
+
+    Text(
+        "${measurement.label} totale: ${measurement.items.size} righe · ${measurement.itemIds.size} ID unici · pagine=${measurement.pages.size}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+private fun diagnosticItemText(item: GoogleDriveProbeItem): String {
+    val kind = if (item.isFolder) "📁" else "♪"
+    val parents = if (item.parentIds.isEmpty()) {
+        "parent=—"
+    } else {
+        "parent=" + item.parentIds.joinToString(",") { redactDriveId(it) }
+    }
+    return "• $kind ${item.name.ifBlank { "(senza nome)" }} · ${redactDriveId(item.id)} · $parents"
+}
+
+private fun diagnosticVerdictText(report: GoogleDriveFolderProbeReport): String = when (report.verdict) {
+    GoogleDriveDiagnosticVerdict.INCOMPLETE_SEARCH ->
+        "ESITO DIAGNOSTICO: INCONCLUSIVO — almeno una pagina ha incompleteSearch=true; non si può inferire l'universo completo."
+
+    GoogleDriveDiagnosticVerdict.SAME_TOKEN_PARENT_RESULTS_DIFFER ->
+        "ESITO DIAGNOSTICO: A1 e A2 differiscono pur usando lo stesso token e la stessa query. È un'anomalia da approfondire prima di attribuire il risultato allo scope."
+
+    GoogleDriveDiagnosticVerdict.FORCED_PAGINATION_MISMATCH ->
+        "ESITO DIAGNOSTICO: B (pageSize=1) produce un insieme diverso da A1/A2. La paginazione/query richiede ulteriore indagine."
+
+    GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_SINGLE_ITEM ->
+        "ESITO DIAGNOSTICO: C espone esattamente lo stesso unico ID visto dalla parent-query. Segnale forte che l'intero universo visibile della sessione drive.file è quel singolo elemento."
+
+    GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_SELECTED_FOLDER_PLUS_SINGLE_CHILD ->
+        "ESITO DIAGNOSTICO: C espone soltanto la cartella selezionata più lo stesso unico figlio visto da A1/A2/B. Escludendo la cartella, l'universo visibile coincide con un solo figlio: segnale forte di grant drive.file limitato."
+
+    GoogleDriveDiagnosticVerdict.PARENT_QUERY_SPECIFIC_BROADER_UNIVERSE ->
+        "ESITO DIAGNOSTICO: C espone un universo più ampio oltre alla cartella e al figlio isolato da A1/A2/B. Il problema è quindi specifico alla parent-query/visibilità dei figli e va approfondito."
+
+    GoogleDriveDiagnosticVerdict.AUTHORIZED_UNIVERSE_DIFFERS_FROM_PARENT_RESULT ->
+        "ESITO DIAGNOSTICO: C differisce dalla parent-query ma non come semplice superset. Risultato non conclusivo: conservare il dettaglio A1/A2/B/C per ulteriore analisi."
+
+    GoogleDriveDiagnosticVerdict.CONSISTENT_OTHER ->
+        "ESITO DIAGNOSTICO: A1/A2/B sono coerenti, ma la relazione con C non rientra nei casi conclusivi previsti. Conservare il report completo senza allargare lo scope."
 }
 
 private fun Throwable.safeDriveProbeMessage(): String = when (this) {
     is GoogleDriveSelectionException -> message ?: "Seleziona una cartella Google Drive e riprova."
     is GoogleDriveApiException -> message ?: "Google Drive API ha rifiutato la richiesta."
-    is TimeoutCancellationException -> "La lettura Google Drive ha superato il tempo massimo. Puoi riprovare subito."
+    is TimeoutCancellationException ->
+        "Il diagnostico A1/A2/B/C ha superato il tempo massimo. Puoi riprovare subito."
     is IOException -> "Errore di rete: verifica la connessione internet e riprova."
     else -> message?.takeIf { it.isNotBlank() } ?: "Operazione Google Drive non riuscita."
 }
