@@ -1,9 +1,12 @@
 package com.tamalut.radio
 
+import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import com.tamalut.radio.core.playback.HandlerSleepTimerScheduler
 import com.tamalut.radio.core.playback.Media3PlaybackController
 import com.tamalut.radio.core.playback.SleepTimerController
+import com.tamalut.radio.core.playback.TamalutPlaybackService
 import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
 
 internal object TamalutRadioRuntime {
@@ -28,7 +31,7 @@ internal object TamalutRadioRuntime {
     fun sleepTimer(context: Context): SleepTimerController =
         sleepTimerController ?: SleepTimerController(
             scheduler = HandlerSleepTimerScheduler(),
-            onExpired = playback(context)::stopPlayback,
+            onExpired = { shutdownAfterSleepTimer(context.applicationContext) },
         ).also {
             sleepTimerController = it
         }
@@ -42,4 +45,22 @@ internal object TamalutRadioRuntime {
         ).also {
             overlayCoordinator = it
         }
+
+    private fun shutdownAfterSleepTimer(context: Context) {
+        val controller = playback(context)
+        controller.stopAndExit {
+            val coordinator = synchronized(this) { overlayCoordinator }
+            coordinator?.shutdownForSleepTimer()
+            coordinator?.release()
+            controller.release()
+            synchronized(this) {
+                if (overlayCoordinator === coordinator) overlayCoordinator = null
+                if (playbackController === controller) playbackController = null
+            }
+            context.stopService(Intent(context, TamalutPlaybackService::class.java))
+            context.getSystemService(ActivityManager::class.java)
+                ?.appTasks
+                ?.forEach { task -> runCatching { task.finishAndRemoveTask() } }
+        }
+    }
 }

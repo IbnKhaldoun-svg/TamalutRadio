@@ -2,12 +2,14 @@ package com.tamalut.radio.core.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.tamalut.radio.core.model.MediaId
 import com.tamalut.radio.core.model.MediaSourceType
@@ -67,6 +69,10 @@ interface PlaybackController {
     fun setLocalRepeatMode(mode: PlaybackRepeatMode)
     fun setLocalShuffleEnabled(enabled: Boolean)
     fun stopPlayback() = Unit
+    fun stopAndExit(onResult: (Result<Unit>) -> Unit = {}) {
+        stopPlayback()
+        onResult(Result.success(Unit))
+    }
     fun release()
 }
 
@@ -217,6 +223,42 @@ class Media3PlaybackController(
 
     override fun stopPlayback() {
         executeSilently { connectedBrowser -> connectedBrowser.stop() }
+    }
+
+    override fun stopAndExit(onResult: (Result<Unit>) -> Unit) {
+        execute(
+            onResult = { operationResult ->
+                if (operationResult.isFailure) onResult(operationResult)
+            },
+        ) { connectedBrowser ->
+            val future = runCatching {
+                connectedBrowser.sendCustomCommand(PlaybackCommands.stopExitCommand, Bundle.EMPTY)
+            }.getOrElse { error ->
+                connectedBrowser.stop()
+                connectedBrowser.clearMediaItems()
+                onResult(Result.failure(error))
+                return@execute
+            }
+            future.addListener(
+                {
+                    val outcome = runCatching { future.get() }
+                        .mapCatching { sessionResult ->
+                            check(sessionResult.resultCode == SessionResult.RESULT_SUCCESS) {
+                                "STOP_EXIT command failed: ${sessionResult.resultCode}"
+                            }
+                        }
+                        .map { Unit }
+                    if (outcome.isFailure) {
+                        runCatching {
+                            connectedBrowser.stop()
+                            connectedBrowser.clearMediaItems()
+                        }
+                    }
+                    onResult(outcome)
+                },
+                mainExecutor,
+            )
+        }
     }
 
     private fun executeSilently(action: (MediaBrowser) -> Unit) {

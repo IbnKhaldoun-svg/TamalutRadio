@@ -10,6 +10,7 @@ import com.tamalut.radio.core.preferences.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -131,6 +132,18 @@ internal class FloatingOverlayCoordinator(
                 reconcile()
             }
         }
+    }
+
+    fun shutdownForSleepTimer() {
+        appInForeground = false
+        autoCollapseTimer.cancel()
+        sessionState = sessionState.endExternalSession()
+        window.hide()
+    }
+
+    fun release() {
+        shutdownForSleepTimer()
+        scope.cancel()
     }
 
     fun suppressNextAppStop() {
