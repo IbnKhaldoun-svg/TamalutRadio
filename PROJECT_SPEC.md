@@ -965,7 +965,7 @@ The Drive folder-access/A1-A2-B-C gate is closed with the product conclusion tha
 
 ### Floating overlay playback controls contract — sub-step 2/2 recertification
 
-- [ ] **2/2 — Previous / Play-Pause / Next in the expanded overlay.** The expanded floating overlay must expose exactly the three transport controls `Precedente`, `Play/Pausa`, and `Successivo`; the collapsed edge tab remains a minimal expand/drag affordance with no transport actions.
+- [x] **2/2 — Previous / Play-Pause / Next in the expanded overlay.** The expanded floating overlay must expose exactly the three transport controls `Precedente`, `Play/Pausa`, and `Successivo`; the collapsed edge tab remains a minimal expand/drag affordance with no transport actions.
 - The controls must observe the same process-shared `PlaybackController.state` / `PlaybackState` already used by the app playback chrome and Media3 session. They must delegate only to the existing `PlaybackController` owned by `TamalutRadioRuntime` and therefore to the existing Media3 `MediaLibrarySession`/player.
 - No second ExoPlayer, MediaBrowser/controller, MediaSession, foreground service, playback queue, or feature-owned playback source of truth may be created for the overlay.
 - Play/Pause presentation must follow the real shared `PlaybackState.isPlaying` and update when playback changes from the overlay, notification/lock screen/media buttons, mini-player, Music, Radio, or other existing shared surfaces.
@@ -976,3 +976,15 @@ The Drive folder-access/A1-A2-B-C gate is closed with the product conclusion tha
 - Current repository note: the production 2/2 implementation and unit tests were already introduced historically by `8c934e3a8ae66e677b4dd2191d8e985f7bf0c28c` and survived subsequent changes including Drive removal. This cycle must not duplicate that implementation; it re-certifies the current no-Drive tree and may add only regression coverage required to protect the contract.
 - Required verification: real GitHub Actions must pass `:core:preferences:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`, plus structural checks proving shared-controller wiring and absence of another player/session/service. The persistent debug signer v1 and APK SHA-256 must be verified before promotion.
 - After green validation: promote only the validated clean regression commit to `main`, append a spec-after validation record, publish the exact final `main` snapshot through GitHub Releases (not Actions artifacts), then delete every temporary 2/2 branch/workflow.
+
+### Validation record — floating overlay playback controls 2/2 recertification
+
+- [x] **2/2 recertified on current no-Drive tree — 2026-08-31.** The production transport implementation already introduced historically by `8c934e3a8ae66e677b4dd2191d8e985f7bf0c28c` was intentionally retained rather than duplicated. This cycle added only the architecture regression guard commit `570b26163aaab8e333470334c4836f9eaf3cefed` (`test: lock overlay shared playback architecture`).
+- [x] The expanded overlay exposes Previous / Play-Pause / Next through the existing `OverlayPlaybackControls` path. State is projected from the process-shared `PlaybackController.state`; transport actions delegate back to that same controller and existing Media3 session/player.
+- [x] Structural gate `OVERLAY_PLAYBACK_SHARED_ARCHITECTURE=PASS`: no overlay-owned `ExoPlayer.Builder`, `MediaBrowser.Builder`, `MediaSession.Builder`, `MediaSessionService`, or `startForegroundService` construction is present in the overlay production path.
+- [x] Real GitHub Actions validation run `33379843742`, job `99449471900`, passed `:core:preferences:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, and `:app:testDebugUnitTest`: BUILD SUCCESSFUL in 2m 10s, 152 actionable tasks (116 executed, 36 from cache).
+- [x] The same run passed `:app:assembleDebug`: BUILD SUCCESSFUL in 1m 53s, 165 actionable tasks (46 executed, 119 up-to-date).
+- [x] Validation APK: 23,516,532 bytes; SHA-256 `838ca84811180532243b6f4f4c1861eaf97ea7723d9e0a8f655cac1d489018d3`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
+- [x] APK permission inspection retained only the expected app permissions including `SYSTEM_ALERT_WINDOW`, `INTERNET`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `ACCESS_NETWORK_STATE`, and `WAKE_LOCK`; no Google Drive/OAuth integration is reintroduced.
+- [x] The exact validated regression commit was promoted fast-forward to `main` by GitHub Actions run `33380268097`.
+- [x] Overlay 1.5 physical prerequisite remains closed at 17/17 PASS. The next gate is physical verification of the 2/2 transport controls from the newly published final-main debug APK.
