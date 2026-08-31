@@ -10,7 +10,7 @@ import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
 
 object GoogleDriveAuthorizationRequestFactory {
-    fun folderPickerRequest(): AuthorizationRequest = AuthorizationRequest.builder()
+    fun multiFilePickerRequest(): AuthorizationRequest = AuthorizationRequest.builder()
         .setRequestedScopes(listOf(Scope(GoogleDriveAuthorizationPolicy.DRIVE_FILE_SCOPE)))
         .setOptOutIncludingGrantedScopes(true)
         .setPrompt(
@@ -22,32 +22,39 @@ object GoogleDriveAuthorizationRequestFactory {
             "true",
         )
         .addResourceParameter(
-            AuthorizationRequest.ResourceParameter.PICKER_ALLOW_FOLDER_SELECTION,
+            AuthorizationRequest.ResourceParameter.PICKER_ALLOW_MULTIPLE,
             "true",
         )
-        .addResourceParameter(
-            AuthorizationRequest.ResourceParameter.PICKER_MIMETYPES,
-            GoogleDriveAuthorizationPolicy.DRIVE_FOLDER_MIME_TYPE,
-        )
         .build()
+
+    @Deprecated("Folder enumeration is retired; use multiFilePickerRequest")
+    fun folderPickerRequest(): AuthorizationRequest = multiFilePickerRequest()
 }
 
 class GoogleDrivePickerGrant internal constructor(
-    val pickedItemId: String,
+    val pickedItemIds: List<String>,
     val accessToken: String,
 ) {
+    val pickedItemId: String get() = pickedItemIds.first()
+
     override fun toString(): String =
-        "GoogleDrivePickerGrant(pickedItemId=${redactDriveId(pickedItemId)}, accessToken=<redacted>)"
+        "GoogleDrivePickerGrant(pickedItemIds=${pickedItemIds.map(::redactDriveId)}, accessToken=<redacted>)"
 }
 
 object GoogleDriveAuthorizationResultParser {
     const val PICKED_FILE_IDS_PARAM = "picked_file_ids"
 
-    internal fun parsePickedItemId(rawPickedIds: String?): String? = rawPickedIds
+    internal fun parsePickedItemIds(rawPickedIds: String?): List<String> = rawPickedIds
         ?.split(',')
         ?.asSequence()
         ?.map(String::trim)
-        ?.firstOrNull(String::isNotBlank)
+        ?.filter(String::isNotBlank)
+        ?.distinct()
+        ?.toList()
+        .orEmpty()
+
+    internal fun parsePickedItemId(rawPickedIds: String?): String? =
+        parsePickedItemIds(rawPickedIds).firstOrNull()
 
     fun requirePickerGrant(result: AuthorizationResult): GoogleDrivePickerGrant {
         check(GoogleDriveAuthorizationPolicy.DRIVE_FILE_SCOPE in result.grantedScopes) {
@@ -55,12 +62,13 @@ object GoogleDriveAuthorizationResultParser {
         }
         val accessToken = result.accessToken?.takeIf(String::isNotBlank)
             ?: error("Google Drive authorization returned no access token")
-        val pickedItemId = parsePickedItemId(
+        val pickedItemIds = parsePickedItemIds(
             result.tokenResponseParams?.getString(PICKED_FILE_IDS_PARAM),
-        ) ?: error("Google Picker returned no selected item ID")
+        ).takeIf(List<String>::isNotEmpty)
+            ?: error("Google Picker returned no selected file IDs")
 
         return GoogleDrivePickerGrant(
-            pickedItemId = pickedItemId,
+            pickedItemIds = pickedItemIds,
             accessToken = accessToken,
         )
     }
@@ -75,8 +83,11 @@ object GoogleDriveAuthorizationResultParser {
 class GoogleDriveAuthorizationGateway private constructor(
     private val authorizationClient: AuthorizationClient,
 ) {
-    fun authorizeFolderSelection(): Task<AuthorizationResult> =
-        authorizationClient.authorize(GoogleDriveAuthorizationRequestFactory.folderPickerRequest())
+    fun authorizeFileSelection(): Task<AuthorizationResult> =
+        authorizationClient.authorize(GoogleDriveAuthorizationRequestFactory.multiFilePickerRequest())
+
+    @Deprecated("Folder enumeration is retired; use authorizeFileSelection")
+    fun authorizeFolderSelection(): Task<AuthorizationResult> = authorizeFileSelection()
 
     fun resultFromIntent(data: Intent): AuthorizationResult =
         authorizationClient.getAuthorizationResultFromIntent(data)

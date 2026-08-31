@@ -284,7 +284,7 @@ private fun SettingsDestination(
                 }
             }
 
-            DriveFolderProbeCard()
+            DriveMultiFilePickerCard()
         }
     }
 
