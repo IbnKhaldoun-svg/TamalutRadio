@@ -1023,3 +1023,21 @@ The Drive folder-access/A1-A2-B-C gate is closed with the product conclusion tha
 - [x] **Permissions regression:** APK permissions remain the existing functional set (`SYSTEM_ALERT_WINDOW`, `INTERNET`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, plus the app dynamic-receiver permission); Sleep Timer adds no new Android permission.
 - [x] **Promotion:** run `33383098497`, job `99459611245`, fast-forward promoted exactly `4e48ced8f86262b4b5b5e25c5ea39acf38355191` to `main` after verifying the spec-before parent and validated product branch.
 - GitHub prerelease publication of this final spec snapshot and temporary-branch cleanup follow this spec-after commit as distribution/repository-hygiene steps and do not alter the validated Sleep Timer runtime.
+
+### Sleep Timer custom duration contract — approved 2026-08-31
+
+- [ ] **Custom duration — hours + minutes.** Extend the existing shared Sleep Timer v1 with one `Personalizzato…` entry while preserving the quick presets `Off / 15 / 30 / 45 / 60 min`.
+- `Personalizzato…` opens a Material 3 dialog titled `Timer personalizzato` with two numeric fields: `Ore` and `Minuti`, numeric keyboard, a human-readable duration preview, and `Annulla` / `Imposta` actions.
+- Input range is **1 minute through 12 hours inclusive** (`1..720` total minutes). `0 h 0 min` is invalid and must not silently map to `Off`; the `Imposta` action remains disabled. Hours are `0..12`, minutes are `0..59`, and when hours are `12`, minutes must be `0`.
+- Reopening the dialog while a custom timer is active shows the **original custom duration that was set**, not the currently remaining duration. Confirming again replaces/restarts the timer from the newly entered duration.
+- Preset and custom inputs must converge on the same internal deadline/countdown path in the existing process-shared `SleepTimerController`; custom duration is only another way to set that controller. Do not duplicate countdown state or expiry scheduling.
+- The existing scheduler/clock remain injectable. No new ExoPlayer, MediaBrowser/controller, MediaSession, service, AlarmManager playback stack, or feature-owned playback source of truth is allowed.
+- Custom timers must preserve all established v1 behavior: one shared countdown across UI surfaces, replacing an active timer rather than stacking, explicit `Off` cancellation, no queue/repeat/shuffle/radio-fallback mutation before expiry, and exactly one expiry callback through the existing shared Media3 playback authority.
+- Countdown formatting becomes `H:MM:SS` for durations of one hour or more and remains `M:SS` below one hour.
+- Deterministic tests are mandatory for: minimum `1 min`; maximum `12 h`; rejection of `0`; rejection of values above `12 h`; preset -> custom replacement; custom -> preset replacement; custom -> `Off`; and exactly one expiry callback. Tests must advance an injected fake clock/scheduler and must never wait real minutes/hours.
+- Physical validation must include at least one real **1-minute custom expiry** plus replacement/cancellation checks before this objective is declared physically complete.
+
+Known open follow-up — explicitly **out of scope for this custom-duration objective**:
+- the Sleep Timer control/countdown presentation in the persistent mini-player does not yet meet the agreed UI contract and will be corrected in the next separate objective;
+- the `60 min` preset exists in code but is horizontally off-screen in the current Now Playing chip row; discoverability/layout of all preset choices will be corrected together with the mini-player follow-up;
+- do not opportunistically change those two UI issues in this custom-duration cycle.
