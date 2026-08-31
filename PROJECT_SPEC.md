@@ -14,7 +14,7 @@ Single source of truth for TamalutRadio. **Update this file before code changes.
 - Persistence: **Room + DataStore** with separate responsibilities.
 - Home widget: **Jetpack Glance**.
 - Android Auto: browsable media library through the Media3 service; no distracting custom car UI.
-- Google Drive music source: **implementation authorized** as the final original-plan feature, using modern Google AuthorizationClient + Drive Picker with least-privilege `drive.file`; credentials/tokens are never persisted by TamalutRadio.
+- Music sources: **local SAF folder only**. Google Drive integration is retired from product scope because the complexity/fragility of `drive.file` + Picker behavior exceeds the practical benefit. `:core:cloud` remains provider-neutral and contains only an empty `CloudMusicSource` abstraction for possible future providers.
 - Radio Tachlit Sous Massa: placeholder remains until a reliable identifying reference is provided.
 - Approved extra features: **Recently played** and **automatic fallback stream URLs**.
 - Distribution: signed APK via GitHub Releases / sideload; debug APK test builds are distributed as GitHub prerelease assets rather than Actions artifacts, avoiding Actions artifact storage quota. Debug tags use `debug-<UTC date/time>-<short commit>`.
@@ -222,7 +222,7 @@ Light:
 
 Main destinations:
 - Radio
-- Music (local / Drive)
+- Music (local only)
 - Now Playing
 - Settings
 
@@ -253,11 +253,11 @@ Approved initial modules:
 - `:core:preferences`
 - `:core:playback`
 - `:core:designsystem`
+- `:core:cloud`
 - `:feature:radio`
 - `:feature:library`
 - `:feature:nowplaying`
 - `:feature:settings`
-- `:feature:drive`
 - `:feature:widget`
 
 The initial bootstrap must provide a minimal launchable `MainActivity` placeholder so CI can verify the project compiles before feature implementation.
@@ -269,7 +269,7 @@ The next foundation module is authorized as a pure Kotlin/JVM module with no And
 - typed identifiers for radio stations and generic media items.
 - `StreamEndpoint` with a validated non-blank URL string.
 - `RadioStation` with a primary endpoint and ordered fallback endpoints, preserving playback priority.
-- base media types covering radio stations, local tracks, and future Drive tracks without implementing storage or playback behavior.
+- base media types covering radio stations, local tracks, and provider-neutral future cloud tracks without implementing storage or playback behavior.
 - `RecentlyPlayedEntry` using a media summary plus an epoch-millisecond timestamp, leaving persistence to later modules.
 - small invariant checks and unit tests for identifier/endpoint validity and fallback ordering.
 
@@ -529,47 +529,20 @@ Validation record — radio transient audio-focus live-edge resume:
 
 Use Storage Access Framework (`ACTION_OPEN_DOCUMENT_TREE`), persist URI access, recursively scan audio files inside the selected tree only, and build the playlist without broad storage permission.
 
-## Google Drive music source implementation contract
+## Cloud music provider architecture — Google Drive retired
 
-Google Drive is the final feature from the original TamalutRadio plan. Implement it as an additional source inside the existing `Musica` experience, alongside the already validated local SAF folder. The work is intentionally split into three independently verified sub-steps.
+Decision effective 2026-08-31:
+- Google Drive is removed completely from the active TamalutRadio product scope. The reason is product scope, not a technical failure: the `drive.file` / Picker path and its diagnostic gates introduced more complexity and fragility than the feature's real benefit justifies.
+- Historical reference: the previous Google Drive authorization/probe work, including the A1/A2/B/C diagnostic gate, was closed correctly for the behavior being tested. Retiring Drive does **not** reclassify that work as failed; it records a deliberate scope reduction after learning the practical limits of the integration.
+- The only active music source is the existing local Storage Access Framework folder. Its persisted tree permission, recursive audio scan, queue behavior, repeat/shuffle behavior, Media3 playback, mini-player, notification, Now Playing, Android Auto and floating-overlay behavior remain regression boundaries.
+- `:feature:drive`, Google OAuth/AuthorizationClient/Picker code, Drive REST code, Drive-specific UI/probes, Drive-specific persistence and Drive-specific tests must be removed. No Google Drive API or Google Sign-In / Play Services auth dependency may remain solely for Drive.
+- `:core:cloud` remains as a minimal pure-Kotlin provider-neutral module. `CloudMusicSource` stays as an intentionally empty marker/abstraction with **no concrete implementations**, no Google dependency, no provider registry, no networking, no credentials and no playback behavior. This preserves a clean seam for a future provider only if one is explicitly approved (for example a provider offering an app-folder-style scope).
+- No future cloud provider is authorized by this decision. Any provider must be specified and approved separately before implementation.
 
-Architectural boundary for all three sub-steps:
-- Add a minimal pure-Kotlin `:core:cloud` module containing provider-neutral cloud-music models plus a deliberately small `CloudMusicSource` contract. It must contain no Android, Google, OAuth, networking implementation, UI, Media3, credentials, or provider registry/framework.
-- Add `:feature:drive` as the first and only concrete cloud provider. `GoogleDriveSource` implements the neutral contract. Future Mega/Dropbox support may implement the same small contract later, but no multi-provider selector/registry/plugin system is built now.
-- Google Drive appears as a source choice within `Musica`; do not add a fifth bottom-navigation destination.
-- The existing local SAF library remains fully functional and offline-capable. Drive-specific work must not broaden local storage permissions or modify local folder access semantics.
-
-- [x] **1/3 — Cloud abstraction + modern Google authorization foundation.** Create `:core:cloud` and `:feature:drive`. Google authorization must use Google Play services `AuthorizationClient` / `AuthorizationRequest`, never legacy `GoogleSignIn` APIs. The authorization request must use only `https://www.googleapis.com/auth/drive.file`, opt out of implicitly including previously granted scopes, use the Google Picker OAuth trigger, allow folder selection, and support explicit account selection/consent. Do not request `drive.readonly`, full `drive`, offline access, server auth codes, or refresh tokens.
-- Use the Android OAuth installed-app identity for package `com.tamalut.radio` and the actual app signing certificate. Do not embed or require a Web OAuth client secret. TamalutRadio must not persist Google access tokens, refresh tokens, authorization codes, account passwords, or other Google credentials. Google Play services may manage its own authorization state/cache internally.
-- Repository-publicity boundary: source code may contain non-secret protocol constants such as the `drive.file` scope and Drive REST endpoints. Android OAuth client identifiers, if ever required by an SDK/API, are public identifiers rather than secrets; nevertheless do not add a server/Web client secret or any credential that grants access by itself. Never commit the debug keystore.
-- Sub-step 1 exposes testable authorization-request policy/state only; folder persistence, Drive REST scanning, Music-screen integration and Drive playback are explicitly deferred to 2/3 and 3/3.
-- Verification 1/3: unit/structural tests must prove the provider-neutral contract has no Google dependency, `:feature:drive` uses `AuthorizationClient`, requests exactly `drive.file`, enables Picker folder selection, does not use legacy `GoogleSignIn`, requests no offline/server auth flow, and no OAuth secret/token literal is committed. A real GitHub Actions run must pass `:core:cloud:test`, `:feature:drive:testDebugUnitTest`, existing relevant regressions, and `:app:assembleDebug` with persistent debug signer v1 before clean promotion.
-
-Validation record — Google Drive music source 1/3 authorization foundation:
-- Spec-before commit: `20cb34e6bc934d82f9c5f2975c0594ad63b134e5` (`docs: define Google Drive music source`). Clean implementation snapshot: `fada34fb7eeea7ee9c7c71776b10e6c108e5b2fc` (`feat: add Google Drive authorization foundation` plus its two preceding Gradle wiring commits); the validation head differs only by the temporary validation workflow.
-- Real GitHub Actions run `33276720371`, job `99164617750`, passed `:core:cloud:test`, `:feature:drive:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`: BUILD SUCCESSFUL in 3m 39s; 216 actionable tasks (175 executed, 41 from cache). Structural gate `DRIVE_AUTH_FOUNDATION_STRUCTURE=PASS`.
-- `:core:cloud` is pure Kotlin/provider-neutral and contains only cloud IDs, track metadata and the minimal `CloudMusicSource` contract; it has no Android, Google, OAuth, networking, UI or Media3 dependency. `:feature:drive` is the first concrete provider and `GoogleDriveSource` implements that contract through an injected folder-reader boundary reserved for sub-step 2/3.
-- Google authorization compiles against `com.google.android.gms:play-services-auth:22.0.0` and uses `AuthorizationClient` / `AuthorizationRequest` with exactly `drive.file`, `setOptOutIncludingGrantedScopes(true)`, consent + account-selection prompts, `PICKER_OAUTH_TRIGGER`, and `PICKER_ALLOW_FOLDER_SELECTION`. No legacy `GoogleSignIn`, broad `drive.readonly`/`drive`, offline/server-auth flow, OAuth client secret, token, Google client-ID literal, or keystore exists in the product tree.
-- Validation APK SHA-256: `7cfce9ebf9c83b234e8d92abaeec55f40d1b09b86cc767faf74109cd95ad33c4`. Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`; signer SHA-1 for Google Android OAuth registration is `45:57:54:11:8C:EF:B9:B8:91:07:27:BF:C4:23:84:5C:5F:25:61:14`.
-- Setup-only run `33276688934` failed before compilation because its temporary workflow had only `contents: read` and therefore could not resolve the internal draft signing-material release; no product result is attributed to that run.
-- Status: authorization foundation implementation and CI validation are complete. Google Cloud/Auth Platform configuration and the real on-device authorization/picker handshake remain an external setup gate before sub-step 2/3 is physically exercised; no Drive folder ID, REST scan, Music UI or Drive playback has been implemented yet.
-
-- [ ] **2/3 — Drive folder selection, persistence and audio scan.** Use the Android Google Picker flow to let the user select exactly one Drive folder. Persist only the selected Drive folder ID in `:core:preferences`; never persist a Google credential/token. `GoogleDriveSource` uses Drive REST API v3 under the runtime `drive.file` grant to enumerate the selected folder and its descendants, with pagination, deterministic ordering, audio MIME/extension filtering and recoverable handling of unreadable/removed items.
-- Mirror the local UX inside `Musica`: source choice `Locale / Google Drive`, then `Collega Google Drive`/account authorization as needed, `Scegli cartella` or `Cambia cartella`, `Riscansiona`, loading/empty/error states and the discovered track list. Picker cancellation must leave the previous selection unchanged. Revoked authorization or a no-longer-accessible folder must produce a recoverable reconnect/reselect state rather than a crash.
-- Network boundary 2/3: Drive requires connectivity. Detect lack of a usable network before REST scanning when practical and expose a clear offline state/message; never conflate Drive-offline with the always-available local library, and never delete the persisted folder ID merely because the network is temporarily unavailable.
-- Verification 2/3: tests cover picker result parsing, persistence of folder ID only, cancellation, recursive/paginated filtering/order, revoked/inaccessible folder handling, offline scan policy and preservation of the local SAF path. A real signed CI build is required before promotion.
-
-- [ ] **3/3 — Google Drive playback through the existing Media3 service.** Selecting a Drive track must install the selected Drive queue into the same process-shared `PlaybackController` / `TamalutPlaybackService` / `MediaLibrarySession` used by Radio and LOCAL; no second ExoPlayer, MediaBrowser, MediaSession or foreground playback service is allowed. Drive items use `MediaSourceType.DRIVE` and replace the current queue exactly as another music source would.
-- Authenticated media reads must obtain authorization just in time and attach the current bearer token to Drive REST `files.get?alt=media` requests without persisting the token in DataStore, Room, MediaItem metadata, logs, source code or disk caches controlled by TamalutRadio. Prefer a narrow provider-neutral playback request/resolution seam in `:core:playback` rather than adding a Google dependency to the playback service.
-- Preserve current mini-player, notification/lock-screen, Now Playing, overlay, Previous/Next and shared-state behavior. Local repeat/shuffle semantics must not regress; Drive queue repeat/shuffle behavior should match local music unless a concrete Drive limitation requires a documented exception. Radio fallback/live behavior remains isolated.
-- During Drive playback, loss of connectivity or expired/revoked authorization must fail clearly and recoverably; a later retry/re-authorization may resume/reprepare the remote item, while LOCAL playback remains unaffected and available offline.
-- Verification 3/3: tests cover Drive MediaItem/queue mapping, same-controller delegation, authenticated request resolution without token persistence, RADIO/LOCAL/DRIVE source transitions, offline/auth failure behavior and absence of a parallel player/session/service. Final CI must run all relevant core/radio/library/drive/app tests plus `:app:assembleDebug`, verify persistent debug signer v1 and publish the exact final `main` APK for physical Google Drive testing.
-
-Google Cloud/OAuth setup contract:
-- Use one Google Cloud project for TamalutRadio, enable **Google Drive API**, configure the **Google Auth Platform** consent/branding/audience, and create an **Android OAuth 2.0 client** for package `com.tamalut.radio` bound to each signing certificate that will legitimately run the app.
-- Current persistent debug v1 certificate SHA-1 for the sideload/debug channel: `45:57:54:11:8C:EF:B9:B8:91:07:27:BF:C4:23:84:5C:5F:25:61:14` (SHA-256 remains `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`). A future production signing certificate requires its own Android OAuth client entry; do not reuse the debug key as the production key.
-- Configure only `drive.file` for this feature. Do not add `drive.readonly` merely to browse the user’s whole Drive: Android Google Picker grants the app access to the folder/files the user explicitly selects, which is the intended least-privilege design.
-- No paid Google Cloud quota/billing is authorized by this contract. If Google later requires billing or a materially broader/restricted scope for a necessary capability, stop and request explicit approval before changing scope/cost posture.
+Removal verification contract:
+- structural checks must prove there is no `:feature:drive` module in the active Gradle graph, no Drive/OAuth/Picker source under `:app` or feature modules, no Drive-specific Settings probe/card, and no Google Drive / Google Sign-In dependency left in project Gradle files.
+- `:core:cloud` must compile independently and contain the empty `CloudMusicSource` abstraction without concrete provider implementations.
+- local music unit tests and app regressions must pass, and a real GitHub Actions run must build `:app:assembleDebug` with persistent debug signer v1 and generate a verifiable APK before the removal reaches final closure.
 
 ## Persistence
 
@@ -577,7 +550,6 @@ DataStore:
 - language
 - theme mode
 - selected local folder URI
-- selected Drive folder ID when implemented
 - last station/media item
 - sleep timer defaults
 - equalizer/UI preferences
@@ -615,7 +587,7 @@ Try the primary endpoint first; after qualifying playback/network failures, try 
 
 Do not implement yet:
 - station JSON backup/export/import.
-- Drive Wi-Fi-only mode.
+- cloud-provider Wi-Fi-only mode.
 - separate Android Auto mini-favorites.
 - per-station volume normalization.
 - sleep timer “end of track”.
@@ -713,6 +685,10 @@ Validation record — radio live resume + overlay inactivity/app-entry refinemen
 - Status: implementation, CI validation, final Release verification, and physical validation A-D are complete for all three refinements. RADIO live pause→resume reconnect, 4,000 ms overlay auto-collapse, and the dedicated return-to-app affordance all passed physical testing on 2026-08-29. The complete floating-overlay path `1/2 + 1.5 + 2/2 + refinement` is therefore fully validated both in CI and physically.
 
 ## Decision log
+
+### 2026-08-31 — Google Drive integration retired by product-scope decision
+
+Google Drive is removed from TamalutRadio after evaluating the real integration cost of `drive.file`, AuthorizationClient/Picker behavior and the diagnostic workflow. This is explicitly a scope decision rather than a technical-failure verdict: the A1/A2/B/C diagnostic gate had been closed correctly for its tested behavior. The app returns to one active music source, the local SAF folder. `:core:cloud` is retained only as a pure provider-neutral seam with an intentionally empty `CloudMusicSource` abstraction and no concrete providers; any future provider (for example one with an app-folder-style permission model) requires a new explicit approval.
 
 ### 2026-08-29 — Google Drive music source authorized
 
