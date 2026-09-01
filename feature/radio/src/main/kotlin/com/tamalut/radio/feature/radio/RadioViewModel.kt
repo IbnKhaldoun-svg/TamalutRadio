@@ -55,12 +55,19 @@ class RadioViewModel(
                     val stationName = stationId
                         ?.let { id -> state.stations.firstOrNull { it.id == id }?.name }
                         ?: playback.title
+                    val sharedPlaybackError = playback.playbackErrorMessage.takeIf {
+                        playback.sourceType == MediaSourceType.RADIO
+                    }
                     state.copy(
                         playingStationId = stationId,
-                        playbackMessage = if (stationId != null) {
-                            "In riproduzione: ${stationName ?: stationId.value}"
-                        } else {
-                            null
+                        playbackMessage = when {
+                            sharedPlaybackError != null -> null
+                            stationId == null -> null
+                            playback.isPlaying -> "In riproduzione: ${stationName ?: stationId.value}"
+                            else -> "Connessione a ${stationName ?: stationId.value}…"
+                        },
+                        playbackErrorMessage = sharedPlaybackError?.let { message ->
+                            "Impossibile riprodurre ${stationName ?: stationId?.value ?: "la radio"}: $message"
                         },
                     )
                 }

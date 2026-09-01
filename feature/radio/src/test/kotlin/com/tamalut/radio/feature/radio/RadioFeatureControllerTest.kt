@@ -147,6 +147,41 @@ class RadioFeatureControllerTest {
     }
 
     @Test
+    fun asynchronousSharedRadioErrorReplacesConnectionMessageAndClearsAfterRecovery() = runTest(dispatcher) {
+        val azawan = station("radio-azawan", "Radio Azawan")
+        val playback = FakePlaybackGateway()
+        val viewModel = RadioViewModel(
+            RadioFeatureController(FakeRadioDataSource(stations = mutableListOf(azawan))),
+            playback,
+        )
+        advanceUntilIdle()
+
+        viewModel.playStation(azawan)
+        advanceUntilIdle()
+        playback.current.value = playback.current.value.copy(
+            isPlaying = false,
+            playbackErrorMessage = "Stream non disponibile (codice 2004)",
+        )
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.playbackMessage)
+        assertTrue(
+            viewModel.uiState.value.playbackErrorMessage!!.contains(
+                "Impossibile riprodurre Radio Azawan",
+            ),
+        )
+
+        playback.current.value = playback.current.value.copy(
+            isPlaying = true,
+            playbackErrorMessage = null,
+        )
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.playbackErrorMessage)
+        assertEquals("In riproduzione: Radio Azawan", viewModel.uiState.value.playbackMessage)
+    }
+
+    @Test
     fun allContextCapturesCompleteFlatQueueAndSelectedIndex() = runTest(dispatcher) {
         val alpha = station("alpha", "Alpha")
         val beta = station("beta", "Beta")

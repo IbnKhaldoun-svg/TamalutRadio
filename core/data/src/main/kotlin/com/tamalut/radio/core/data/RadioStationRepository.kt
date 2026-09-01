@@ -15,6 +15,7 @@ class RadioStationRepository(
 ) {
     suspend fun seedInitialCatalog() {
         repairLegacyAtbirLabel()
+        repairLegacyAswatStream()
         InitialRadioCatalog.stations.forEach { station ->
             if (stationDao.getStation(station.id.value) == null) {
                 persist(station.toPersistenceRecord(isCustom = false))
@@ -63,6 +64,17 @@ class RadioStationRepository(
         }
     }
 
+    private suspend fun repairLegacyAswatStream() {
+        val stored = stationDao.getStation(LEGACY_ASWAT_ID) ?: return
+        val entity = stored.station
+        if (
+            !entity.isCustom &&
+            entity.primaryStreamUrl == LEGACY_ASWAT_STREAM
+        ) {
+            stationDao.upsertStation(entity.copy(primaryStreamUrl = CORRECTED_ASWAT_STREAM))
+        }
+    }
+
     private fun orderedRecords(records: List<RadioStationWithFallbacks>): List<RadioStationWithFallbacks> {
         val catalogOrder = InitialRadioCatalog.stations
             .withIndex()
@@ -96,5 +108,8 @@ class RadioStationRepository(
         const val LEGACY_ATBIR_NAME = "Radio Plus Agadir 92.4"
         const val LEGACY_ATBIR_STREAM = "https://stream-158.zeno.fm/bqdbb6hd0neuv"
         const val CORRECTED_ATBIR_NAME = "Radio Atbir"
+        const val LEGACY_ASWAT_ID = "aswat-fm"
+        const val LEGACY_ASWAT_STREAM = "https://broadcast.ice.infomaniak.ch/aswat-high.mp3"
+        const val CORRECTED_ASWAT_STREAM = "https://aswat.ice.infomaniak.ch/aswat-high.mp3"
     }
 }

@@ -9,12 +9,16 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.tamalut.radio.core.model.MediaId
 import com.tamalut.radio.core.model.MediaSourceType
 import com.tamalut.radio.core.model.RadioStation
 import com.tamalut.radio.core.model.StationId
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.Executor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +41,7 @@ data class PlaybackState(
     val canSkipNext: Boolean = false,
     val repeatMode: PlaybackRepeatMode = PlaybackRepeatMode.OFF,
     val shuffleEnabled: Boolean = false,
+    val playbackErrorMessage: String? = null,
 ) {
     val hasCurrentItem: Boolean
         get() = sourceType != null && (mediaId != null || stationId != null)
@@ -128,6 +133,10 @@ internal inline fun installNewLocalQueue(
     play()
 }
 
+internal object PlaybackErrorProjection {
+    fun message(errorCode: Int): String = "Stream non disponibile (codice $errorCode)"
+}
+
 class Media3PlaybackController(
     context: Context,
 ) : PlaybackController {
@@ -146,10 +155,43 @@ class Media3PlaybackController(
     private var browser: MediaBrowser? = null
     private var connecting = false
     private var released = false
+    private var playbackErrorMessage: String? = null
 
     private val playerListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             publish(player)
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_READY && playbackErrorMessage != null) {
+                playbackErrorMessage = null
+                browser?.let(::publish)
+            }
+        }
+    }
+
+    private val browserListener = object : MediaBrowser.Listener {
+        override fun onCustomCommand(
+            controller: MediaController,
+            command: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            if (!PlaybackCommands.isRadioPlaybackError(command.customAction)) {
+                return Futures.immediateFuture(
+                    SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED),
+                )
+            }
+
+            val stationId = PlaybackCommands.radioPlaybackErrorStationId(args)
+            val errorCode = PlaybackCommands.radioPlaybackErrorCode(args)
+            if (stationId != null && errorCode != null) {
+                val current = _state.value
+                if (current.sourceType == MediaSourceType.RADIO && current.stationId == stationId) {
+                    playbackErrorMessage = PlaybackErrorProjection.message(errorCode)
+                    publish(controller)
+                }
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
     }
 
@@ -174,6 +216,7 @@ class Media3PlaybackController(
             return
         }
         execute(onResult) { connectedBrowser ->
+            playbackErrorMessage = null
             connectedBrowser.shuffleModeEnabled = false
             connectedBrowser.setMediaItems(
                 stations.map(RadioMediaItemFactory::create),
@@ -196,6 +239,7 @@ class Media3PlaybackController(
             return
         }
         execute(onResult) { connectedBrowser ->
+            playbackErrorMessage = null
             installNewLocalQueue(
                 setItems = {
                     connectedBrowser.setMediaItems(
@@ -250,10 +294,14 @@ class Media3PlaybackController(
     }
 
     override fun stopPlayback() {
-        executeSilently { connectedBrowser -> connectedBrowser.stop() }
+        executeSilently { connectedBrowser ->
+            playbackErrorMessage = null
+            connectedBrowser.stop()
+        }
     }
 
     override fun stopAndExit(onResult: (Result<Unit>) -> Unit) {
+        playbackErrorMessage = null
         execute(
             onResult = { operationResult ->
                 if (operationResult.isFailure) onResult(operationResult)
@@ -319,7 +367,9 @@ class Media3PlaybackController(
             appContext,
             ComponentName(appContext, TamalutPlaybackService::class.java),
         )
-        val future = MediaBrowser.Builder(appContext, token).buildAsync()
+        val future = MediaBrowser.Builder(appContext, token)
+            .setListener(browserListener)
+            .buildAsync()
         future.addListener(
             {
                 connecting = false
@@ -374,7 +424,10 @@ class Media3PlaybackController(
     private fun publish(player: Player) {
         val currentItem = player.currentMediaItem
         if (currentItem == null) {
-            _state.value = PlaybackState(isConnected = true)
+            _state.value = PlaybackState(
+                isConnected = true,
+                playbackErrorMessage = playbackErrorMessage,
+            )
             return
         }
 
@@ -412,6 +465,7 @@ class Media3PlaybackController(
             },
             repeatMode = RadioQueuePolicy.exposedRepeatMode(sourceType, player.repeatMode),
             shuffleEnabled = RadioQueuePolicy.exposedShuffle(sourceType, player.shuffleModeEnabled),
+            playbackErrorMessage = playbackErrorMessage,
         )
     }
 
@@ -423,6 +477,7 @@ class Media3PlaybackController(
             browser?.removeListener(playerListener)
             browser?.release()
             browser = null
+            playbackErrorMessage = null
             _state.value = PlaybackState()
         }
     }

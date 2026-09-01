@@ -3,8 +3,25 @@ package com.tamalut.radio.core.playback
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import com.tamalut.radio.core.model.StationId
 import com.tamalut.radio.core.model.StreamEndpoint
+
+internal object RadioStreamMimeTypePolicy {
+    private const val CHADA_STATION_ID = "chada-fm"
+    private const val CHADA_HLS_ENDPOINT = "https://stream.bodkas.com/playlist"
+
+    fun mimeTypeFor(stationId: StationId, endpoint: StreamEndpoint): String? {
+        val normalizedUrl = endpoint.url.substringBefore('#')
+        val pathWithoutQuery = normalizedUrl.substringBefore('?')
+        return when {
+            pathWithoutQuery.endsWith(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
+            stationId.value == CHADA_STATION_ID && normalizedUrl.startsWith(CHADA_HLS_ENDPOINT) ->
+                MimeTypes.APPLICATION_M3U8
+            else -> null
+        }
+    }
+}
 
 object RadioMediaItemFactory {
     private const val EXTRA_IS_TAMALUT_RADIO = "com.tamalut.radio.playback.IS_RADIO"
@@ -26,7 +43,7 @@ object RadioMediaItemFactory {
             putInt(EXTRA_MAX_ATTEMPTS, plan.maxAttempts)
             putInt(EXTRA_CURRENT_INDEX, plan.currentIndex)
         }
-        return MediaItem.Builder()
+        val builder = MediaItem.Builder()
             .setMediaId("radio:${plan.stationId.value}")
             .setUri(plan.currentEndpoint.url)
             .setMediaMetadata(
@@ -35,7 +52,9 @@ object RadioMediaItemFactory {
                     .setExtras(extras)
                     .build(),
             )
-            .build()
+        RadioStreamMimeTypePolicy.mimeTypeFor(plan.stationId, plan.currentEndpoint)
+            ?.let(builder::setMimeType)
+        return builder.build()
     }
 
     internal fun planFrom(mediaItem: MediaItem?): RadioFallbackPlan? {

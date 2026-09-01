@@ -104,6 +104,73 @@ class CoreDataRepositoriesTest {
     }
 
     @Test
+    fun legacyAswatStreamRepairIsExactIdempotentAndPreservesFallbacks() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "aswat-fm",
+                name = "Aswat FM",
+                primaryStreamUrl = "https://broadcast.ice.infomaniak.ch/aswat-high.mp3",
+                isCustom = false,
+            ),
+        )
+        stationDao.upsertFallbackStreams(
+            listOf(
+                RadioStationFallbackEntity(
+                    stationId = "aswat-fm",
+                    position = 0,
+                    url = "https://example.invalid/aswat-fallback.mp3",
+                ),
+            ),
+        )
+
+        repository.seedInitialCatalog()
+        val upsertsAfterRepairAndSeed = stationDao.stationUpsertCount
+        val repaired = repository.getStation(StationId("aswat-fm"))
+
+        assertEquals("https://aswat.ice.infomaniak.ch/aswat-high.mp3", repaired?.primaryStream?.url)
+        assertEquals(
+            listOf(
+                "https://aswat.ice.infomaniak.ch/aswat-high.mp3",
+                "https://example.invalid/aswat-fallback.mp3",
+            ),
+            repaired?.playbackStreams?.map { it.url },
+        )
+        assertEquals(39, stationDao.getAllStations().size)
+
+        repository.seedInitialCatalog()
+        assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
+        assertEquals(
+            "https://aswat.ice.infomaniak.ch/aswat-high.mp3",
+            repository.getStation(StationId("aswat-fm"))?.primaryStream?.url,
+        )
+    }
+
+    @Test
+    fun aswatRepairDoesNotOverwriteCustomRow() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "aswat-fm",
+                name = "My Aswat",
+                primaryStreamUrl = "https://broadcast.ice.infomaniak.ch/aswat-high.mp3",
+                isCustom = true,
+            ),
+        )
+
+        repository.seedInitialCatalog()
+
+        val stored = repository.getStation(StationId("aswat-fm"))
+        assertEquals("My Aswat", stored?.name)
+        assertEquals(
+            "https://broadcast.ice.infomaniak.ch/aswat-high.mp3",
+            stored?.primaryStream?.url,
+        )
+    }
+
+    @Test
     fun seedingDoesNotOverwriteModifiedLegacyOrOtherPreExistingRows() = runSuspend {
         val stationDao = FakeRadioStationDao()
         val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())

@@ -10,4 +10,12 @@ class PlaybackCommandsTest {
         assertTrue(PlaybackCommands.isStopExit(PlaybackCommands.STOP_EXIT_ACTION))
         assertFalse(PlaybackCommands.isStopExit("com.tamalut.radio.playback.OTHER"))
     }
+
+    @Test
+    fun radioPlaybackErrorActionMatchesOnlyExplicitCommand() {
+        assertTrue(
+            PlaybackCommands.isRadioPlaybackError(PlaybackCommands.RADIO_PLAYBACK_ERROR_ACTION),
+        )
+        assertFalse(PlaybackCommands.isRadioPlaybackError(PlaybackCommands.STOP_EXIT_ACTION))
+    }
 }

@@ -111,6 +111,13 @@ class TamalutPlaybackService : MediaLibraryService() {
 
                 is RadioFallbackDecision.Exhausted -> {
                     currentRadioFallbackState = decision.state
+                    mediaLibrarySession?.broadcastCustomCommand(
+                        PlaybackCommands.radioPlaybackErrorCommand,
+                        PlaybackCommands.radioPlaybackErrorArgs(
+                            stationId = decision.state.stationId,
+                            errorCode = error.errorCode,
+                        ),
+                    )
                 }
             }
         }

@@ -15,7 +15,7 @@ object InitialRadioCatalog {
         station("radio-mars", "Radio Mars", "https://radiomars.ice.infomaniak.ch/radiomars-128.mp3"),
         station("radio-plus-agadir", "Radio Atbir", "https://stream-158.zeno.fm/bqdbb6hd0neuv"),
         station("radio-azawan", "Radio Azawan", "https://az-maroc.ice.infomaniak.ch/az-maroc-128.mp3"),
-        station("aswat-fm", "Aswat FM", "https://broadcast.ice.infomaniak.ch/aswat-high.mp3"),
+        station("aswat-fm", "Aswat FM", "https://aswat.ice.infomaniak.ch/aswat-high.mp3"),
         station("mfm-radio", "MFM Radio", "https://a5.asurahosting.com:7980/radio.mp3"),
         station("radio-medina-fm", "Radio Medina FM", "https://medinafm.ice.infomaniak.ch/medinafm-128.mp3"),
         station("medina-fm-amazigh", "Medina FM Amazigh", "https://medinaamazigh.ice.infomaniak.ch/medinaamazigh-128.mp3"),
