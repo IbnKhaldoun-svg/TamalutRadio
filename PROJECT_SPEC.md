@@ -1209,3 +1209,69 @@ Validation record — adjacent Sleep Timer hourglass placement:
 - [x] The same corrected run passed `:app:assembleDebug` (`BUILD SUCCESSFUL in 1m 49s`; 165 actionable tasks: 46 executed, 119 up-to-date). Validation APK: `23,565,684` bytes; SHA-256 `92a1970083a52853cb8fe1c6e2f981dd6131956612f0b82b80f17ac69eea0b3d`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - [x] Exact corrected product commit `6848d13cee5acbdba1d91230e4a0cb42bd7a8a15` was fast-forward promoted to `main` only after the complete corrected validation run passed.
 - [ ] **Physical Radio navigation gate:** pending real-device verification of context-derived queues, first/last wrap-around, single-item disabled skip, stable snapshot across filter/tab/favorite changes, fallback/live-reconnect queue preservation, shared transport surfaces, and Radio/LOCAL/Sleep-Timer regressions. GitHub prerelease publication and temporary-branch cleanup follow this spec-after snapshot before physical testing.
+
+## Verified radio catalog expansion — contract
+
+This objective expands the built-in Radio catalog only with stations whose identity and live endpoint have been independently verified. Radio Browser discovery is accepted only when the `homepage` field matches the broadcaster's official domain; ambiguous or missing Radio Browser entries require an official-site correlation. Every admitted endpoint must have returned final HTTP 200 and exposed a decodable audio stream in GitHub Actions. A requested station that cannot satisfy both identity and stream-health gates is explicitly excluded rather than seeded with a doubtful URL.
+
+### Approved catalog additions
+
+| Queue order | Stable ID | Display name | Category | Identity/provenance | Verified primary stream |
+|---:|---|---|---|---|---|
+| 1 | `medi1-radio` | Medi1 Radio | Marocco | Radio Browser homepage `https://www.medi1.com/` | `https://cdn.live.easybroadcast.io/live/83_medi1radio-maghreb_8s9i4bn/playlist.m3u8` |
+| 2 | `hit-radio-maroc` | HIT RADIO Maroc | Marocco | existing approved seed | existing approved stream |
+| 3 | `chada-fm` | Chada FM | Marocco | Radio Browser homepage `https://chada.ma/fr/` | `https://stream.bodkas.com/playlist?id=chadafmradio` |
+| 4 | `atlantic-radio` | Atlantic Radio | Marocco | Radio Browser homepage `https://atlanticradio.ma/` | `https://atlantic-sonic.nindohost.net:9300/stream` |
+| 5 | `cap-radio` | Cap Radio | Marocco | official `https://capradiotv.com/` embeds RadioKing radio 710810 | `https://listen.radioking.com/radio/710810/stream/776366` |
+| 6 | `radio-mars` | Radio Mars | Marocco | existing approved seed | existing approved stream |
+| 7 | `radio-plus-agadir` | Radio Plus Agadir 92.4 | Marocco | existing approved seed; remains distinct from unverified Casablanca request | existing approved stream |
+| 8 | `radio-azawan` | Radio Azawan | Marocco | existing approved seed | existing approved stream |
+| 9 | `aswat-fm` | Aswat FM | Marocco | existing approved seed | existing approved stream |
+| 10 | `mfm-radio` | MFM Radio | Marocco | existing approved seed | existing approved stream |
+| 11 | `medina-fm-amazigh` | Medina FM Amazigh | Marocco | existing approved seed | existing approved stream |
+| 12 | `rtl-102-5` | RTL 102.5 | Italia | Radio Browser homepage `https://www.rtl.it/` | `https://dd782ed59e2a4e86aabf6fc508674b59.msvdn.net/live/S97044836/tbbP8T1ZRPBL/playlist_audio.m3u8` |
+| 13 | `radio-deejay` | Radio Deejay | Italia | Radio Browser homepage `https://www.deejay.it/` | `https://4c4b867c89244861ac216426883d1ad0.msvdn.net/radiodeejay/radiodeejay/master_ma.m3u8` |
+| 14 | `radio-105` | Radio 105 | Italia | Radio Browser homepage `https://105.net/` | `https://icecast.unitedradio.it/Radio105.mp3` |
+| 15 | `rds-100-grandi-successi` | RDS 100% Grandi Successi | Italia | Radio Browser homepage `https://www.rds.it/` | `https://stream.rds.radio/audio/rds.stream_aac64/chunklist.m3u8` |
+| 16 | `radio-italia-smi` | Radio Italia Solo Musica Italiana | Italia | existing approved seed | existing approved stream |
+| 17 | `virgin-radio-italia` | Virgin Radio Italia | Italia | Radio Browser homepage `http://www.virginradio.it/`; HTTPS endpoint independently verified | `https://icecast.unitedradio.it/Virgin.mp3` |
+| 18 | `radio-capital` | Radio Capital | Italia | Radio Browser homepage `https://www.capital.it/` | `https://4c4b867c89244861ac216426883d1ad0.msvdn.net/radiocapital/radiocapital/master_ma.m3u8` |
+| 19 | `m2o` | m2o | Italia | Radio Browser homepage `https://www.m2o.it/` | `https://4c4b867c89244861ac216426883d1ad0.msvdn.net/radiom2o/radiom2o/master_ma.m3u8` |
+| 20 | `radio-monte-carlo` | Radio Monte Carlo (RMC) | Italia | Radio Browser homepage `https://www.radiomontecarlo.net/radio-onair/` | `https://icy.unitedradio.it/RMC.aac` |
+| 21 | `r101` | R101 | Italia | Radio Browser homepage `http://www.r101.it/`; HTTPS endpoint independently verified | `https://icecast.unitedradio.it/r101_mp3` |
+| 22 | `rai-radio-1` | Rai Radio 1 | Italia | Radio Browser homepage `https://www.raiplaysound.it/radio1` | `https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S16355530/Q4zh3NTu28Rx/icecast` |
+| 23 | `rai-radio-2` | Rai Radio 2 | Italia | Radio Browser homepage `https://www.raiplaysound.it/radio2` | `https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S35942484/yp5F67151K92/icecast` |
+| 24 | `rai-radio-3` | Rai Radio 3 | Italia | Radio Browser homepage `https://www.raiplaysound.it/radio3` | `https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S56630579/yEbkcBtIoSwd/icecast` |
+| 25 | `bbc-radio-1` | BBC Radio 1 | UK | Radio Browser identity correlated to BBC official service | `https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8` |
+| 26 | `bbc-radio-2` | BBC Radio 2 | UK | Radio Browser identity correlated to BBC official service | `https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/cf/bbc_radio_two.m3u8` |
+| 27 | `bbc-radio-4` | BBC Radio 4 | UK | Radio Browser identity correlated to BBC official service | `https://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d128000.norewind.m3u8` |
+| 28 | `capital-fm-london` | Capital FM London | UK | Radio Browser homepage `https://capitalfm.com/` | `https://media-ssl.musicradio.com/CapitalMP3` |
+| 29 | `heart-uk` | Heart UK | UK | Radio Browser homepage `https://www.heart.co.uk/` | `https://media-ssl.musicradio.com/HeartUK` |
+| 30 | `classic-fm` | Classic FM | UK | Radio Browser homepage `https://www.classicfm.com/` | `https://media-ssl.musicradio.com/ClassicFMMP3` |
+| 31 | `radio-sportiva` | Radio Sportiva | Sport | existing approved seed | existing approved stream |
+
+The built-in catalog contains exactly **31** stations after this objective: 11 `Marocco`, 13 `Italia`, 6 `UK`, and 1 `Sport`. `Tutte` uses exactly the built-in order above. Filtered category queues preserve the relative order shown above. The new `UK` filter is added alongside `Tutte / Marocco / Italia / Sport` so English stations form a real queue rather than appearing only as uncategorized entries.
+
+### Explicitly rejected requested stations
+
+- [ ] **Radio 2M — not seeded.** Official `https://bo.radio2m.ma/api/live` returned the current `link_ecouter`, proving identity, but the resulting official Globecast HLS endpoint returned HTTP 403 and no decodable audio in final probe run `33498432282`; it fails the reachability gate.
+- [ ] **Radio Kiss Kiss — not seeded.** Radio Browser identity matches official `kisskiss.it`, but the available Fluidstream endpoints are cleartext-era endpoints; HTTPS playlist/direct probes failed TLS/connection setup in final probe run `33498432282`. No working HTTPS endpoint with equally strong provenance was found.
+- [ ] **Radio 24 — not seeded.** Radio Browser and the official site correlate to the legacy Shoutcast endpoint on port 8000, but HTTPS probes fail TLS. The app does not opt into cleartext traffic, and this objective does not weaken Android network security merely to admit one station.
+- [ ] **SNRT Radio Chaîne Inter — not seeded.** The official SNRT page itself exposes its Globecast HLS URL, but that URL returned HTTP 400 and no decodable audio in both the broad and final probes, including a browser-like User-Agent/Referer attempt.
+- [ ] **Radio Plus Casablanca — not seeded.** No Radio Browser record with official `radioplus.ma` provenance could be tied specifically to Casablanca. The official site exposes no distinct Casablanca live endpoint, while a candidate `radio.co` stream is contradicted by independent identity evidence pointing to Radio Plus Mauritius. Existing `Radio Plus Agadir 92.4` remains unchanged.
+
+### Ordering, persistence and regression contract
+
+- [ ] **Catalog order is playback order.** `InitialRadioCatalog.stations` becomes the authoritative built-in order for `Tutte` and category-derived Radio queues. Repository reads must project Room rows back into this order even though the DAO currently returns rows alphabetically. Custom stations remain after all built-ins in deterministic `name` then `id` order. `RadioFeatureController` must preserve source order and must not alphabetically re-sort the list.
+- [ ] **Seed stays additive and idempotent.** Seeding inserts only missing stable IDs and never overwrites an already stored built-in/custom row. No Room schema migration is required. Running seeding repeatedly must result in exactly one row per built-in ID, no duplicate primary URL, and the same 31-station catalog.
+- [ ] **Category model.** `RadioStationGrouping` adds `UK("UK")` and assigns exactly the six approved British station IDs to it. Existing presentation semantics remain: Radio Mars stays `Marocco`; Radio Sportiva stays `Sport`; unknown/custom IDs remain visible in `Tutte` and are not silently assigned to a built-in category.
+- [ ] **Existing playback architecture is unchanged.** The context-snapshot Radio queue, wrap-around Previous/Next, per-station fallback logic, live reconnect behavior, favorites snapshot behavior, Sleep Timer, notification/overlay/Android Auto projections and local Music semantics remain unchanged apart from seeing the expanded ordered station lists.
+- [ ] **Required tests.** Add/expand tests for: exact 31 built-in IDs and order; unique IDs and primary URLs; seed twice/multiple times remains exactly 31 with no duplicate insertions; pre-existing rows are not overwritten; repository built-in-order projection plus deterministic custom tail; `Tutte`/Marocco/Italia/UK/Sport membership and relative order; and existing scrollable Radio queue tests remaining green.
+- [ ] **Required validation.** A real GitHub Actions run must pass `:core:data:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`; verify persistent debug signer v1 and APK SHA-256; promote only the exact validated product commit to `main`; append spec-after evidence; publish the exact final `main` snapshot through the permanent debug-prerelease workflow; then delete all temporary research/spec/product/validation branches and helper workflows.
+
+### Research evidence before implementation
+
+- Radio Browser discovery run `33497315070`, job `99822372091`: verified candidates by `homepage` and exposed duplicate/mislabel hazards such as non-Italian stations returned ahead of the correct Radio Deejay entry.
+- Corrected full stream probe run `33498209411`, job `99825185495`: all 22 approved additions returned final HTTP 200 and decodable audio; Radio 24 HTTPS and the then-current SNRT endpoint failed.
+- Official endpoint resolver run `33498209214`, job `99825183945`: resolved Radio 2M via `bo.radio2m.ma/api/live`; confirmed no usable official endpoint was exposed for Radio Plus Casablanca or Radio 24.
+- Final ambiguous probe run `33498432282`, job `99825898961`: Radio 2M failed with HTTP 403; Radio Kiss Kiss HTTPS candidates failed connection/TLS; SNRT Chaîne Inter remained HTTP 400. Those failures are deliberate exclusion evidence, not accepted product endpoints.
