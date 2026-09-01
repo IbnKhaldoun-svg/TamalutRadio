@@ -1,6 +1,8 @@
 package com.tamalut.radio.core.playback
 
 import android.app.PendingIntent
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -12,25 +14,52 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
 class TamalutPlaybackService : MediaLibraryService() {
     private var player: ExoPlayer? = null
     private var mediaLibrarySession: MediaLibrarySession? = null
     private val liveResumeGate = RadioLiveResumeGate()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val sleepTimerPresentationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var sleepTimerPresentationJob: Job? = null
+    private var sleepTimerRemainingSeconds: Long? = null
+    private var sleepTimerOriginalItem: MediaItem? = null
+    private var sleepTimerDecoratedItem: MediaItem? = null
+    private var sleepTimerDecoratedIndex: Int = -1
+    private var applyingSleepTimerMetadata = false
+    private var pendingSleepTimerPresentationItem: MediaItem? = null
 
     var currentRadioFallbackState: RadioFallbackState = RadioFallbackState.Inactive
         private set
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (applyingSleepTimerMetadata || mediaItem == pendingSleepTimerPresentationItem) {
+                if (mediaItem == pendingSleepTimerPresentationItem) {
+                    pendingSleepTimerPresentationItem = null
+                }
+                return
+            }
+            pendingSleepTimerPresentationItem = null
             val exoPlayer = player
+            if (exoPlayer != null) {
+                restoreSleepTimerMetadata(exoPlayer)
+            }
             val plan = RadioMediaItemFactory.planFrom(mediaItem)
             liveResumeGate.onMediaItemChanged(
                 isRadio = plan != null,
                 playWhenReady = exoPlayer?.playWhenReady == true,
             )
             currentRadioFallbackState = plan?.asState() ?: RadioFallbackState.Inactive
+            exoPlayer?.let(::applySleepTimerMetadata)
         }
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -102,6 +131,93 @@ class TamalutPlaybackService : MediaLibraryService() {
             sessionBuilder.setSessionActivity(pendingIntent)
         }
         mediaLibrarySession = sessionBuilder.build()
+        sleepTimerPresentationJob = sleepTimerPresentationScope.launch {
+            SleepTimerNotificationBridge.remainingSeconds.collect { remainingSeconds ->
+                mainHandler.post {
+                    sleepTimerRemainingSeconds = remainingSeconds
+                    player?.let(::applySleepTimerMetadata)
+                }
+            }
+        }
+    }
+
+    private fun applySleepTimerMetadata(exoPlayer: ExoPlayer) {
+        val contentText = sleepTimerNotificationContentText(sleepTimerRemainingSeconds)
+        if (contentText == null) {
+            restoreSleepTimerMetadata(exoPlayer)
+            return
+        }
+        val currentItem = exoPlayer.currentMediaItem ?: run {
+            clearSleepTimerMetadataTracking()
+            return
+        }
+        val currentIndex = exoPlayer.currentMediaItemIndex
+        val trackedCurrent = sleepTimerDecoratedIndex == currentIndex && currentItem == sleepTimerDecoratedItem
+        if (!trackedCurrent) {
+            restoreSleepTimerMetadata(exoPlayer)
+            val freshItem = exoPlayer.currentMediaItem ?: return
+            sleepTimerOriginalItem = freshItem
+            sleepTimerDecoratedIndex = exoPlayer.currentMediaItemIndex
+        }
+        val originalItem = sleepTimerOriginalItem ?: return
+        val decoratedItem = originalItem.buildUpon()
+            .setMediaMetadata(
+                originalItem.mediaMetadata.buildUpon()
+                    .setArtist(contentText)
+                    .build(),
+            )
+            .build()
+        if (exoPlayer.currentMediaItem == decoratedItem) {
+            sleepTimerDecoratedItem = decoratedItem
+            return
+        }
+        replaceMediaItemForSleepTimer(
+            exoPlayer = exoPlayer,
+            index = sleepTimerDecoratedIndex,
+            replacement = decoratedItem,
+        )
+        sleepTimerDecoratedItem = decoratedItem
+    }
+
+    private fun restoreSleepTimerMetadata(exoPlayer: ExoPlayer) {
+        val originalItem = sleepTimerOriginalItem
+        val decoratedItem = sleepTimerDecoratedItem
+        val index = sleepTimerDecoratedIndex
+        if (
+            originalItem != null &&
+            decoratedItem != null &&
+            index in 0 until exoPlayer.mediaItemCount &&
+            exoPlayer.getMediaItemAt(index) == decoratedItem
+        ) {
+            replaceMediaItemForSleepTimer(exoPlayer, index, originalItem)
+        }
+        clearSleepTimerMetadataTracking()
+    }
+
+    private fun replaceMediaItemForSleepTimer(
+        exoPlayer: ExoPlayer,
+        index: Int,
+        replacement: MediaItem,
+    ) {
+        if (index !in 0 until exoPlayer.mediaItemCount) return
+        pendingSleepTimerPresentationItem = replacement
+        applyingSleepTimerMetadata = true
+        try {
+            exoPlayer.replaceMediaItem(index, replacement)
+        } finally {
+            applyingSleepTimerMetadata = false
+        }
+        mainHandler.post {
+            if (pendingSleepTimerPresentationItem == replacement) {
+                pendingSleepTimerPresentationItem = null
+            }
+        }
+    }
+
+    private fun clearSleepTimerMetadataTracking() {
+        sleepTimerOriginalItem = null
+        sleepTimerDecoratedItem = null
+        sleepTimerDecoratedIndex = -1
     }
 
     private fun reconnectCurrentRadioAtLiveEdge(
@@ -122,6 +238,7 @@ class TamalutPlaybackService : MediaLibraryService() {
     private fun stopAndExit() {
         liveResumeGate.reset()
         currentRadioFallbackState = RadioFallbackState.Inactive
+        clearSleepTimerMetadataTracking()
         player?.stop()
         player?.clearMediaItems()
         pauseAllPlayersAndStopSelf()
@@ -129,6 +246,10 @@ class TamalutPlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         liveResumeGate.reset()
+        sleepTimerPresentationJob?.cancel()
+        sleepTimerPresentationJob = null
+        sleepTimerPresentationScope.cancel()
+        clearSleepTimerMetadataTracking()
         mediaLibrarySession?.release()
         mediaLibrarySession = null
         player?.removeListener(playerListener)

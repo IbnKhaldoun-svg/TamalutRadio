@@ -22,8 +22,11 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -54,6 +57,8 @@ import com.tamalut.radio.core.database.TamalutDatabase
 import com.tamalut.radio.core.designsystem.TamalutRadioTheme
 import com.tamalut.radio.core.designsystem.ThemeMode
 import com.tamalut.radio.core.playback.PlaybackLaunchContract
+import com.tamalut.radio.core.playback.SleepTimerPreset
+import com.tamalut.radio.core.playback.SleepTimerState
 import com.tamalut.radio.core.preferences.ThemePreference
 import com.tamalut.radio.core.preferences.UserPreferences
 import com.tamalut.radio.feature.library.LibraryRoute
@@ -148,7 +153,15 @@ class MainActivity : ComponentActivity() {
                                     NavigationBarItem(
                                         selected = destination == item,
                                         onClick = { selectedDestination.value = item },
-                                        icon = { Icon(item.icon, contentDescription = item.label) },
+                                        icon = {
+                                            if (item == MainDestination.SETTINGS && sleepTimerState.isActive) {
+                                                BadgedBox(badge = { Badge() }) {
+                                                    Icon(item.icon, contentDescription = item.label)
+                                                }
+                                            } else {
+                                                Icon(item.icon, contentDescription = item.label)
+                                            }
+                                        },
                                         label = { Text(item.label) },
                                     )
                                 }
@@ -167,12 +180,12 @@ class MainActivity : ComponentActivity() {
                         )
                         MainDestination.NOW_PLAYING -> NowPlayingDestination(
                             state = playbackState,
-                            sleepTimerState = sleepTimerState,
-                            onSleepTimerPresetSelected = sleepTimerController::setPreset,
-                            onCustomSleepTimerRequested = { showCustomSleepTimerDialog = true },
                             modifier = Modifier.fillMaxSize().padding(contentPadding),
                         )
                         MainDestination.SETTINGS -> SettingsDestination(
+                            sleepTimerState = sleepTimerState,
+                            onSleepTimerPresetSelected = sleepTimerController::setPreset,
+                            onCustomSleepTimerRequested = { showCustomSleepTimerDialog = true },
                             overlayEnabled = userPreferences.overlayEnabled,
                             overlayPermissionGranted = overlayPermissionGranted,
                             onOverlayEnabledChange = { enabled ->
@@ -232,6 +245,9 @@ internal fun destinationForLaunchAction(action: String?): MainDestination? =
 
 @Composable
 private fun SettingsDestination(
+    sleepTimerState: SleepTimerState,
+    onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
+    onCustomSleepTimerRequested: () -> Unit,
     overlayEnabled: Boolean,
     overlayPermissionGranted: Boolean,
     onOverlayEnabledChange: (Boolean) -> Unit,
@@ -239,6 +255,7 @@ private fun SettingsDestination(
     modifier: Modifier = Modifier,
 ) {
     var showPermissionExplanation by remember { mutableStateOf(false) }
+    val sleepTimerModel = sleepTimerState.toSleepTimerUiModel()
 
     Surface(modifier = modifier) {
         Column(
@@ -255,6 +272,57 @@ private fun SettingsDestination(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Timer spegnimento",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        sleepTimerModel.detailLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (sleepTimerModel.isActive) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        sleepTimerPresetOptions.take(3).forEach { preset ->
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = !sleepTimerState.isCustom && sleepTimerState.preset == preset,
+                                onClick = { onSleepTimerPresetSelected(preset) },
+                                label = { Text(preset.displayLabel(), maxLines = 1) },
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        sleepTimerPresetOptions.drop(3).forEach { preset ->
+                            FilterChip(
+                                modifier = Modifier.weight(1f),
+                                selected = !sleepTimerState.isCustom && sleepTimerState.preset == preset,
+                                onClick = { onSleepTimerPresetSelected(preset) },
+                                label = { Text(preset.displayLabel(), maxLines = 1) },
+                            )
+                        }
+                    }
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onCustomSleepTimerRequested,
+                    ) {
+                        Text("Personalizzato…")
+                    }
+                }
+            }
 
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

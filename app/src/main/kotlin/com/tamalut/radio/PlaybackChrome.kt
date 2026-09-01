@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +52,7 @@ import com.tamalut.radio.core.playback.PlaybackState
 import com.tamalut.radio.core.playback.SleepTimerCustomDuration
 import com.tamalut.radio.core.playback.SleepTimerPreset
 import com.tamalut.radio.core.playback.SleepTimerState
+import com.tamalut.radio.core.playback.formatSleepTimerRemaining as formatCoreSleepTimerRemaining
 
 data class PlaybackChromeModel(
     val title: String,
@@ -104,17 +104,8 @@ internal fun SleepTimerPreset.displayLabel(): String = when (this) {
     SleepTimerPreset.MINUTES_60 -> "60 min"
 }
 
-internal fun formatSleepTimerRemaining(remainingSeconds: Long): String {
-    val safeSeconds = remainingSeconds.coerceAtLeast(0L)
-    val hours = safeSeconds / 3_600L
-    val minutes = (safeSeconds % 3_600L) / 60L
-    val seconds = safeSeconds % 60L
-    return if (hours > 0L) {
-        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-    } else {
-        "$minutes:${seconds.toString().padStart(2, '0')}"
-    }
-}
+internal fun formatSleepTimerRemaining(remainingSeconds: Long): String =
+    formatCoreSleepTimerRemaining(remainingSeconds)
 
 internal fun sleepTimerCustomDurationOrNull(hoursText: String, minutesText: String): SleepTimerCustomDuration? {
     val hours = hoursText.toIntOrNull() ?: return null
@@ -291,13 +282,9 @@ fun PersistentMiniPlayer(
 @Composable
 fun NowPlayingDestination(
     state: PlaybackState,
-    sleepTimerState: SleepTimerState,
-    onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
-    onCustomSleepTimerRequested: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val model = state.toPlaybackChromeModel()
-    val sleepTimerModel = sleepTimerState.toSleepTimerUiModel()
     Surface(modifier = modifier) {
         if (model == null) {
             Column(
@@ -377,67 +364,6 @@ fun NowPlayingDestination(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
-                }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = "Timer spegnimento",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = sleepTimerModel.detailLabel,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (sleepTimerModel.isActive) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        sleepTimerPresetOptions.take(3).forEach { preset ->
-                            FilterChip(
-                                modifier = Modifier.weight(1f),
-                                selected = !sleepTimerState.isCustom && sleepTimerState.preset == preset,
-                                onClick = { onSleepTimerPresetSelected(preset) },
-                                label = { Text(preset.displayLabel(), maxLines = 1) },
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        sleepTimerPresetOptions.drop(3).forEach { preset ->
-                            FilterChip(
-                                modifier = Modifier.weight(1f),
-                                selected = !sleepTimerState.isCustom && sleepTimerState.preset == preset,
-                                onClick = { onSleepTimerPresetSelected(preset) },
-                                label = { Text(preset.displayLabel(), maxLines = 1) },
-                            )
-                        }
-                    }
-                    TextButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onCustomSleepTimerRequested,
-                    ) {
-                        Text("Personalizzato…")
-                    }
                 }
             }
 

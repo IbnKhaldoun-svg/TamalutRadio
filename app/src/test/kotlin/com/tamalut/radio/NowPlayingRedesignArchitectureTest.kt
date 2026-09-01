@@ -27,7 +27,7 @@ class NowPlayingRedesignArchitectureTest {
     }
 
     @Test
-    fun nowPlayingKeepsAllTimerChoicesVisibleWithoutHorizontalScrollOrDuplicateTransport() {
+    fun nowPlayingRemainsScrollableWithoutTimerOrDuplicateTransport() {
         val chrome = Path.of("src/main/kotlin/com/tamalut/radio/PlaybackChrome.kt").readText()
         val nowPlaying = chrome
             .substringAfter("fun NowPlayingDestination(")
@@ -35,11 +35,10 @@ class NowPlayingRedesignArchitectureTest {
 
         assertTrue(nowPlaying.contains(".verticalScroll(rememberScrollState())"))
         assertFalse(nowPlaying.contains("horizontalScroll"))
-        assertTrue(nowPlaying.contains("sleepTimerPresetOptions.take(3)"))
-        assertTrue(nowPlaying.contains("sleepTimerPresetOptions.drop(3)"))
-        assertTrue(nowPlaying.contains("Text(\"Personalizzato…\")"))
-        assertTrue(chrome.contains("SleepTimerPreset.MINUTES_60 -> \"60 min\""))
-
+        assertFalse(nowPlaying.contains("Timer spegnimento"))
+        assertFalse(nowPlaying.contains("sleepTimerPresetOptions"))
+        assertFalse(nowPlaying.contains("Personalizzato…"))
+        assertFalse(nowPlaying.contains("SleepTimerState"))
         assertFalse(nowPlaying.contains("SkipPrevious"))
         assertFalse(nowPlaying.contains("SkipNext"))
         assertFalse(nowPlaying.contains("TOGGLE_PLAY_PAUSE"))

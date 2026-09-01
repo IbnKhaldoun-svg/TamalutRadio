@@ -6,10 +6,19 @@ import android.content.Intent
 import com.tamalut.radio.core.playback.HandlerSleepTimerScheduler
 import com.tamalut.radio.core.playback.Media3PlaybackController
 import com.tamalut.radio.core.playback.SleepTimerController
+import com.tamalut.radio.core.playback.SleepTimerNotificationBridge
 import com.tamalut.radio.core.playback.TamalutPlaybackService
 import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 internal object TamalutRadioRuntime {
+    private val runtimeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var sleepTimerPresentationJob: Job? = null
     private var preferencesRepository: DataStoreUserPreferencesRepository? = null
     private var playbackController: Media3PlaybackController? = null
     private var overlayCoordinator: FloatingOverlayCoordinator? = null
@@ -32,8 +41,14 @@ internal object TamalutRadioRuntime {
         sleepTimerController ?: SleepTimerController(
             scheduler = HandlerSleepTimerScheduler(),
             onExpired = { shutdownAfterSleepTimer(context.applicationContext) },
-        ).also {
-            sleepTimerController = it
+        ).also { controller ->
+            sleepTimerController = controller
+            sleepTimerPresentationJob?.cancel()
+            sleepTimerPresentationJob = runtimeScope.launch {
+                controller.state.collect { state ->
+                    SleepTimerNotificationBridge.publish(state)
+                }
+            }
         }
 
     @Synchronized

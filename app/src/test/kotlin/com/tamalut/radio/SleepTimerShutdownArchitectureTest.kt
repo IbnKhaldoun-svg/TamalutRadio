@@ -33,11 +33,20 @@ class SleepTimerShutdownArchitectureTest {
     }
 
     @Test
-    fun nowPlayingKeepsCustomTimerActionReachableByVerticalScrolling() {
+    fun settingsKeepsCustomTimerActionReachableByVerticalScrolling() {
+        val main = Path.of("src/main/kotlin/com/tamalut/radio/MainActivity.kt").readText()
         val chrome = Path.of("src/main/kotlin/com/tamalut/radio/PlaybackChrome.kt").readText()
+        val settings = main
+            .substringAfter("private fun SettingsDestination(")
+            .substringBefore("private fun ThemePreference.toThemeMode")
+        val nowPlaying = chrome
+            .substringAfter("fun NowPlayingDestination(")
+            .substringBefore("@Composable\nfun SleepTimerCustomDialog(")
 
-        assertTrue(chrome.contains(".verticalScroll(rememberScrollState())"))
-        assertTrue(chrome.contains("Text(\"Personalizzato…\")"))
+        assertTrue(settings.contains(".verticalScroll(rememberScrollState())"))
+        assertTrue(settings.contains("Text(\"Personalizzato…\")"))
         assertTrue(chrome.contains("SleepTimerPreset.MINUTES_60 -> \"60 min\""))
+        assertFalse(nowPlaying.contains("Personalizzato…"))
+        assertFalse(nowPlaying.contains("sleepTimerPresetOptions"))
     }
 }
