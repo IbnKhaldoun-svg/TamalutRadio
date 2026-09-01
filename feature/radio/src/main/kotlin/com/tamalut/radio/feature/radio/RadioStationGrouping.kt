@@ -7,25 +7,63 @@ enum class RadioStationFilter(val label: String) {
     MOROCCO("Marocco"),
     ITALY("Italia"),
     SPORT("Sport"),
+    UK("UK"),
 }
 
 object RadioStationFiltering {
     private val moroccoStationIds = setOf(
-        "radio-azawan",
-        "radio-plus-agadir",
+        "medi1-radio",
         "hit-radio-maroc",
+        "chada-fm",
+        "atlantic-radio",
+        "cap-radio",
+        "med-radio",
         "radio-mars",
+        "radio-plus-agadir",
+        "radio-azawan",
         "aswat-fm",
         "mfm-radio",
+        "radio-medina-fm",
         "medina-fm-amazigh",
+        "ness-radio",
+        "radio-manarat",
+        "radio-tanger-med",
+        "radio-yabiladi",
+        "radio-achkid-fm",
+        "radio-star-maroc-fm",
     )
-    private val italyStationIds = setOf("radio-italia-smi")
-    private val sportStationIds = setOf("radio-sportiva")
+    private val italyStationIds = setOf(
+        "rtl-102-5",
+        "radio-deejay",
+        "radio-105",
+        "rds-100-grandi-successi",
+        "radio-italia-smi",
+        "virgin-radio-italia",
+        "radio-capital",
+        "m2o",
+        "radio-monte-carlo",
+        "r101",
+        "rai-radio-1",
+        "rai-radio-2",
+        "rai-radio-3",
+    )
+    private val sportStationIds = setOf(
+        "radio-sportiva",
+    )
+    private val ukStationIds = setOf(
+        "bbc-radio-1",
+        "bbc-radio-2",
+        "bbc-radio-4",
+        "capital-fm-london",
+        "heart-uk",
+        "classic-fm",
+    )
 
     fun filterFor(station: RadioStation): RadioStationFilter? = when (station.id.value) {
         in moroccoStationIds -> RadioStationFilter.MOROCCO
         in italyStationIds -> RadioStationFilter.ITALY
         in sportStationIds -> RadioStationFilter.SPORT
+        in ukStationIds -> RadioStationFilter.UK
         else -> null
     }
 

@@ -35,11 +35,11 @@ class RadioFeatureControllerTest {
     fun tearDown() { Dispatchers.resetMain() }
 
     @Test
-    fun loadSeedsCatalogAndSortsStations() = runTest(dispatcher) {
+    fun loadSeedsCatalogAndPreservesSourceOrder() = runTest(dispatcher) {
         val source = FakeRadioDataSource(stations = mutableListOf(station("z", "Zulu"), station("a", "Alpha")))
         val snapshot = RadioFeatureController(source).load()
         assertEquals(1, source.seedCalls)
-        assertEquals(listOf("Alpha", "Zulu"), snapshot.stations.map { it.name })
+        assertEquals(listOf("Zulu", "Alpha"), snapshot.stations.map { it.name })
         assertTrue(snapshot.favoriteIds.isEmpty())
     }
 
@@ -161,8 +161,8 @@ class RadioFeatureControllerTest {
         viewModel.selectFilter(RadioStationFilter.ALL)
         viewModel.playStation(beta)
         advanceUntilIdle()
-        assertEquals(listOf(alpha, beta, gamma), playback.lastQueue)
-        assertEquals(1, playback.lastStartIndex)
+        assertEquals(listOf(gamma, alpha, beta), playback.lastQueue)
+        assertEquals(2, playback.lastStartIndex)
     }
 
     @Test
@@ -183,8 +183,8 @@ class RadioFeatureControllerTest {
 
         viewModel.selectFilter(RadioStationFilter.MOROCCO)
         viewModel.playStation(moroccoTwo)
-        assertEquals(listOf(moroccoOne, moroccoTwo), playback.lastQueue)
-        assertEquals(1, playback.lastStartIndex)
+        assertEquals(listOf(moroccoTwo, moroccoOne), playback.lastQueue)
+        assertEquals(0, playback.lastStartIndex)
 
         viewModel.selectFilter(RadioStationFilter.ITALY)
         viewModel.playStation(italy)
@@ -195,6 +195,34 @@ class RadioFeatureControllerTest {
         viewModel.playStation(sport)
         assertEquals(listOf(sport), playback.lastQueue)
         assertEquals(0, playback.lastStartIndex)
+    }
+
+    @Test
+    fun ukContextCapturesApprovedSixStationQueueInCatalogOrder() = runTest(dispatcher) {
+        val bbc1 = station("bbc-radio-1", "BBC Radio 1")
+        val bbc2 = station("bbc-radio-2", "BBC Radio 2")
+        val bbc4 = station("bbc-radio-4", "BBC Radio 4")
+        val capital = station("capital-fm-london", "Capital FM London")
+        val heart = station("heart-uk", "Heart UK")
+        val classic = station("classic-fm", "Classic FM")
+        val playback = FakePlaybackGateway()
+        val viewModel = RadioViewModel(
+            RadioFeatureController(
+                FakeRadioDataSource(
+                    stations = mutableListOf(bbc1, bbc2, bbc4, capital, heart, classic),
+                ),
+            ),
+            playback,
+        )
+        advanceUntilIdle()
+
+        viewModel.selectFilter(RadioStationFilter.UK)
+        viewModel.playStation(bbc4)
+
+        assertEquals(listOf(bbc1, bbc2, bbc4, capital, heart, classic), playback.lastQueue)
+        assertEquals(2, playback.lastStartIndex)
+        assertTrue(playback.current.value.canSkipPrevious)
+        assertTrue(playback.current.value.canSkipNext)
     }
 
     @Test
@@ -216,8 +244,8 @@ class RadioFeatureControllerTest {
         viewModel.selectSection(RadioSection.FAVORITES)
         viewModel.playStation(gamma)
         advanceUntilIdle()
-        assertEquals(listOf(alpha, gamma), playback.lastQueue)
-        assertEquals(1, playback.lastStartIndex)
+        assertEquals(listOf(gamma, alpha), playback.lastQueue)
+        assertEquals(0, playback.lastStartIndex)
     }
 
     @Test
@@ -244,7 +272,7 @@ class RadioFeatureControllerTest {
         advanceUntilIdle()
 
         assertEquals(1, playback.playCalls)
-        assertEquals(listOf(alpha, beta), captured)
+        assertEquals(listOf(beta, alpha), captured)
         assertEquals(captured, playback.lastQueue)
         assertEquals(startIndex, playback.lastStartIndex)
         assertFalse(alpha.id in viewModel.uiState.value.favoriteIds)

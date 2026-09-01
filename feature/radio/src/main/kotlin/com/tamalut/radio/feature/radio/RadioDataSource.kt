@@ -53,7 +53,7 @@ class RadioFeatureController(
     }
 
     private suspend fun snapshot(): RadioSnapshot = RadioSnapshot(
-        stations = dataSource.stations().sortedBy { it.name.lowercase() },
+        stations = dataSource.stations(),
         favoriteIds = dataSource.favoriteIds(),
     )
 }

@@ -3,6 +3,7 @@ package com.tamalut.radio.core.data
 import com.tamalut.radio.core.database.FavoriteStationDao
 import com.tamalut.radio.core.database.RadioStationDao
 import com.tamalut.radio.core.database.RadioStationPersistenceRecord
+import com.tamalut.radio.core.database.RadioStationWithFallbacks
 import com.tamalut.radio.core.database.toDomain
 import com.tamalut.radio.core.database.toPersistenceRecord
 import com.tamalut.radio.core.model.RadioStation
@@ -13,6 +14,7 @@ class RadioStationRepository(
     private val favoriteStationDao: FavoriteStationDao,
 ) {
     suspend fun seedInitialCatalog() {
+        repairLegacyAtbirLabel()
         InitialRadioCatalog.stations.forEach { station ->
             if (stationDao.getStation(station.id.value) == null) {
                 persist(station.toPersistenceRecord(isCustom = false))
@@ -21,16 +23,17 @@ class RadioStationRepository(
     }
 
     suspend fun getStations(favoritesFirst: Boolean = true): List<RadioStation> {
-        val stations = stationDao.getAllStations().map { it.toDomain() }
+        val stations = orderedRecords(stationDao.getAllStations()).map { it.toDomain() }
         if (!favoritesFirst) return stations
 
         val favoriteOrder = favoriteStationDao.getFavoriteStationIds()
             .withIndex()
             .associate { (index, id) -> id to index }
+        val baseOrder = stations.withIndex().associate { (index, station) -> station.id.value to index }
 
         return stations.sortedWith(
             compareBy<RadioStation> { favoriteOrder[it.id.value] ?: Int.MAX_VALUE }
-                .thenBy { it.name.lowercase() },
+                .thenBy { baseOrder[it.id.value] ?: Int.MAX_VALUE },
         )
     }
 
@@ -48,11 +51,50 @@ class RadioStationRepository(
         return true
     }
 
+    private suspend fun repairLegacyAtbirLabel() {
+        val stored = stationDao.getStation(LEGACY_ATBIR_ID) ?: return
+        val entity = stored.station
+        if (
+            !entity.isCustom &&
+            entity.name == LEGACY_ATBIR_NAME &&
+            entity.primaryStreamUrl == LEGACY_ATBIR_STREAM
+        ) {
+            stationDao.upsertStation(entity.copy(name = CORRECTED_ATBIR_NAME))
+        }
+    }
+
+    private fun orderedRecords(records: List<RadioStationWithFallbacks>): List<RadioStationWithFallbacks> {
+        val catalogOrder = InitialRadioCatalog.stations
+            .withIndex()
+            .associate { (index, station) -> station.id.value to index }
+
+        return records.sortedWith(
+            compareBy<RadioStationWithFallbacks> { record ->
+                when {
+                    record.station.stationId in catalogOrder -> 0
+                    !record.station.isCustom -> 1
+                    else -> 2
+                }
+            }.thenBy { record -> catalogOrder[record.station.stationId] ?: Int.MAX_VALUE }
+                .thenBy { record ->
+                    if (record.station.stationId in catalogOrder) "" else record.station.name.lowercase()
+                }
+                .thenBy { record -> record.station.stationId },
+        )
+    }
+
     private suspend fun persist(record: RadioStationPersistenceRecord) {
         stationDao.deleteFallbackStreams(record.station.stationId)
         stationDao.upsertStation(record.station)
         if (record.fallbackStreams.isNotEmpty()) {
             stationDao.upsertFallbackStreams(record.fallbackStreams)
         }
+    }
+
+    private companion object {
+        const val LEGACY_ATBIR_ID = "radio-plus-agadir"
+        const val LEGACY_ATBIR_NAME = "Radio Plus Agadir 92.4"
+        const val LEGACY_ATBIR_STREAM = "https://stream-158.zeno.fm/bqdbb6hd0neuv"
+        const val CORRECTED_ATBIR_NAME = "Radio Atbir"
     }
 }

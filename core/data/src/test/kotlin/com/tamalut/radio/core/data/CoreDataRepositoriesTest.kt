@@ -26,7 +26,7 @@ import org.junit.Test
 
 class CoreDataRepositoriesTest {
     @Test
-    fun seedInitialCatalog_isIdempotentAndMatchesApprovedNineStations() = runSuspend {
+    fun seedInitialCatalog_isIdempotentAndMatchesApprovedCatalog() = runSuspend {
         val stationDao = FakeRadioStationDao()
         val favoriteDao = FakeFavoriteStationDao()
         val repository = RadioStationRepository(stationDao, favoriteDao)
@@ -34,20 +34,10 @@ class CoreDataRepositoriesTest {
         repository.seedInitialCatalog()
         repository.seedInitialCatalog()
 
-        assertEquals(9, stationDao.getAllStations().size)
-        assertEquals(9, stationDao.stationUpsertCount)
+        assertEquals(39, stationDao.getAllStations().size)
+        assertEquals(39, stationDao.stationUpsertCount)
         assertEquals(
-            setOf(
-                "radio-azawan",
-                "radio-plus-agadir",
-                "hit-radio-maroc",
-                "radio-mars",
-                "aswat-fm",
-                "mfm-radio",
-                "medina-fm-amazigh",
-                "radio-italia-smi",
-                "radio-sportiva",
-            ),
+            InitialRadioCatalog.stations.map { it.id.value }.toSet(),
             stationDao.getAllStations().map { it.station.stationId }.toSet(),
         )
         assertFalse(stationDao.getAllStations().any { it.station.name.contains("Tachlit", ignoreCase = true) })
@@ -70,6 +60,100 @@ class CoreDataRepositoriesTest {
         assertTrue(favorites.isFavorite(StationId("radio-mars")))
         favorites.remove(StationId("radio-mars"))
         assertFalse(favorites.isFavorite(StationId("radio-mars")))
+    }
+
+    @Test
+    fun legacyAtbirLabelRepairIsExactIdempotentAndPreservesFallbacks() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "radio-plus-agadir",
+                name = "Radio Plus Agadir 92.4",
+                primaryStreamUrl = "https://stream-158.zeno.fm/bqdbb6hd0neuv",
+                isCustom = false,
+            ),
+        )
+        stationDao.upsertFallbackStreams(
+            listOf(
+                RadioStationFallbackEntity(
+                    stationId = "radio-plus-agadir",
+                    position = 0,
+                    url = "https://example.invalid/legacy-fallback.mp3",
+                ),
+            ),
+        )
+
+        repository.seedInitialCatalog()
+        val upsertsAfterRepairAndSeed = stationDao.stationUpsertCount
+        val repaired = repository.getStation(StationId("radio-plus-agadir"))
+
+        assertEquals("Radio Atbir", repaired?.name)
+        assertEquals(
+            listOf(
+                "https://stream-158.zeno.fm/bqdbb6hd0neuv",
+                "https://example.invalid/legacy-fallback.mp3",
+            ),
+            repaired?.playbackStreams?.map { it.url },
+        )
+        assertEquals(39, stationDao.getAllStations().size)
+
+        repository.seedInitialCatalog()
+        assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
+        assertEquals("Radio Atbir", repository.getStation(StationId("radio-plus-agadir"))?.name)
+    }
+
+    @Test
+    fun seedingDoesNotOverwriteModifiedLegacyOrOtherPreExistingRows() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "radio-plus-agadir",
+                name = "My saved label",
+                primaryStreamUrl = "https://stream-158.zeno.fm/bqdbb6hd0neuv",
+                isCustom = false,
+            ),
+        )
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "radio-azawan",
+                name = "My Azawan",
+                primaryStreamUrl = "https://example.invalid/my-azawan.mp3",
+                isCustom = false,
+            ),
+        )
+
+        repository.seedInitialCatalog()
+
+        assertEquals("My saved label", repository.getStation(StationId("radio-plus-agadir"))?.name)
+        assertEquals("My Azawan", repository.getStation(StationId("radio-azawan"))?.name)
+        assertEquals(
+            "https://example.invalid/my-azawan.mp3",
+            repository.getStation(StationId("radio-azawan"))?.primaryStream?.url,
+        )
+        assertEquals(39, stationDao.getAllStations().size)
+    }
+
+    @Test
+    fun repositoryProjectsCatalogOrderThenDeterministicCustomTail() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        repository.seedInitialCatalog()
+        repository.saveCustomStation(customStation("custom-z", "Zulu Custom"))
+        repository.saveCustomStation(customStation("custom-a2", "Alpha Custom"))
+        repository.saveCustomStation(customStation("custom-a1", "Alpha Custom"))
+
+        val ordered = repository.getStations(favoritesFirst = false)
+
+        assertEquals(
+            InitialRadioCatalog.stations.map { it.id.value },
+            ordered.take(39).map { it.id.value },
+        )
+        assertEquals(
+            listOf("custom-a1", "custom-a2", "custom-z"),
+            ordered.drop(39).map { it.id.value },
+        )
     }
 
     @Test
@@ -114,6 +198,12 @@ class CoreDataRepositoriesTest {
         repository.clear()
         assertTrue(repository.getRecent().isEmpty())
     }
+
+    private fun customStation(id: String, name: String) = RadioStation(
+        id = StationId(id),
+        name = name,
+        primaryStream = StreamEndpoint("https://example.invalid/$id.mp3"),
+    )
 
     private fun recent(id: String, timestamp: Long) = RecentlyPlayedEntry(
         media = MediaItemSummary(
