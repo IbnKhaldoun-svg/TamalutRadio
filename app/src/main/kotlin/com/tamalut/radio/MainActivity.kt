@@ -14,15 +14,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -155,7 +156,16 @@ class MainActivity : ComponentActivity() {
                                         onClick = { selectedDestination.value = item },
                                         icon = {
                                             if (item == MainDestination.SETTINGS && sleepTimerState.isActive) {
-                                                BadgedBox(badge = { Badge() }) {
+                                                BadgedBox(
+                                                    badge = {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.HourglassBottom,
+                                                            contentDescription = "Timer attivo",
+                                                            modifier = Modifier.size(14.dp),
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                        )
+                                                    },
+                                                ) {
                                                     Icon(item.icon, contentDescription = item.label)
                                                 }
                                             } else {

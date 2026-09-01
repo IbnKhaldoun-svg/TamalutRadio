@@ -33,14 +33,19 @@ class SleepTimerSettingsOnlyArchitectureTest {
     }
 
     @Test
-    fun settingsBadgeIsBooleanAndDrivenBySharedTimerState() {
+    fun settingsHourglassIndicatorIsBooleanAndDrivenBySharedTimerState() {
         val main = Path.of("src/main/kotlin/com/tamalut/radio/MainActivity.kt").readText()
         val nav = main
             .substringAfter("NavigationBar {")
             .substringBefore("}\n                            }\n                        }\n                    },")
 
         assertTrue(nav.contains("item == MainDestination.SETTINGS && sleepTimerState.isActive"))
-        assertTrue(nav.contains("BadgedBox(badge = { Badge() })"))
+        assertTrue(nav.contains("BadgedBox("))
+        assertTrue(nav.contains("Icons.Filled.HourglassBottom"))
+        assertTrue(nav.contains("contentDescription = \"Timer attivo\""))
+        assertTrue(nav.contains("Modifier.size(14.dp)"))
+        assertFalse(nav.contains("Badge()"))
+        assertFalse(main.lineSequence().any { it.trim() == "import androidx.compose.material3.Badge" })
         assertFalse(nav.contains("remainingSeconds"))
         assertFalse(nav.contains("formatSleepTimerRemaining"))
     }
