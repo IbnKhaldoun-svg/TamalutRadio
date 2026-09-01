@@ -117,17 +117,27 @@ class RadioViewModel(
     }
 
     fun playStation(station: RadioStation) {
+        val queueSnapshot = _uiState.value.visibleStations.toList()
+        val startIndex = queueSnapshot.indexOfFirst { it.id == station.id }
+        if (startIndex == -1) {
+            _uiState.update {
+                it.copy(
+                    playbackMessage = null,
+                    playbackErrorMessage = "Impossibile riprodurre ${station.name}: stazione non presente nella lista corrente",
+                )
+            }
+            return
+        }
+
         _uiState.update {
             it.copy(
                 playbackMessage = "Connessione a ${station.name}…",
                 playbackErrorMessage = null,
             )
         }
-        playbackGateway.play(station) { result ->
+        playbackGateway.play(queueSnapshot, startIndex) { result ->
             result.onSuccess {
-                _uiState.update {
-                    it.copy(playbackErrorMessage = null)
-                }
+                _uiState.update { it.copy(playbackErrorMessage = null) }
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(

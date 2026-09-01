@@ -71,7 +71,7 @@ class TamalutPlaybackService : MediaLibraryService() {
                 playWhenReady = playWhenReady,
             )
             if (shouldReconnect && currentItem != null && plan != null) {
-                reconnectCurrentRadioAtLiveEdge(exoPlayer, currentItem, plan)
+                reconnectCurrentRadioAtLiveEdge(exoPlayer, plan)
             }
         }
 
@@ -85,7 +85,7 @@ class TamalutPlaybackService : MediaLibraryService() {
                 playWhenReady = exoPlayer.playWhenReady,
             )
             if (shouldReconnect && currentItem != null && plan != null) {
-                reconnectCurrentRadioAtLiveEdge(exoPlayer, currentItem, plan)
+                reconnectCurrentRadioAtLiveEdge(exoPlayer, plan)
             }
         }
 
@@ -96,8 +96,15 @@ class TamalutPlaybackService : MediaLibraryService() {
             when (val decision = plan.onFatalError(error.errorCode)) {
                 is RadioFallbackDecision.Retry -> {
                     val preservePlayIntent = exoPlayer.playWhenReady
+                    restoreSleepTimerMetadata(exoPlayer)
+                    val currentIndex = exoPlayer.currentMediaItemIndex
+                    if (currentIndex !in 0 until exoPlayer.mediaItemCount) return
                     currentRadioFallbackState = decision.plan.asState()
-                    exoPlayer.setMediaItem(RadioMediaItemFactory.create(decision.plan))
+                    exoPlayer.replaceMediaItem(
+                        currentIndex,
+                        RadioMediaItemFactory.create(decision.plan),
+                    )
+                    exoPlayer.seekToDefaultPosition(currentIndex)
                     exoPlayer.prepare()
                     exoPlayer.playWhenReady = preservePlayIntent
                 }
@@ -222,12 +229,14 @@ class TamalutPlaybackService : MediaLibraryService() {
 
     private fun reconnectCurrentRadioAtLiveEdge(
         exoPlayer: ExoPlayer,
-        currentItem: MediaItem,
         plan: RadioFallbackPlan,
     ) {
+        val currentIndex = exoPlayer.currentMediaItemIndex
+        if (currentIndex !in 0 until exoPlayer.mediaItemCount) return
         currentRadioFallbackState = plan.asState()
+        restoreSleepTimerMetadata(exoPlayer)
         exoPlayer.stop()
-        exoPlayer.setMediaItem(currentItem)
+        exoPlayer.seekToDefaultPosition(currentIndex)
         exoPlayer.prepare()
         exoPlayer.play()
     }

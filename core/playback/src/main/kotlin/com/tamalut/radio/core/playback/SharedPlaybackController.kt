@@ -57,6 +57,18 @@ interface PlaybackController {
         onResult: (Result<Unit>) -> Unit,
     )
 
+    fun playRadioQueue(
+        stations: List<RadioStation>,
+        startIndex: Int,
+        onResult: (Result<Unit>) -> Unit,
+    ) {
+        if (stations.isEmpty() || startIndex !in stations.indices) {
+            onResult(Result.failure(IllegalArgumentException("Invalid radio playback queue")))
+            return
+        }
+        playRadio(stations[startIndex], onResult)
+    }
+
     fun playLocal(
         items: List<LocalPlaybackItem>,
         startIndex: Int,
@@ -149,10 +161,26 @@ class Media3PlaybackController(
         station: RadioStation,
         onResult: (Result<Unit>) -> Unit,
     ) {
+        playRadioQueue(listOf(station), startIndex = 0, onResult = onResult)
+    }
+
+    override fun playRadioQueue(
+        stations: List<RadioStation>,
+        startIndex: Int,
+        onResult: (Result<Unit>) -> Unit,
+    ) {
+        if (stations.isEmpty() || startIndex !in stations.indices) {
+            onResult(Result.failure(IllegalArgumentException("Invalid radio playback queue")))
+            return
+        }
         execute(onResult) { connectedBrowser ->
-            connectedBrowser.repeatMode = Player.REPEAT_MODE_OFF
             connectedBrowser.shuffleModeEnabled = false
-            connectedBrowser.setMediaItem(RadioMediaItemFactory.create(station))
+            connectedBrowser.setMediaItems(
+                stations.map(RadioMediaItemFactory::create),
+                startIndex,
+                0L,
+            )
+            connectedBrowser.repeatMode = RadioQueuePolicy.repeatModeForQueueSize(stations.size)
             connectedBrowser.prepare()
             connectedBrowser.play()
         }
@@ -372,14 +400,18 @@ class Media3PlaybackController(
             stationId = radioPlan?.stationId,
             title = title,
             isPlaying = player.isPlaying,
-            canSkipPrevious = player.hasPreviousMediaItem(),
-            canSkipNext = player.hasNextMediaItem(),
-            repeatMode = when (player.repeatMode) {
-                Player.REPEAT_MODE_ONE -> PlaybackRepeatMode.ONE
-                Player.REPEAT_MODE_ALL -> PlaybackRepeatMode.ALL
-                else -> PlaybackRepeatMode.OFF
+            canSkipPrevious = if (sourceType == MediaSourceType.RADIO) {
+                RadioQueuePolicy.hasMeaningfulSkip(player.mediaItemCount)
+            } else {
+                player.hasPreviousMediaItem()
             },
-            shuffleEnabled = player.shuffleModeEnabled,
+            canSkipNext = if (sourceType == MediaSourceType.RADIO) {
+                RadioQueuePolicy.hasMeaningfulSkip(player.mediaItemCount)
+            } else {
+                player.hasNextMediaItem()
+            },
+            repeatMode = RadioQueuePolicy.exposedRepeatMode(sourceType, player.repeatMode),
+            shuffleEnabled = RadioQueuePolicy.exposedShuffle(sourceType, player.shuffleModeEnabled),
         )
     }
 

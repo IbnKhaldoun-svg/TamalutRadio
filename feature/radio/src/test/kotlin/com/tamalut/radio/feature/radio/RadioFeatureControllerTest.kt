@@ -100,7 +100,8 @@ class RadioFeatureControllerTest {
         advanceUntilIdle()
         viewModel.playStation(azawan)
         advanceUntilIdle()
-        assertEquals(azawan, playback.lastStation)
+        assertEquals(listOf(azawan), playback.lastQueue)
+        assertEquals(0, playback.lastStartIndex)
         assertEquals(azawan.id, viewModel.uiState.value.playingStationId)
         assertEquals("In riproduzione: Radio Azawan", viewModel.uiState.value.playbackMessage)
         assertTrue(azawan.id in viewModel.uiState.value.favoriteIds)
@@ -145,6 +146,110 @@ class RadioFeatureControllerTest {
         assertTrue(viewModel.uiState.value.playbackErrorMessage!!.contains("service unavailable"))
     }
 
+    @Test
+    fun allContextCapturesCompleteFlatQueueAndSelectedIndex() = runTest(dispatcher) {
+        val alpha = station("alpha", "Alpha")
+        val beta = station("beta", "Beta")
+        val gamma = station("gamma", "Gamma")
+        val playback = FakePlaybackGateway()
+        val viewModel = RadioViewModel(
+            RadioFeatureController(FakeRadioDataSource(stations = mutableListOf(gamma, alpha, beta))),
+            playback,
+        )
+        advanceUntilIdle()
+        viewModel.selectSection(RadioSection.ALL)
+        viewModel.selectFilter(RadioStationFilter.ALL)
+        viewModel.playStation(beta)
+        advanceUntilIdle()
+        assertEquals(listOf(alpha, beta, gamma), playback.lastQueue)
+        assertEquals(1, playback.lastStartIndex)
+    }
+
+    @Test
+    fun categoryContextsCaptureOnlyVisibleFilteredStations() = runTest(dispatcher) {
+        val moroccoOne = station("radio-azawan", "Azawan")
+        val moroccoTwo = station("radio-mars", "Mars")
+        val italy = station("radio-italia-smi", "Radio Italia")
+        val sport = station("radio-sportiva", "Radio Sportiva")
+        val unknown = station("unknown", "Unknown")
+        val playback = FakePlaybackGateway()
+        val viewModel = RadioViewModel(
+            RadioFeatureController(
+                FakeRadioDataSource(stations = mutableListOf(sport, unknown, moroccoTwo, italy, moroccoOne)),
+            ),
+            playback,
+        )
+        advanceUntilIdle()
+
+        viewModel.selectFilter(RadioStationFilter.MOROCCO)
+        viewModel.playStation(moroccoTwo)
+        assertEquals(listOf(moroccoOne, moroccoTwo), playback.lastQueue)
+        assertEquals(1, playback.lastStartIndex)
+
+        viewModel.selectFilter(RadioStationFilter.ITALY)
+        viewModel.playStation(italy)
+        assertEquals(listOf(italy), playback.lastQueue)
+        assertEquals(0, playback.lastStartIndex)
+
+        viewModel.selectFilter(RadioStationFilter.SPORT)
+        viewModel.playStation(sport)
+        assertEquals(listOf(sport), playback.lastQueue)
+        assertEquals(0, playback.lastStartIndex)
+    }
+
+    @Test
+    fun favoritesContextCapturesOnlyFavoritesInVisibleOrder() = runTest(dispatcher) {
+        val alpha = station("alpha", "Alpha")
+        val beta = station("beta", "Beta")
+        val gamma = station("gamma", "Gamma")
+        val playback = FakePlaybackGateway()
+        val viewModel = RadioViewModel(
+            RadioFeatureController(
+                FakeRadioDataSource(
+                    stations = mutableListOf(gamma, beta, alpha),
+                    favorites = mutableSetOf(alpha.id, gamma.id),
+                ),
+            ),
+            playback,
+        )
+        advanceUntilIdle()
+        viewModel.selectSection(RadioSection.FAVORITES)
+        viewModel.playStation(gamma)
+        advanceUntilIdle()
+        assertEquals(listOf(alpha, gamma), playback.lastQueue)
+        assertEquals(1, playback.lastStartIndex)
+    }
+
+    @Test
+    fun queueSnapshotStaysStableAfterTabFilterAndFavoriteChanges() = runTest(dispatcher) {
+        val alpha = station("alpha", "Alpha")
+        val beta = station("beta", "Beta")
+        val playback = FakePlaybackGateway()
+        val source = FakeRadioDataSource(
+            stations = mutableListOf(beta, alpha),
+            favorites = mutableSetOf(alpha.id, beta.id),
+        )
+        val viewModel = RadioViewModel(RadioFeatureController(source), playback)
+        advanceUntilIdle()
+
+        viewModel.selectSection(RadioSection.FAVORITES)
+        viewModel.playStation(alpha)
+        advanceUntilIdle()
+        val captured = playback.lastQueue
+        val startIndex = playback.lastStartIndex
+
+        viewModel.selectSection(RadioSection.ALL)
+        viewModel.selectFilter(RadioStationFilter.SPORT)
+        viewModel.toggleFavorite(alpha)
+        advanceUntilIdle()
+
+        assertEquals(1, playback.playCalls)
+        assertEquals(listOf(alpha, beta), captured)
+        assertEquals(captured, playback.lastQueue)
+        assertEquals(startIndex, playback.lastStartIndex)
+        assertFalse(alpha.id in viewModel.uiState.value.favoriteIds)
+    }
+
     private fun station(id: String, name: String) = RadioStation(
         id = StationId(id),
         name = name,
@@ -154,17 +259,28 @@ class RadioFeatureControllerTest {
     private class FakePlaybackGateway(private val failure: Throwable? = null) : RadioPlaybackGateway {
         val current = MutableStateFlow(PlaybackState(isConnected = true))
         override val playbackState: StateFlow<PlaybackState> = current.asStateFlow()
-        var lastStation: RadioStation? = null
+        var lastQueue: List<RadioStation> = emptyList()
+        var lastStartIndex: Int = -1
+        var playCalls: Int = 0
 
-        override fun play(station: RadioStation, onResult: (Result<Unit>) -> Unit) {
-            lastStation = station
+        override fun play(
+            stations: List<RadioStation>,
+            startIndex: Int,
+            onResult: (Result<Unit>) -> Unit,
+        ) {
+            playCalls += 1
+            lastQueue = stations.toList()
+            lastStartIndex = startIndex
             if (failure == null) {
+                val station = stations[startIndex]
                 current.value = PlaybackState(
                     isConnected = true,
                     sourceType = MediaSourceType.RADIO,
                     stationId = station.id,
                     title = station.name,
                     isPlaying = true,
+                    canSkipPrevious = stations.size > 1,
+                    canSkipNext = stations.size > 1,
                 )
                 onResult(Result.success(Unit))
             } else {

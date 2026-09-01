@@ -8,7 +8,11 @@ import kotlinx.coroutines.flow.StateFlow
 interface RadioPlaybackGateway {
     val playbackState: StateFlow<PlaybackState>
 
-    fun play(station: RadioStation, onResult: (Result<Unit>) -> Unit)
+    fun play(
+        stations: List<RadioStation>,
+        startIndex: Int,
+        onResult: (Result<Unit>) -> Unit,
+    )
     fun release() = Unit
 }
 
@@ -17,7 +21,11 @@ class Media3RadioPlaybackGateway(
 ) : RadioPlaybackGateway {
     override val playbackState: StateFlow<PlaybackState> = playbackController.state
 
-    override fun play(station: RadioStation, onResult: (Result<Unit>) -> Unit) {
-        playbackController.playRadio(station, onResult)
+    override fun play(
+        stations: List<RadioStation>,
+        startIndex: Int,
+        onResult: (Result<Unit>) -> Unit,
+    ) {
+        playbackController.playRadioQueue(stations, startIndex, onResult)
     }
 }
