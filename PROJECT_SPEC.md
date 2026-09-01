@@ -1275,3 +1275,69 @@ The built-in catalog contains exactly **31** stations after this objective: 11 `
 - Corrected full stream probe run `33498209411`, job `99825185495`: all 22 approved additions returned final HTTP 200 and decodable audio; Radio 24 HTTPS and the then-current SNRT endpoint failed.
 - Official endpoint resolver run `33498209214`, job `99825183945`: resolved Radio 2M via `bo.radio2m.ma/api/live`; confirmed no usable official endpoint was exposed for Radio Plus Casablanca or Radio 24.
 - Final ambiguous probe run `33498432282`, job `99825898961`: Radio 2M failed with HTTP 403; Radio Kiss Kiss HTTPS candidates failed connection/TLS; SNRT Chaîne Inter remained HTTP 400. Those failures are deliberate exclusion evidence, not accepted product endpoints.
+
+
+### Catalog expansion amendment — radio.co.ma discovery and Atbir correction
+
+This amendment supersedes the earlier provisional 31-built-in count in this objective before any product commit. The final built-in catalog target is **39 stations**: **19 Marocco + 13 Italia + 6 UK + 1 Sport**. `Tutte` remains the complete flat view; the four category filters remain `Marocco / Italia / Sport / UK`.
+
+- [ ] **Correct the existing mislabeled seed without changing its stream identity.** Stable ID `radio-plus-agadir` currently displays `Radio Plus Agadir 92.4` but its existing Zeno endpoint `https://stream-158.zeno.fm/bqdbb6hd0neuv` is the stream identified during this research as **Radio Atbir**. In this objective the built-in row keeps the same stable ID and exact stream URL but changes display name to **Radio Atbir**. This is an additive catalog correction only; it does not authorize overwriting an already persisted user-modified row during idempotent seeding.
+- [ ] **Do not add a separate Radio Plus Agadir without a distinct reliable endpoint.** `radioplus.ma` is the correct broadcaster identity, but the HTTPS directory candidate resolves to the same Zeno stream now attributed to Atbir. A separate candidate found at `hosting.radiomedia.fr:2840/live` is cleartext HTTP and lacks sufficient official endpoint correlation. Therefore the real Radio Plus Agadir remains excluded from the built-in catalog for now.
+- [ ] **radio.co.ma is discovery/cross-check, not automatic stream authority.** Its Morocco directory was used to expand the candidate set, but admission still requires broadcaster/homepage correlation plus a successful stream probe. `radio-italiane.it` is used only as an Italy discovery/name cross-check; it does not broaden the approved Italian set in this objective.
+- [ ] **Additional Morocco admissions.** Final probe run `33502285129`, job `99838159397`, verified final HTTP 200 plus decodable audio for eight additional Moroccan stations: Med Radio, Ness Radio, Radio Manarat, Radio Achkid FM, Radio Star Maroc FM, Radio Tanger Med, Radio Yabiladi, and Radio Medina FM. The same gate rejected Al Amazighia because its official SNRT HLS candidate returned HTTP 400 and could not be decoded.
+- [ ] **Previously confirmed exclusions remain exclusions.** Radio 2M, Radio Kiss Kiss, Radio 24, SNRT Radio Chaîne Inter and Radio Plus Casablanca remain out for the previously recorded reasons. The newly investigated real Radio Plus Agadir and Al Amazighia are also excluded until a distinct reliable HTTPS endpoint passes the same identity/audio gate.
+
+#### Final authoritative built-in queue order
+
+`InitialRadioCatalog.stations` must use exactly this order, and repository/UI projection must preserve it for `Tutte`; category queues are stable subsequences of this order. Custom stations remain after all 39 built-ins in deterministic `name.lowercase()` then stable `id` order.
+
+| # | Stable ID | Display name | Category | Primary stream |
+|---:|---|---|---|---|
+| 1 | `medi1-radio` | Medi1 Radio | Marocco | `https://cdn.live.easybroadcast.io/live/83_medi1radio-maghreb_8s9i4bn/playlist.m3u8` |
+| 2 | `hit-radio-maroc` | HIT RADIO Maroc | Marocco | `https://hitradio-maroc.ice.infomaniak.ch/hitradio-maroc-128.mp3` |
+| 3 | `chada-fm` | Chada FM | Marocco | `https://stream.bodkas.com/playlist?id=chadafmradio` |
+| 4 | `atlantic-radio` | Atlantic Radio | Marocco | `https://atlantic-sonic.nindohost.net:9300/stream` |
+| 5 | `cap-radio` | Cap Radio | Marocco | `https://listen.radioking.com/radio/710810/stream/776366` |
+| 6 | `med-radio` | Med Radio | Marocco | `https://medradio.ice.infomaniak.ch/medradio-128.mp3` |
+| 7 | `radio-mars` | Radio Mars | Marocco | `https://radiomars.ice.infomaniak.ch/radiomars-128.mp3` |
+| 8 | `radio-plus-agadir` | Radio Atbir | Marocco | `https://stream-158.zeno.fm/bqdbb6hd0neuv` |
+| 9 | `radio-azawan` | Radio Azawan | Marocco | `https://az-maroc.ice.infomaniak.ch/az-maroc-128.mp3` |
+| 10 | `aswat-fm` | Aswat FM | Marocco | `https://broadcast.ice.infomaniak.ch/aswat-high.mp3` |
+| 11 | `mfm-radio` | MFM Radio | Marocco | `https://a5.asurahosting.com:7980/radio.mp3` |
+| 12 | `radio-medina-fm` | Radio Medina FM | Marocco | `https://medinafm.ice.infomaniak.ch/medinafm-128.mp3` |
+| 13 | `medina-fm-amazigh` | Medina FM Amazigh | Marocco | `https://medinaamazigh.ice.infomaniak.ch/medinaamazigh-128.mp3` |
+| 14 | `ness-radio` | Ness Radio | Marocco | `https://radio.nessradio.net:8212/nessradio-hd` |
+| 15 | `radio-manarat` | Radio Manarat | Marocco | `https://listen.radioking.com/radio/252934/stream/297385` |
+| 16 | `radio-tanger-med` | Radio Tanger Med | Marocco | `https://radiotangermed-22.ice.infomaniak.ch/radiotangermed-22-128.mp3` |
+| 17 | `radio-yabiladi` | Radio Yabiladi | Marocco | `https://radio.yabiladi.com:8002/;stream.mp3` |
+| 18 | `radio-achkid-fm` | Radio Achkid FM | Marocco | `https://stream.zeno.fm/7nqu31p6xg0uv` |
+| 19 | `radio-star-maroc-fm` | Radio Star Maroc FM | Marocco | `https://a2.asurahosting.com:6100/radio.mp3` |
+| 20 | `rtl-102-5` | RTL 102.5 | Italia | `https://dd782ed59e2a4e86aabf6fc508674b59.msvdn.net/live/S97044836/tbbP8T1ZRPBL/playlist_audio.m3u8` |
+| 21 | `radio-deejay` | Radio Deejay | Italia | `https://4c4b867c89244861ac216426883d1ad0.msvdn.net/radiodeejay/radiodeejay/master_ma.m3u8` |
+| 22 | `radio-105` | Radio 105 | Italia | `https://icecast.unitedradio.it/Radio105.mp3` |
+| 23 | `rds-100-grandi-successi` | RDS 100% Grandi Successi | Italia | `https://stream.rds.radio/audio/rds.stream_aac64/chunklist.m3u8` |
+| 24 | `radio-italia-smi` | Radio Italia Solo Musica Italiana | Italia | `https://radioitaliasmi.akamaized.net/hls/live/2093120/RISMI/stream01/streamPlaylist.m3u8` |
+| 25 | `virgin-radio-italia` | Virgin Radio Italia | Italia | `https://icecast.unitedradio.it/Virgin.mp3` |
+| 26 | `radio-capital` | Radio Capital | Italia | `https://4c4b867c89244861ac216426883d1ad0.msvdn.net/radiocapital/radiocapital/master_ma.m3u8` |
+| 27 | `m2o` | m2o | Italia | `https://4c4b867c89244861ac216426883d1ad0.msvdn.net/radiom2o/radiom2o/master_ma.m3u8` |
+| 28 | `radio-monte-carlo` | Radio Monte Carlo (RMC) | Italia | `https://icy.unitedradio.it/RMC.aac` |
+| 29 | `r101` | R101 | Italia | `https://icecast.unitedradio.it/r101_mp3` |
+| 30 | `rai-radio-1` | Rai Radio 1 | Italia | `https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S16355530/Q4zh3NTu28Rx/icecast` |
+| 31 | `rai-radio-2` | Rai Radio 2 | Italia | `https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S35942484/yp5F67151K92/icecast` |
+| 32 | `rai-radio-3` | Rai Radio 3 | Italia | `https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S56630579/yEbkcBtIoSwd/icecast` |
+| 33 | `bbc-radio-1` | BBC Radio 1 | UK | `https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8` |
+| 34 | `bbc-radio-2` | BBC Radio 2 | UK | `https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/cf/bbc_radio_two.m3u8` |
+| 35 | `bbc-radio-4` | BBC Radio 4 | UK | `https://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d128000.norewind.m3u8` |
+| 36 | `capital-fm-london` | Capital FM London | UK | `https://media-ssl.musicradio.com/CapitalMP3` |
+| 37 | `heart-uk` | Heart UK | UK | `https://media-ssl.musicradio.com/HeartUK` |
+| 38 | `classic-fm` | Classic FM | UK | `https://media-ssl.musicradio.com/ClassicFMMP3` |
+| 39 | `radio-sportiva` | Radio Sportiva | Sport | `https://sportiva.inmystream.it/stream/sportiva` |
+
+#### Superseding test/validation contract
+
+- [ ] Replace every provisional `31` expectation for this objective with **39 built-ins** and assert category counts/order: **Marocco 19, Italia 13, UK 6, Sport 1**.
+- [ ] Idempotence must seed repeatedly to exactly 39 unique built-in IDs with no duplicate primary URL and no duplicate rows; pre-existing stored rows, including `radio-plus-agadir`, must not be overwritten solely by seeding.
+- [ ] Repository ordering tests must prove all built-ins follow `InitialRadioCatalog.stations`, then custom stations follow in deterministic `name.lowercase()` + `id` order. `RadioFeatureController` must not re-sort the built-in sequence alphabetically.
+- [ ] Feature tests must prove `Tutte` returns the 39 built-ins in exact catalog order (plus deterministic custom tail when present), and each of the four category filters is the exact relative subsequence of that order. UK Previous/Next queue derivation must therefore use `BBC Radio 1 → BBC Radio 2 → BBC Radio 4 → Capital FM London → Heart UK → Classic FM` with wrap-around supplied by the already validated Radio queue architecture.
+- [ ] Existing fallback, live reconnect, favorites snapshot, Sleep Timer, overlay/system transport, local Music, signer and APK regression boundaries remain unchanged.
+- [ ] Real GitHub Actions validation remains: `:core:data:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, `:app:assembleDebug`, persistent signer verification and APK SHA-256 before exact product promotion.
