@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -156,17 +155,16 @@ class MainActivity : ComponentActivity() {
                                         onClick = { selectedDestination.value = item },
                                         icon = {
                                             if (item == MainDestination.SETTINGS && sleepTimerState.isActive) {
-                                                BadgedBox(
-                                                    badge = {
-                                                        Icon(
-                                                            imageVector = Icons.Filled.HourglassBottom,
-                                                            contentDescription = "Timer attivo",
-                                                            modifier = Modifier.size(14.dp),
-                                                            tint = MaterialTheme.colorScheme.primary,
-                                                        )
-                                                    },
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
                                                 ) {
                                                     Icon(item.icon, contentDescription = item.label)
+                                                    Icon(
+                                                        imageVector = Icons.Filled.HourglassBottom,
+                                                        contentDescription = "Timer attivo",
+                                                        modifier = Modifier.size(16.dp),
+                                                    )
                                                 }
                                             } else {
                                                 Icon(item.icon, contentDescription = item.label)

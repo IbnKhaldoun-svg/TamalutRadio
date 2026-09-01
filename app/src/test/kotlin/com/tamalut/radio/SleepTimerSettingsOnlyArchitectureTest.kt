@@ -33,19 +33,21 @@ class SleepTimerSettingsOnlyArchitectureTest {
     }
 
     @Test
-    fun settingsHourglassIndicatorIsBooleanAndDrivenBySharedTimerState() {
+    fun settingsHourglassIndicatorIsAdjacentReadableAndDrivenBySharedTimerState() {
         val main = Path.of("src/main/kotlin/com/tamalut/radio/MainActivity.kt").readText()
         val nav = main
             .substringAfter("NavigationBar {")
             .substringBefore("}\n                            }\n                        }\n                    },")
 
         assertTrue(nav.contains("item == MainDestination.SETTINGS && sleepTimerState.isActive"))
-        assertTrue(nav.contains("BadgedBox("))
+        assertTrue(nav.contains("Row("))
+        assertTrue(nav.contains("Arrangement.spacedBy(4.dp)"))
         assertTrue(nav.contains("Icons.Filled.HourglassBottom"))
         assertTrue(nav.contains("contentDescription = \"Timer attivo\""))
-        assertTrue(nav.contains("Modifier.size(14.dp)"))
-        assertFalse(nav.contains("Badge()"))
-        assertFalse(main.lineSequence().any { it.trim() == "import androidx.compose.material3.Badge" })
+        assertTrue(nav.contains("Modifier.size(16.dp)"))
+        assertFalse(nav.contains("BadgedBox("))
+        assertFalse(nav.contains("tint = MaterialTheme.colorScheme.primary"))
+        assertFalse(main.lineSequence().any { it.trim() == "import androidx.compose.material3.BadgedBox" })
         assertFalse(nav.contains("remainingSeconds"))
         assertFalse(nav.contains("formatSleepTimerRemaining"))
     }
