@@ -1365,3 +1365,35 @@ This clarification is still spec-before and precedes every product-code change f
 - [x] The same run passed `:app:assembleDebug` (`BUILD SUCCESSFUL in 1m 31s`; 165 actionable tasks: 46 executed, 119 up-to-date). Validation APK: `23,565,684` bytes; SHA-256 `6ab6c840e8885b5905fb17e86976edc313cafd8a6597a0db191412f03ae68003`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - [x] Promotion run `33526207570` fast-forward promoted the exact validated product commit `13008127492e82a0abd2ff530c6e42478136181c` to `main` only after the complete validation run passed.
 - [ ] **Physical catalog/navigation gate:** pending real-device verification of all four filters and `Tutte`, authoritative visible/Previous/Next order, UK queue Previous/Next/wrap-around, one-item Sport no-skip behavior, Atbir corrected label/playback, Medina FM vs Medina FM Amazigh distinct playback, favorites/snapshot stability, and existing fallback/live-reconnect/local-Music/Sleep-Timer regressions. The debug prerelease is published only after this spec-after snapshot is committed; physical PASS must not be recorded until the user reports device results.
+
+
+### Radio runtime playback compatibility recovery contract
+
+Physical gate status: **FAILED on device (2026-09-01)**. The catalog-expansion APK was reported to leave many station taps without audible playback or a useful final error. This objective supersedes physical approval of that APK; the catalog/navigation work remains CI-validated but is not physically approved until a corrected APK passes the checks below.
+
+Root-cause evidence before product code:
+- Exhaustive GitHub Actions runtime probe run `33549428766`, job `99994937004`, tested all 39 built-in stream URLs from the catalog: every endpoint returned HTTP 200 and `ffprobe` identified real MP3/AAC/HLS audio. The broad device failure is therefore not explained by dead catalog URLs alone.
+- Eleven built-ins currently resolve to HLS: Medi1 Radio, Chada FM, RTL 102.5, Radio Deejay, RDS 100% Grandi Successi, Radio Italia Solo Musica Italiana, Radio Capital, m2o, BBC Radio 1, BBC Radio 2, and BBC Radio 4.
+- `:core:playback` currently depends on `media3-exoplayer` and `media3-session` 1.11.0 but not `media3-exoplayer-hls`; HLS support must be added using the same Media3 version.
+- Chada FM returns an HLS manifest from `https://stream.bodkas.com/playlist?id=chadafmradio`, whose URI does not end in `.m3u8`; the radio MediaItem path must explicitly mark this known endpoint as HLS instead of relying only on URI-extension inference.
+- The current Aswat FM catalog URL `https://broadcast.ice.infomaniak.ch/aswat-high.mp3` redirects to cleartext `http://aswat.ice.infomaniak.ch/aswat-high.mp3` during the runtime probe. Do not enable global cleartext traffic to accommodate one station. Use a separately verified HTTPS endpoint that remains HTTPS, or exclude Aswat if no reliable HTTPS endpoint passes audio validation.
+- The existing radio UI only receives synchronous `play()` operation failures. ExoPlayer failures occurring after `prepare()` are asynchronous, so a failed station can visually remain on `Connessione…` with no meaningful explanation. The shared playback state must expose an asynchronous playback error that Radio can render.
+
+Acceptance contract:
+- Add `androidx.media3:media3-exoplayer-hls:1.11.0` to `:core:playback`; keep Media3 versions aligned and retain the single ExoPlayer / MediaLibrarySession architecture.
+- Radio MediaItems must set HLS MIME deterministically for known HLS cases that cannot be inferred from the URI extension, including Chada FM. Normal direct MP3/AAC streams must not be mislabeled as HLS.
+- Preserve the active radio queue snapshot, Previous/Next wrap behavior, station-local fallback retry semantics, live-edge reconnect behavior, notification/lock-screen/Android Auto controls, mini-player, floating overlay, and LOCAL music behavior.
+- Resolve Aswat without broad cleartext permission: prefer a verified direct HTTPS stream that stays HTTPS and carries real audio; otherwise remove the built-in station and update catalog counts/order/idempotency tests accordingly.
+- Add a shared asynchronous playback-error projection. Starting a new playback attempt clears the previous error; a successful/ready playback clears stale errors; a terminal Media3 playback failure is exposed to Radio as a concise user-visible message rather than leaving the UI apparently inert. Error reporting must not create a second player/session or mutate the active radio queue.
+- Unit/structural tests must cover: HLS dependency presence; HLS MIME classification including Chada and ordinary `.m3u8`; direct MP3/AAC non-HLS classification; asynchronous player-error projection and clearing; Radio ViewModel rendering of the shared error; radio queue/fallback/live-reconnect regressions; and catalog idempotency/no-duplicates/order if Aswat changes.
+- Real CI gate before promotion: `:core:data:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`, with persistent debug signer v1 verification and APK SHA-256 recorded.
+- No product commit may be promoted to `main` unless the exact validated commit passes the full gate. After promotion, record spec-after evidence, publish a signed debug prerelease through the permanent Release workflow, and remove all temporary research/product/validation branches.
+
+Physical re-test gate (remains **PENDING/FAILED** until explicit device confirmation):
+- HLS Marocco: Medi1 Radio and Chada FM both start audibly.
+- HLS Italia: test at least RTL 102.5 plus one of Radio Deejay / RDS / Radio Capital / m2o.
+- HLS UK: BBC Radio 1 plus one of BBC Radio 2 / BBC Radio 4.
+- Direct streams: test representative MP3/AAC stations in Marocco, Italia, UK and Sport (for example HIT RADIO, Radio 105 or RMC, Capital FM or Heart UK, Radio Sportiva).
+- Previous/Next must still traverse the exact selected category snapshot, including UK, with wrap-around and no queue collapse after a failed/retried endpoint.
+- A genuinely unavailable station/network failure must produce a visible error instead of an indefinitely inert `Connessione…` state.
+- LOCAL music, notification, mini-player, Now Playing, floating overlay and Sleep Timer remain regression checks.
