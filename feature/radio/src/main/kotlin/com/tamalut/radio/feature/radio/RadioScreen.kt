@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Radio
@@ -170,6 +171,7 @@ fun RadioScreen(
                     stations = state.visibleStations,
                     favoriteIds = state.favoriteIds.mapTo(mutableSetOf()) { it.value },
                     playingStationId = state.playingStationId?.value,
+                    autoScrollEnabled = state.searchQuery.isBlank(),
                     onToggleFavorite = onToggleFavorite,
                     onStationSelected = onStationSelected,
                     transientError = state.errorMessage,
@@ -397,17 +399,46 @@ private fun EmptySearchState(query: String, onClear: () -> Unit) {
     }
 }
 
+internal fun activeStationAutoScrollIndex(
+    stations: List<RadioStation>,
+    playingStationId: String?,
+    autoScrollEnabled: Boolean,
+): Int? {
+    if (!autoScrollEnabled || playingStationId == null) return null
+    return stations.indexOfFirst { it.id.value == playingStationId }.takeIf { it >= 0 }
+}
+
 @Composable
 private fun RadioList(
     stations: List<RadioStation>,
     favoriteIds: Set<String>,
     playingStationId: String?,
+    autoScrollEnabled: Boolean,
     onToggleFavorite: (RadioStation) -> Unit,
     onStationSelected: (RadioStation) -> Unit,
     transientError: String?,
 ) {
+    val listState = rememberLazyListState()
+    val stationIds = remember(stations) { stations.map { it.id.value } }
+
+    LaunchedEffect(playingStationId, stationIds, autoScrollEnabled, transientError != null) {
+        val stationIndex = activeStationAutoScrollIndex(
+            stations = stations,
+            playingStationId = playingStationId,
+            autoScrollEnabled = autoScrollEnabled,
+        ) ?: return@LaunchedEffect
+        val alreadyVisible = listState.layoutInfo.visibleItemsInfo.any { item ->
+            item.key == playingStationId
+        }
+        if (!alreadyVisible) {
+            val leadingItemCount = if (transientError != null) 1 else 0
+            listState.animateScrollToItem(stationIndex + leadingItemCount)
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
