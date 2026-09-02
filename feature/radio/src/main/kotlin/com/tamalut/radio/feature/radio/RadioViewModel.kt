@@ -24,15 +24,26 @@ data class RadioUiState(
     val selectedFilter: RadioStationFilter = RadioStationFilter.ALL,
     val stations: List<RadioStation> = emptyList(),
     val favoriteIds: Set<StationId> = emptySet(),
+    val searchQuery: String = "",
+    val isSearchOpen: Boolean = false,
     val errorMessage: String? = null,
     val playbackMessage: String? = null,
     val playbackErrorMessage: String? = null,
     val playingStationId: StationId? = null,
 ) {
-    val visibleStations: List<RadioStation>
+    val queueStations: List<RadioStation>
         get() = when (selectedSection) {
             RadioSection.FAVORITES -> stations.filter { it.id in favoriteIds }
             RadioSection.ALL -> RadioStationFiltering.apply(stations, selectedFilter)
+        }
+
+    val visibleStations: List<RadioStation>
+        get() {
+            val query = searchQuery.trim()
+            if (query.isEmpty()) return queueStations
+            return queueStations.filter { station ->
+                station.name.contains(query, ignoreCase = true)
+            }
         }
 }
 
@@ -83,6 +94,22 @@ class RadioViewModel(
         _uiState.update { it.copy(selectedFilter = filter) }
     }
 
+    fun openSearch() {
+        _uiState.update { it.copy(isSearchOpen = true) }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun clearSearch() {
+        _uiState.update { it.copy(searchQuery = "") }
+    }
+
+    fun closeSearch() {
+        _uiState.update { it.copy(isSearchOpen = false, searchQuery = "") }
+    }
+
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
@@ -124,13 +151,13 @@ class RadioViewModel(
     }
 
     fun playStation(station: RadioStation) {
-        val queueSnapshot = _uiState.value.visibleStations.toList()
+        val queueSnapshot = _uiState.value.queueStations.toList()
         val startIndex = queueSnapshot.indexOfFirst { it.id == station.id }
         if (startIndex == -1) {
             _uiState.update {
                 it.copy(
                     playbackMessage = null,
-                    playbackErrorMessage = "Impossibile riprodurre ${station.name}: stazione non presente nella lista corrente",
+                    playbackErrorMessage = "Impossibile riprodurre ${station.name}: stazione non presente nella coda corrente",
                 )
             }
             return
@@ -138,6 +165,8 @@ class RadioViewModel(
 
         _uiState.update {
             it.copy(
+                searchQuery = "",
+                isSearchOpen = false,
                 playbackMessage = "Connessione a ${station.name}…",
                 playbackErrorMessage = null,
             )

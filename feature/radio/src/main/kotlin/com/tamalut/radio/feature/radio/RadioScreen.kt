@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -32,14 +35,23 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import com.tamalut.radio.core.model.RadioStation
 
@@ -55,6 +67,10 @@ fun RadioRoute(
         onFilterSelected = viewModel::selectFilter,
         onToggleFavorite = viewModel::toggleFavorite,
         onStationSelected = viewModel::playStation,
+        onSearchOpen = viewModel::openSearch,
+        onSearchQueryChange = viewModel::updateSearchQuery,
+        onSearchClear = viewModel::clearSearch,
+        onSearchClose = viewModel::closeSearch,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
@@ -67,12 +83,29 @@ fun RadioScreen(
     onFilterSelected: (RadioStationFilter) -> Unit,
     onToggleFavorite: (RadioStation) -> Unit,
     onStationSelected: (RadioStation) -> Unit,
+    onSearchOpen: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onSearchClear: () -> Unit,
+    onSearchClose: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(state.isSearchOpen) {
+        if (!state.isSearchOpen) {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        }
+    }
+
     Surface(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            RadioHeader()
+            RadioHeader(
+                isSearchOpen = state.isSearchOpen,
+                onSearchOpen = onSearchOpen,
+                onSearchClose = onSearchClose,
+            )
 
             PrimaryTabRow(
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -98,6 +131,15 @@ fun RadioScreen(
                 )
             }
 
+            if (state.isSearchOpen) {
+                SearchTextField(
+                    query = state.searchQuery,
+                    placeholder = "Cerca radio",
+                    onQueryChange = onSearchQueryChange,
+                    onClear = onSearchClear,
+                )
+            }
+
             state.playbackMessage?.let { message ->
                 StatusMessage(
                     text = message,
@@ -117,8 +159,13 @@ fun RadioScreen(
                     message = state.errorMessage,
                     onRetry = onRetry,
                 )
-                state.selectedSection == RadioSection.FAVORITES && state.visibleStations.isEmpty() ->
+                state.selectedSection == RadioSection.FAVORITES && state.queueStations.isEmpty() ->
                     EmptyFavoritesState()
+                state.searchQuery.trim().isNotEmpty() && state.visibleStations.isEmpty() ->
+                    EmptySearchState(
+                        query = state.searchQuery.trim(),
+                        onClear = onSearchClear,
+                    )
                 else -> RadioList(
                     stations = state.visibleStations,
                     favoriteIds = state.favoriteIds.mapTo(mutableSetOf()) { it.value },
@@ -155,7 +202,11 @@ private fun RadioFilterSelector(
 }
 
 @Composable
-private fun RadioHeader() {
+private fun RadioHeader(
+    isSearchOpen: Boolean,
+    onSearchOpen: () -> Unit,
+    onSearchClose: () -> Unit,
+) {
     Column(
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -166,17 +217,68 @@ private fun RadioHeader() {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
         )
-        Text(
-            text = "Radio",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = "Radio",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            IconButton(onClick = if (isSearchOpen) onSearchClose else onSearchOpen) {
+                Icon(
+                    imageVector = if (isSearchOpen) Icons.Filled.Close else Icons.Filled.Search,
+                    contentDescription = if (isSearchOpen) "Chiudi ricerca radio" else "Cerca radio",
+                )
+            }
+        }
         Text(
             text = "Marocco · Italia · Sport · UK",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+@Composable
+private fun SearchTextField(
+    query: String,
+    placeholder: String,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+    OutlinedTextField(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .focusRequester(focusRequester),
+        value = query,
+        onValueChange = onQueryChange,
+        singleLine = true,
+        placeholder = { Text(placeholder) },
+        leadingIcon = {
+            Icon(Icons.Filled.Search, contentDescription = null)
+        },
+        trailingIcon = if (query.isNotEmpty()) {
+            {
+                IconButton(onClick = onClear) {
+                    Icon(Icons.Filled.Close, contentDescription = "Cancella ricerca")
+                }
+            }
+        } else {
+            null
+        },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+    )
 }
 
 @Composable
@@ -267,6 +369,31 @@ private fun EmptyFavoritesState() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun EmptySearchState(query: String, onClear: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            modifier = Modifier.size(40.dp),
+            imageVector = Icons.Filled.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            modifier = Modifier.padding(top = 14.dp),
+            text = "Nessuna radio trovata per “$query”",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        TextButton(onClick = onClear) { Text("Cancella ricerca") }
     }
 }
 

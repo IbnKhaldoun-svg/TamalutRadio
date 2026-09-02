@@ -19,6 +19,8 @@ data class LibraryUiState(
     val folderUri: String? = null,
     val isLoading: Boolean = true,
     val tracks: List<LocalAudioTrack> = emptyList(),
+    val searchQuery: String = "",
+    val isSearchOpen: Boolean = false,
     val errorMessage: String? = null,
     val playbackMessage: String? = null,
     val playbackErrorMessage: String? = null,
@@ -26,7 +28,16 @@ data class LibraryUiState(
     val isLocalPlaybackActive: Boolean = false,
     val repeatMode: PlaybackRepeatMode = PlaybackRepeatMode.OFF,
     val shuffleEnabled: Boolean = false,
-)
+) {
+    val visibleTracks: List<LocalAudioTrack>
+        get() {
+            val query = searchQuery.trim()
+            if (query.isEmpty()) return tracks
+            return tracks.filter { track ->
+                track.title.contains(query, ignoreCase = true)
+            }
+        }
+}
 
 class LibraryViewModel(
     private val preferencesRepository: UserPreferencesRepository,
@@ -57,6 +68,8 @@ class LibraryViewModel(
                             folderUri = null,
                             isLoading = false,
                             tracks = emptyList(),
+                            searchQuery = "",
+                            isSearchOpen = false,
                             errorMessage = null,
                             playingTrackId = null,
                         )
@@ -90,6 +103,22 @@ class LibraryViewModel(
         }
     }
 
+    fun openSearch() {
+        _uiState.update { it.copy(isSearchOpen = true) }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun clearSearch() {
+        _uiState.update { it.copy(searchQuery = "") }
+    }
+
+    fun closeSearch() {
+        _uiState.update { it.copy(isSearchOpen = false, searchQuery = "") }
+    }
+
     fun selectFolder(treeUri: String) {
         val normalized = treeUri.trim()
         if (normalized.isEmpty()) {
@@ -101,6 +130,8 @@ class LibraryViewModel(
                 it.copy(
                     folderUri = normalized,
                     isLoading = true,
+                    searchQuery = "",
+                    isSearchOpen = false,
                     errorMessage = null,
                 )
             }
@@ -135,6 +166,8 @@ class LibraryViewModel(
         }
         _uiState.update {
             it.copy(
+                searchQuery = "",
+                isSearchOpen = false,
                 playbackMessage = "Avvio di ${track.title}…",
                 playbackErrorMessage = null,
             )

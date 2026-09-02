@@ -313,6 +313,117 @@ class RadioFeatureControllerTest {
         assertFalse(alpha.id in viewModel.uiState.value.favoriteIds)
     }
 
+    @Test
+    fun searchIsTrimmedCaseInsensitiveSubstringAndRestrictedToCurrentContext() {
+        val bbc1 = station("bbc-radio-1", "BBC Radio 1")
+        val bbc2 = station("bbc-radio-2", "BBC Radio 2")
+        val bbc4 = station("bbc-radio-4", "BBC Radio 4")
+        val italy = station("radio-deejay", "Radio Deejay")
+        val state = RadioUiState(
+            isLoading = false,
+            selectedSection = RadioSection.ALL,
+            selectedFilter = RadioStationFilter.UK,
+            stations = listOf(bbc1, bbc2, bbc4, italy),
+            searchQuery = "  rAdIo 2  ",
+            isSearchOpen = true,
+        )
+
+        assertEquals(listOf(bbc1, bbc2, bbc4), state.queueStations)
+        assertEquals(listOf(bbc2), state.visibleStations)
+
+        val favorites = state.copy(
+            selectedSection = RadioSection.FAVORITES,
+            favoriteIds = setOf(bbc1.id, italy.id),
+            searchQuery = "RADIO",
+        )
+        assertEquals(listOf(bbc1, italy), favorites.queueStations)
+        assertEquals(listOf(bbc1, italy), favorites.visibleStations)
+
+        val changedCategory = state.copy(
+            selectedFilter = RadioStationFilter.ITALY,
+            searchQuery = "deeJ",
+        )
+        assertEquals("deeJ", changedCategory.searchQuery)
+        assertEquals(listOf(italy), changedCategory.queueStations)
+        assertEquals(listOf(italy), changedCategory.visibleStations)
+    }
+
+    @Test
+    fun zeroSearchResultsRemainDistinctFromTrulyEmptyFavorites() {
+        val favorite = station("bbc-radio-1", "BBC Radio 1")
+        val filteredOut = RadioUiState(
+            isLoading = false,
+            selectedSection = RadioSection.FAVORITES,
+            stations = listOf(favorite),
+            favoriteIds = setOf(favorite.id),
+            searchQuery = "nessuna-correspondence",
+            isSearchOpen = true,
+        )
+        assertEquals(1, filteredOut.queueStations.size)
+        assertTrue(filteredOut.visibleStations.isEmpty())
+
+        val trulyEmpty = filteredOut.copy(favoriteIds = emptySet())
+        assertTrue(trulyEmpty.queueStations.isEmpty())
+        assertTrue(trulyEmpty.visibleStations.isEmpty())
+    }
+
+    @Test
+    fun clearAndCloseSearchHaveDistinctSemantics() = runTest(dispatcher) {
+        val station = station("bbc-radio-1", "BBC Radio 1")
+        val viewModel = RadioViewModel(
+            RadioFeatureController(FakeRadioDataSource(stations = mutableListOf(station))),
+            FakePlaybackGateway(),
+        )
+        advanceUntilIdle()
+
+        viewModel.openSearch()
+        viewModel.updateSearchQuery("bbc")
+        assertTrue(viewModel.uiState.value.isSearchOpen)
+        assertEquals("bbc", viewModel.uiState.value.searchQuery)
+
+        viewModel.clearSearch()
+        assertTrue(viewModel.uiState.value.isSearchOpen)
+        assertEquals("", viewModel.uiState.value.searchQuery)
+
+        viewModel.updateSearchQuery("radio")
+        viewModel.closeSearch()
+        assertFalse(viewModel.uiState.value.isSearchOpen)
+        assertEquals("", viewModel.uiState.value.searchQuery)
+    }
+
+    @Test
+    fun oneVisibleSearchResultStillLaunchesCompleteUkQueue() = runTest(dispatcher) {
+        val bbc1 = station("bbc-radio-1", "BBC Radio 1")
+        val bbc2 = station("bbc-radio-2", "BBC Radio 2")
+        val bbc4 = station("bbc-radio-4", "BBC Radio 4")
+        val capital = station("capital-fm-london", "Capital FM London")
+        val heart = station("heart-uk", "Heart UK")
+        val classic = station("classic-fm", "Classic FM")
+        val queue = listOf(bbc1, bbc2, bbc4, capital, heart, classic)
+        val playback = FakePlaybackGateway()
+        val viewModel = RadioViewModel(
+            RadioFeatureController(FakeRadioDataSource(stations = queue.toMutableList())),
+            playback,
+        )
+        advanceUntilIdle()
+
+        viewModel.selectFilter(RadioStationFilter.UK)
+        viewModel.openSearch()
+        viewModel.updateSearchQuery("Radio 2")
+        assertEquals(listOf(bbc2), viewModel.uiState.value.visibleStations)
+        assertEquals(queue, viewModel.uiState.value.queueStations)
+
+        viewModel.playStation(bbc2)
+        advanceUntilIdle()
+
+        assertEquals(queue, playback.lastQueue)
+        assertEquals(1, playback.lastStartIndex)
+        assertFalse(viewModel.uiState.value.isSearchOpen)
+        assertEquals("", viewModel.uiState.value.searchQuery)
+        assertTrue(playback.current.value.canSkipPrevious)
+        assertTrue(playback.current.value.canSkipNext)
+    }
+
     private fun station(id: String, name: String) = RadioStation(
         id = StationId(id),
         name = name,
