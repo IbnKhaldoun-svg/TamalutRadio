@@ -25,6 +25,8 @@ object InitialRadioCatalog {
         station("radio-yabiladi", "Radio Yabiladi", "https://radio.yabiladi.com:8002/;stream.mp3"),
         station("radio-achkid-fm", "Radio Achkid FM", "https://stream.zeno.fm/7nqu31p6xg0uv"),
         station("radio-star-maroc-fm", "Radio Star Maroc FM", "https://a2.asurahosting.com:6100/radio.mp3"),
+        station("adwaa-fm-one", "Adwaa FM One", "https://stream.zeno.fm/5bxh2nh0x1zuv"),
+        station("radio-monte-carlo-doualiya", "Radio Monte Carlo Doualiya", "https://montecarlodoualiya128k.ice.infomaniak.ch/mc-doualiya.mp3"),
         station("rtl-102-5", "RTL 102.5", "https://dd782ed59e2a4e86aabf6fc508674b59.msvdn.net/live/S97044836/tbbP8T1ZRPBL/playlist_audio.m3u8"),
         station("radio-deejay", "Radio Deejay", "https://4c4b867c89244861ac216426883d1ad0.msvdn.net/radiodeejay/radiodeejay/master_ma.m3u8"),
         station("radio-105", "Radio 105", "https://icecast.unitedradio.it/Radio105.mp3"),
@@ -38,6 +40,16 @@ object InitialRadioCatalog {
         station("rai-radio-1", "Rai Radio 1", "https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S16355530/Q4zh3NTu28Rx/icecast"),
         station("rai-radio-2", "Rai Radio 2", "https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S35942484/yp5F67151K92/icecast"),
         station("rai-radio-3", "Rai Radio 3", "https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S56630579/yEbkcBtIoSwd/icecast"),
+        station("rds-relax", "RDS Relax", "https://stream.rds.radio/audio/rdsrelax.stream_aac/playlist.m3u8"),
+        station("radio-subasio", "Radio Subasio", "https://icy.unitedradio.it/Subasio.mp3"),
+        station("radio-zeta", "Radio Zeta", "https://streamingv2.shoutcast.com/radio-zeta_48.aac"),
+        station("radio-bruno", "Radio Bruno", "https://router.xdevel.com/audio4s975355-254/stream/icecast.audio"),
+        station("radiofreccia", "Radiofreccia", "https://dd782ed59e2a4e86aabf6fc508674b59.msvdn.net/live/S3160845/0tuSetc8UFkF/playlist_audio.m3u8"),
+        station("rai-isoradio", "Rai Isoradio", "https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S3822289/9T4F68Q3TT4m/icecast"),
+        station("rai-radio-3-classica", "Rai Radio 3 Classica", "https://radiotreclassica-live.akamaized.net/hls/live/2032595/radiotreclassica/radiotreclassica/playlist.m3u8"),
+        station("radio-maria", "Radio Maria", "https://dreamsiteradiocp4.com/proxy/rmitaliamontecarlo?mp=/stream"),
+        station("radio-radicale", "Radio Radicale", "https://live.radioradicale.it/live.mp3"),
+        station("radio-cuore", "Radio Cuore", "https://stream10.xdevel.com/audio32s975552-1839/stream/icecast.audio"),
         station("bbc-radio-1", "BBC Radio 1", "https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8"),
         station("bbc-radio-2", "BBC Radio 2", "https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/cf/bbc_radio_two.m3u8"),
         station("bbc-radio-4", "BBC Radio 4", "https://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d128000.norewind.m3u8"),
@@ -45,6 +57,7 @@ object InitialRadioCatalog {
         station("heart-uk", "Heart UK", "https://media-ssl.musicradio.com/HeartUK"),
         station("classic-fm", "Classic FM", "https://media-ssl.musicradio.com/ClassicFMMP3"),
         station("radio-sportiva", "Radio Sportiva", "https://sportiva.inmystream.it/stream/sportiva"),
+        station("rete-sport", "Rete Sport", "https://icecast.ithost.it/retesport.ogg"),
     )
 
     private fun station(id: String, name: String, streamUrl: String): RadioStation = RadioStation(

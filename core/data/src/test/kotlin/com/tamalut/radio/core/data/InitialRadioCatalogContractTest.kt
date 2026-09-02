@@ -6,17 +6,18 @@ import org.junit.Test
 
 class InitialRadioCatalogContractTest {
     @Test
-    fun catalogHasExactlyThirtyNineUniqueStationsInApprovedOrder() {
+    fun catalogHasExactlyFiftyTwoUniqueStationsInApprovedOrder() {
         val stations = InitialRadioCatalog.stations
         val ids = stations.map { it.id.value }
         val primaryUrls = stations.map { it.primaryStream.url }
 
         assertEquals(EXPECTED_IDS, ids)
-        assertEquals(39, stations.size)
-        assertEquals(39, ids.distinct().size)
-        assertEquals(39, primaryUrls.distinct().size)
+        assertEquals(52, stations.size)
+        assertEquals(52, ids.distinct().size)
+        assertEquals(52, primaryUrls.distinct().size)
         assertTrue(stations.none { it.name.contains("Radio Plus Agadir", ignoreCase = true) })
         assertEquals("Radio Atbir", stations.first { it.id.value == "radio-plus-agadir" }.name)
+        assertEquals(1, stations.count { it.id.value == "radio-italia-smi" })
     }
 
     private companion object {
@@ -40,6 +41,8 @@ class InitialRadioCatalogContractTest {
             "radio-yabiladi",
             "radio-achkid-fm",
             "radio-star-maroc-fm",
+            "adwaa-fm-one",
+            "radio-monte-carlo-doualiya",
             "rtl-102-5",
             "radio-deejay",
             "radio-105",
@@ -53,6 +56,16 @@ class InitialRadioCatalogContractTest {
             "rai-radio-1",
             "rai-radio-2",
             "rai-radio-3",
+            "rds-relax",
+            "radio-subasio",
+            "radio-zeta",
+            "radio-bruno",
+            "radiofreccia",
+            "rai-isoradio",
+            "rai-radio-3-classica",
+            "radio-maria",
+            "radio-radicale",
+            "radio-cuore",
             "bbc-radio-1",
             "bbc-radio-2",
             "bbc-radio-4",
@@ -60,6 +73,7 @@ class InitialRadioCatalogContractTest {
             "heart-uk",
             "classic-fm",
             "radio-sportiva",
+            "rete-sport",
         )
     }
 }

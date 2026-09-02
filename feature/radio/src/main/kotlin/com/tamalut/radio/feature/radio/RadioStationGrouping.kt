@@ -31,6 +31,8 @@ object RadioStationFiltering {
         "radio-yabiladi",
         "radio-achkid-fm",
         "radio-star-maroc-fm",
+        "adwaa-fm-one",
+        "radio-monte-carlo-doualiya",
     )
     private val italyStationIds = setOf(
         "rtl-102-5",
@@ -46,9 +48,20 @@ object RadioStationFiltering {
         "rai-radio-1",
         "rai-radio-2",
         "rai-radio-3",
+        "rds-relax",
+        "radio-subasio",
+        "radio-zeta",
+        "radio-bruno",
+        "radiofreccia",
+        "rai-isoradio",
+        "rai-radio-3-classica",
+        "radio-maria",
+        "radio-radicale",
+        "radio-cuore",
     )
     private val sportStationIds = setOf(
         "radio-sportiva",
+        "rete-sport",
     )
     private val ukStationIds = setOf(
         "bbc-radio-1",

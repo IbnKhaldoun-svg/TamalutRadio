@@ -33,13 +33,15 @@ class CoreDataRepositoriesTest {
 
         repository.seedInitialCatalog()
         repository.seedInitialCatalog()
+        repository.seedInitialCatalog()
 
-        assertEquals(39, stationDao.getAllStations().size)
-        assertEquals(39, stationDao.stationUpsertCount)
-        assertEquals(
-            InitialRadioCatalog.stations.map { it.id.value }.toSet(),
-            stationDao.getAllStations().map { it.station.stationId }.toSet(),
-        )
+        assertEquals(52, stationDao.getAllStations().size)
+        assertEquals(52, stationDao.stationUpsertCount)
+        assertEquals(BUILT_IN_IDS, InitialRadioCatalog.stations.map { it.id.value })
+        assertEquals(BUILT_IN_IDS, repository.getStations(favoritesFirst = false).map { it.id.value })
+        assertEquals(52, InitialRadioCatalog.stations.map { it.id.value }.toSet().size)
+        assertEquals(52, InitialRadioCatalog.stations.map { it.primaryStream.url }.toSet().size)
+        assertEquals(1, InitialRadioCatalog.stations.count { it.id.value == "radio-italia-smi" })
         assertFalse(stationDao.getAllStations().any { it.station.name.contains("Tachlit", ignoreCase = true) })
     }
 
@@ -96,7 +98,7 @@ class CoreDataRepositoriesTest {
             ),
             repaired?.playbackStreams?.map { it.url },
         )
-        assertEquals(39, stationDao.getAllStations().size)
+        assertEquals(52, stationDao.getAllStations().size)
 
         repository.seedInitialCatalog()
         assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
@@ -137,7 +139,7 @@ class CoreDataRepositoriesTest {
             ),
             repaired?.playbackStreams?.map { it.url },
         )
-        assertEquals(39, stationDao.getAllStations().size)
+        assertEquals(52, stationDao.getAllStations().size)
 
         repository.seedInitialCatalog()
         assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
@@ -190,6 +192,14 @@ class CoreDataRepositoriesTest {
                 isCustom = false,
             ),
         )
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "radio-zeta",
+                name = "My Radio Zeta",
+                primaryStreamUrl = "https://example.invalid/my-zeta.aac",
+                isCustom = false,
+            ),
+        )
 
         repository.seedInitialCatalog()
 
@@ -199,7 +209,12 @@ class CoreDataRepositoriesTest {
             "https://example.invalid/my-azawan.mp3",
             repository.getStation(StationId("radio-azawan"))?.primaryStream?.url,
         )
-        assertEquals(39, stationDao.getAllStations().size)
+        assertEquals("My Radio Zeta", repository.getStation(StationId("radio-zeta"))?.name)
+        assertEquals(
+            "https://example.invalid/my-zeta.aac",
+            repository.getStation(StationId("radio-zeta"))?.primaryStream?.url,
+        )
+        assertEquals(52, stationDao.getAllStations().size)
     }
 
     @Test
@@ -214,12 +229,12 @@ class CoreDataRepositoriesTest {
         val ordered = repository.getStations(favoritesFirst = false)
 
         assertEquals(
-            InitialRadioCatalog.stations.map { it.id.value },
-            ordered.take(39).map { it.id.value },
+            BUILT_IN_IDS,
+            ordered.take(52).map { it.id.value },
         )
         assertEquals(
             listOf("custom-a1", "custom-a2", "custom-z"),
-            ordered.drop(39).map { it.id.value },
+            ordered.drop(52).map { it.id.value },
         )
     }
 
@@ -281,6 +296,63 @@ class CoreDataRepositoriesTest {
         ),
         playedAtEpochMillis = timestamp,
     )
+
+    private companion object {
+        val BUILT_IN_IDS = listOf(
+            "medi1-radio",
+            "hit-radio-maroc",
+            "chada-fm",
+            "atlantic-radio",
+            "cap-radio",
+            "med-radio",
+            "radio-mars",
+            "radio-plus-agadir",
+            "radio-azawan",
+            "aswat-fm",
+            "mfm-radio",
+            "radio-medina-fm",
+            "medina-fm-amazigh",
+            "ness-radio",
+            "radio-manarat",
+            "radio-tanger-med",
+            "radio-yabiladi",
+            "radio-achkid-fm",
+            "radio-star-maroc-fm",
+            "adwaa-fm-one",
+            "radio-monte-carlo-doualiya",
+            "rtl-102-5",
+            "radio-deejay",
+            "radio-105",
+            "rds-100-grandi-successi",
+            "radio-italia-smi",
+            "virgin-radio-italia",
+            "radio-capital",
+            "m2o",
+            "radio-monte-carlo",
+            "r101",
+            "rai-radio-1",
+            "rai-radio-2",
+            "rai-radio-3",
+            "rds-relax",
+            "radio-subasio",
+            "radio-zeta",
+            "radio-bruno",
+            "radiofreccia",
+            "rai-isoradio",
+            "rai-radio-3-classica",
+            "radio-maria",
+            "radio-radicale",
+            "radio-cuore",
+            "bbc-radio-1",
+            "bbc-radio-2",
+            "bbc-radio-4",
+            "capital-fm-london",
+            "heart-uk",
+            "classic-fm",
+            "radio-sportiva",
+            "rete-sport",
+        )
+    }
 }
 
 private class FakeRadioStationDao : RadioStationDao {
