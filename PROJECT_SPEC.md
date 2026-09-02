@@ -1412,3 +1412,75 @@ Physical re-test gate (remains **PENDING/FAILED** until explicit device confirma
 - [x] `:app:assembleDebug` passed (`BUILD SUCCESSFUL in 1m 48s`; 165 actionable tasks: 46 executed, 119 up-to-date). Validation APK: `23,696,756` bytes; SHA-256 `725355a083ab40f097cefd2c5fe4b519a99409dcfa3717f29277bc1e031aebfe`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - [x] The validation workflow deleted its temporary validation branch after all gates passed. The exact validated product commit was then fast-forward promoted to `main`; no fixup or merge commit changed the product snapshot.
 - [ ] **Physical radio playback recovery gate:** remains PENDING until explicit real-device confirmation on the published recovery APK. Required targeted checks: Medi1 Radio and Chada FM; RTL 102.5 plus Deejay/RDS/Capital/m2o coverage; BBC Radio 1 plus BBC Radio 2/4 coverage; representative direct MP3/AAC streams; Previous/Next snapshot/wrap behavior; visible error on genuine terminal failure; and LOCAL music/notification/mini-player/Now Playing/floating overlay/Sleep Timer regressions.
+
+
+### Verified radio catalog expansion — radio.co.ma / radio-italiane.it
+
+This objective starts from the 39-station built-in catalog at `fba17da820c1ae30f20da87f541db88a42f977ee`. The supplied directory pages are discovery/identity hints only; no station is admitted from aggregator metadata alone. Admission requires a sufficiently strong station identity/provenance plus an HTTPS endpoint that returns HTTP 200 and exposes decodable audio. Ambiguous identity is a rejection even when transport works.
+
+Final admission decision before product code: **13 new built-ins**, producing **52 built-ins total: 21 Marocco / 23 Italia / 6 UK / 2 Sport**. `Radio Italia Solo Musica Italiana` is already present and remains a single built-in row; the supplied Radio Italia directory candidate is therefore a verified duplicate, not a new station.
+
+Accepted additions, in authoritative within-category insertion order:
+
+| ID | Display name | Category | Verified primary stream |
+| --- | --- | --- | --- |
+| `adwaa-fm-one` | Adwaa FM One | Marocco | `https://stream.zeno.fm/5bxh2nh0x1zuv` |
+| `radio-monte-carlo-doualiya` | Radio Monte Carlo Doualiya | Marocco | `https://montecarlodoualiya128k.ice.infomaniak.ch/mc-doualiya.mp3` |
+| `rds-relax` | RDS Relax | Italia | `https://stream.rds.radio/audio/rdsrelax.stream_aac/playlist.m3u8` |
+| `radio-subasio` | Radio Subasio | Italia | `https://icy.unitedradio.it/Subasio.mp3` |
+| `radio-zeta` | Radio Zeta | Italia | `https://streamingv2.shoutcast.com/radio-zeta_48.aac` |
+| `radio-bruno` | Radio Bruno | Italia | `https://router.xdevel.com/audio4s975355-254/stream/icecast.audio` |
+| `radiofreccia` | Radiofreccia | Italia | `https://dd782ed59e2a4e86aabf6fc508674b59.msvdn.net/live/S3160845/0tuSetc8UFkF/playlist_audio.m3u8` |
+| `rai-isoradio` | Rai Isoradio | Italia | `https://icecdn-19d24861e90342cc8decb03c24c8a419.msvdn.net/icecastRelay/S3822289/9T4F68Q3TT4m/icecast` |
+| `rai-radio-3-classica` | Rai Radio 3 Classica | Italia | `https://radiotreclassica-live.akamaized.net/hls/live/2032595/radiotreclassica/radiotreclassica/playlist.m3u8` |
+| `radio-maria` | Radio Maria | Italia | `https://dreamsiteradiocp4.com/proxy/rmitaliamontecarlo?mp=/stream` |
+| `radio-radicale` | Radio Radicale | Italia | `https://live.radioradicale.it/live.mp3` |
+| `radio-cuore` | Radio Cuore | Italia | `https://stream10.xdevel.com/audio32s975552-1839/stream/icecast.audio` |
+| `rete-sport` | Rete Sport | Sport | `https://icecast.ithost.it/retesport.ogg` |
+
+Identity/provenance notes for admitted stations:
+- Adwaa: current official `adwaafm.com` player identifies the main service as **ADWAA FM ONE** and exposes/correlates the Zeno stream above; the similarly named `Adwaa FM 2` Radio Browser candidate resolves to the same underlying stream and is not a distinct station.
+- Radio Monte Carlo Doualiya: Radio Browser identity matches the official `mc-doualiya.com` homepage and the Infomaniak stream.
+- Italian admissions were matched against their official station/group identities; `Rai Radio Classica` is seeded under its current official brand **Rai Radio 3 Classica**. Radio Bruno's HTTPS Xdevel feed was additionally fingerprinted against its known legacy official HTTP feed and produced an exact Chromaprint match. Rete Sport's current official site JavaScript exposes the exact `icecast.ithost.it/retesport.ogg` endpoint.
+
+Explicitly excluded from this expansion:
+- **4U Classic Rock** — working HTTPS audio exists, but the requested Moroccan identity/provenance is not strong enough.
+- **Adwaa FM 2** — no distinct verified station: the discovered candidate shares the exact Adwaa FM One stream.
+- **Alpha Radio** — discovered HTTPS candidate currently returns HTTP 404 and no audio; no stronger working replacement was established.
+- **Hit Radio 100% TikTok / Classique / Mgharba / Party / Urban** — all five legacy endpoints were individually verified as HTTP 200 HTTPS MP3 and simultaneous Chromaprint proved all five are distinct from HIT RADIO Maroc and from each other. They are nevertheless excluded because the supplied legacy labels cannot be mapped with sufficient certainty to HIT RADIO's current official web-radio taxonomy; transport alone is insufficient identity proof.
+- **Hits1 Maroc** — official-family stream resolves to decodable MP3 but returns HTTP 401 rather than the required HTTP 200.
+- **Idaa Al Watania** — official SNRT HLS endpoint currently returns HTTP 400/no audio.
+- **Marrakech Plus** — a working HTTPS MP3 candidate exists, but no sufficiently strong direct official endpoint correlation was established.
+- **Radio Assadisa FM** — official SNRT HLS endpoint currently returns HTTP 400/no audio.
+- **Radio Only Raï** — a working HTTPS transport exists, but current official identity/provenance is too weak/legacy.
+- **Radio Sawa** — the live radio service was discontinued in 2024; no current live service is admitted.
+- **Radio Sawt Alamal** — working Zeno candidates exist but no sufficiently strong official homepage/stream correlation was established.
+- **Radio Soleil** — no solid current Moroccan HTTPS identity/endpoint pair was established.
+- **Radio Zine Bladi** — the station has a current official web presence and a working HTTPS AAC candidate, but the endpoint could not be directly correlated strongly enough to the official source; reject conservatively.
+- **Oxygene FM** — discovery points to Tunisian/legacy or non-HTTPS identities rather than a solid Moroccan HTTPS station.
+- **Radio Norba** — Radio Browser's official-homepage main endpoint is HTTP-only; an HTTPS Xdevel candidate decodes audio but lacks sufficiently strong positive identity correlation to replace it, so no cleartext weakening and no seed.
+- **Radio Italia** directory candidate — duplicate of existing `radio-italia-smi`; do not create a second row.
+
+Historical rejects **must not be retested or reintroduced by this objective**: Radio 2M, Radio Chaine Inter, Al Amazighia, Radio Plus Casablanca, Radio Kiss Kiss, Radio 24.
+
+Authoritative built-in queue order after implementation (52 IDs):
+`medi1-radio`, `hit-radio-maroc`, `chada-fm`, `atlantic-radio`, `cap-radio`, `med-radio`, `radio-mars`, `radio-plus-agadir`, `radio-azawan`, `aswat-fm`, `mfm-radio`, `radio-medina-fm`, `medina-fm-amazigh`, `ness-radio`, `radio-manarat`, `radio-tanger-med`, `radio-yabiladi`, `radio-achkid-fm`, `radio-star-maroc-fm`, `adwaa-fm-one`, `radio-monte-carlo-doualiya`, `rtl-102-5`, `radio-deejay`, `radio-105`, `rds-100-grandi-successi`, `radio-italia-smi`, `virgin-radio-italia`, `radio-capital`, `m2o`, `radio-monte-carlo`, `r101`, `rai-radio-1`, `rai-radio-2`, `rai-radio-3`, `rds-relax`, `radio-subasio`, `radio-zeta`, `radio-bruno`, `radiofreccia`, `rai-isoradio`, `rai-radio-3-classica`, `radio-maria`, `radio-radicale`, `radio-cuore`, `bbc-radio-1`, `bbc-radio-2`, `bbc-radio-4`, `capital-fm-london`, `heart-uk`, `classic-fm`, `radio-sportiva`, `rete-sport`.
+
+Acceptance contract:
+- [ ] Seed exactly the 13 admitted stations above with stable IDs and the verified primary URLs; do not seed any excluded/duplicate candidate.
+- [ ] Preserve all existing 39 station IDs, names, primary/fallback semantics and their relative order; append the two admitted Morocco stations at the end of the Morocco block, the ten admitted Italia stations at the end of the Italia block, and Rete Sport after Radio Sportiva. UK remains unchanged.
+- [ ] Category projection must yield exactly 21 Marocco, 23 Italia, 6 UK and 2 Sport stations, in source/catalog order. Rete Sport is `SPORT`, never `ITALY`; Radio Monte Carlo Doualiya follows the user-requested Morocco directory grouping for this product taxonomy.
+- [ ] Seeding remains additive/idempotent and never overwrites a pre-existing user/custom row. Running seed repeatedly must not duplicate rows; `radio-italia-smi` remains exactly one built-in identity.
+- [ ] No Room schema migration or broad network-security/cleartext change is permitted for this catalog-only expansion.
+- [ ] Existing queue snapshot, Previous/Next/wrap behavior, favorites, fallback/reconnect, asynchronous playback errors, HLS handling, local Music, mini-player, notification/lock-screen, Android Auto, floating overlay and Sleep Timer behavior remain unchanged.
+- [ ] Unit tests must hard-code the 52 expected built-in IDs/order, uniqueness, seed idempotency/additive behavior, duplicate-Radio-Italia prevention, custom-tail behavior, and exact category counts/order including `Rete Sport -> SPORT`.
+- [ ] Real CI before promotion must re-probe all 13 admitted primary URLs with HTTP 200 + final HTTPS + decodable audio, then pass `:core:data:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` with persistent debug signer v1 verification and recorded APK SHA-256/size.
+- [ ] Only the exact validated product commit may be fast-forward promoted to `main`; then record spec-after evidence, publish the signed debug prerelease through the permanent Release workflow, and remove all temporary branches.
+
+Research evidence before spec/code:
+- Broad Radio Browser + directory discovery: run `33581688036`, job `100097112239`.
+- Targeted official-player discovery: run `33581801578`, job `100097446890`.
+- Deep official/Radio Browser resolver: run `33581985831`, job `100097984058`.
+- Exact identity resolver: run `33582163782`, job `100098524920`.
+- Initial stream/Chromaprint probe: run `33582465767`, job `100099443591`; its live-stream PASS label logic was intentionally superseded because it incorrectly required endless live `curl` transfers to reach EOF.
+- Corrected definitive gate: run `33582849231`, job `100100635379`; all 13 proposed admissions passed HTTP 200 + final HTTPS + decodable audio, while Alpha=404, Hits1=401, Watania=400 and Assadisa=400 were confirmed failures. The same run fingerprinted HIT RADIO Maroc plus all five supplied HIT legacy streams simultaneously; all six fingerprints were captured successfully and every pair was distinct.
