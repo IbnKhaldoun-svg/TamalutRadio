@@ -1692,3 +1692,9 @@ Validation record — active radio list visibility refinement:
 - Validation APK: 23,729,524 bytes; SHA-256 `1d44f270ebdbcd75a37ba6ea3cdaa2422f9e45e0a1bb0a6e0a6127138a1dbbec`; persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - Promotion occurred only after the gates above: exact runtime `9690beb788384be0a58d9a98f0a9841e27948431` became `main`; product/spec/validation helper branches were then removed. Permanent exact-product debug prerelease publication follows this docs-only record.
 - Physical Sport gate remains **PENDING RECHECK** until the active-card visibility behavior and the previously qualified three Sport streams are confirmed together on device.
+
+Permanent Release record — active radio list visibility refinement:
+- Permanent publisher run `33626026033`, job `100233848785`, used workflow source from docs-only `main` `e4862834259dc65b0b5a1fdbfe501c6435b85a9a` but resolved input `ref=9690beb788384be0a58d9a98f0a9841e27948431`, detached `HEAD` to that exact runtime, and logged `Building exact commit: 9690beb788384be0a58d9a98f0a9841e27948431`.
+- `:app:assembleDebug` passed with `BUILD SUCCESSFUL in 3m 8s` (165 actionable tasks: 131 executed, 34 from cache). Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
+- GitHub prerelease tag `debug-20260902-114616-9690beb` targets exactly `9690beb788384be0a58d9a98f0a9841e27948431`. Asset `TamalutRadio-debug-9690beb.apk` is uploaded, 23,729,524 bytes, digest `sha256:1d44f270ebdbcd75a37ba6ea3cdaa2422f9e45e0a1bb0a6e0a6127138a1dbbec`, exactly matching the prior validation APK hash.
+- Temporary closure/release helper branches were removed. Physical Sport gate remains **PENDING RECHECK**; the next device test must verify both the three Sport stations and the active-card auto-visibility refinement.
