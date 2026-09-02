@@ -29,19 +29,47 @@ class RadioStationGroupingTest {
         assertEquals(5, sport.size)
         assertEquals(6, uk.size)
         assertTrue(morocco.any { it.id.value == "radio-mars" })
-        assertTrue(morocco.any { it.id.value == "radio-monte-carlo-doualiya" })
         assertFalse(sport.any { it.id.value == "radio-mars" })
-        assertEquals(RadioStationFilter.SPORT, RadioStationFiltering.filterFor(stations.first { it.id.value == "rete-sport" }))
-        assertEquals(RadioStationFilter.MOROCCO, RadioStationFiltering.filterFor(stations.first { it.id.value == "radio-monte-carlo-doualiya" }))
     }
 
     @Test
-    fun allFilterPreservesFlatOrderAndUnknownStationsRemainVisibleOnlyInAllWithoutCustomMetadata() {
-        val unknown = RadioStation(
-            id = StationId("future-station"),
-            name = "Future Station",
-            primaryStream = StreamEndpoint("https://example.com/live.mp3"),
+    fun customStationsJoinAssignedStandardCategoryAfterBuiltInsAndDynamicCategoryIsDiscovered() {
+        val customSport = station("custom-sport", "Zulu Sport")
+        val customJazzB = station("custom-jazz-b", "Beta Jazz")
+        val customJazzA = station("custom-jazz-a", "Alpha Jazz")
+        val stations = InitialRadioCatalog.stations + listOf(customJazzA, customJazzB, customSport)
+        val categories = mapOf(
+            customSport.id to "Sport",
+            customJazzA.id to "Jazz",
+            customJazzB.id to "jazz",
         )
+
+        val sport = RadioStationFiltering.apply(stations, RadioStationFilter.SPORT, categories)
+        assertEquals(SPORT_IDS + "custom-sport", sport.map { it.id.value })
+        val filters = RadioStationFilter.available(categories.values)
+        assertEquals(listOf("Tutte", "Marocco", "Italia", "Sport", "UK", "Jazz"), filters.map { it.label })
+        val jazz = RadioStationFiltering.apply(stations, filters.last(), categories)
+        assertEquals(listOf(customJazzA, customJazzB), jazz)
+    }
+
+    @Test
+    fun dynamicCategoriesSortCaseInsensitivelyAndDisappearWhenNoStationReferencesThem() {
+        val one = station("custom-one", "One")
+        val two = station("custom-two", "Two")
+        val categories = mapOf(one.id to "News", two.id to "amazigh")
+        assertEquals(
+            listOf("Tutte", "Marocco", "Italia", "Sport", "UK", "amazigh", "News"),
+            RadioStationFilter.available(categories.values).map { it.label },
+        )
+        assertEquals(
+            listOf("Tutte", "Marocco", "Italia", "Sport", "UK", "amazigh"),
+            RadioStationFilter.available(mapOf(one.id to "amazigh").values).map { it.label },
+        )
+    }
+
+    @Test
+    fun allFilterPreservesFlatOrderAndUnknownStationsRemainVisibleOnlyInAllWithoutCategoryMetadata() {
+        val unknown = station("future-station", "Future Station")
         val stations = InitialRadioCatalog.stations + unknown
         assertEquals(stations, RadioStationFiltering.apply(stations, RadioStationFilter.ALL))
         assertNull(RadioStationFiltering.filterFor(unknown))
@@ -50,43 +78,26 @@ class RadioStationGroupingTest {
             RadioStationFilter.ITALY,
             RadioStationFilter.SPORT,
             RadioStationFilter.UK,
-            RadioStationFilter.PERSONAL,
         ).forEach {
             assertFalse(RadioStationFiltering.apply(stations, it).contains(unknown))
         }
     }
 
     @Test
-    fun personalFilterUsesExplicitCustomIdsAndPreservesSourceOrder() {
-        val customZulu = RadioStation(
-            id = StationId("custom-zulu"),
-            name = "Zulu",
-            primaryStream = StreamEndpoint("https://example.com/zulu"),
-        )
-        val customAlpha = RadioStation(
-            id = StationId("custom-alpha"),
-            name = "Alpha",
-            primaryStream = StreamEndpoint("https://example.com/alpha"),
-        )
-        val builtIn = InitialRadioCatalog.stations.first()
-        val stations = listOf(builtIn, customZulu, customAlpha)
-        val customIds = setOf(customZulu.id, customAlpha.id)
-
-        assertEquals(
-            listOf(customZulu, customAlpha),
-            RadioStationFiltering.apply(stations, RadioStationFilter.PERSONAL, customIds),
-        )
-        assertEquals(RadioStationFilter.PERSONAL, RadioStationFiltering.filterFor(customZulu, customIds))
-        assertEquals(RadioStationFiltering.filterFor(builtIn), RadioStationFiltering.filterFor(builtIn, customIds))
+    fun categoryRulesCanonicalizeKnownNamesReuseDynamicSpellingAndRejectNavigationNames() {
+        assertEquals("Italia", RadioCategoryRules.normalize(" italia ", listOf("Jazz")))
+        assertEquals("Jazz", RadioCategoryRules.normalize("jAzZ", listOf("Jazz")))
+        assertTrue(RadioCategoryRules.isReservedNewCategoryName("sport"))
+        assertTrue(RadioCategoryRules.isReservedNewCategoryName(" Preferiti "))
+        val error = runCatching { RadioCategoryRules.normalize("Tutte", emptyList()) }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
     }
 
-    @Test
-    fun filterOptionsAreStableAndUserFacing() {
-        assertEquals(
-            listOf("Tutte", "Marocco", "Italia", "Sport", "UK", "Personali"),
-            RadioStationFilter.entries.map { it.label },
-        )
-    }
+    private fun station(id: String, name: String) = RadioStation(
+        id = StationId(id),
+        name = name,
+        primaryStream = StreamEndpoint("https://example.com/$id"),
+    )
 
     private companion object {
         val MOROCCO_IDS = listOf(

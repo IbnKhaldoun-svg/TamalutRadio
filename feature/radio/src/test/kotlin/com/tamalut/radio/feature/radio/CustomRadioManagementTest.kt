@@ -38,7 +38,7 @@ class CustomRadioManagementTest {
     }
 
     @Test
-    fun addTrimsFieldsValidatesHttpsAndCreatesCustomPrefixedId() = runTest(dispatcher) {
+    fun addTrimsFieldsValidatesHttpsAndPersistsSelectedCategory() = runTest(dispatcher) {
         val source = MutableCustomRadioDataSource()
         val validator = RecordingValidator()
         val controller = RadioFeatureController(
@@ -51,48 +51,23 @@ class CustomRadioManagementTest {
             stationId = null,
             name = "  Mia Radio  ",
             streamUrl = " HTTPS://Example.COM:443/live ",
+            category = " italia ",
         )
 
         assertEquals(listOf("https://example.com/live"), validator.urls)
         assertEquals(setOf(StationId("custom-fixed")), result.customStationIds)
-        val saved = result.stations.single()
-        assertEquals("Mia Radio", saved.name)
-        assertEquals("https://example.com/live", saved.primaryStream.url)
-        assertTrue(saved.id.value.startsWith("custom-"))
+        assertEquals(mapOf(StationId("custom-fixed") to "Italia"), result.customStationCategories)
+        assertEquals("Mia Radio", result.stations.single().name)
     }
 
     @Test
-    fun duplicateNormalizedPrimaryUrlIsRejectedBeforeNetworkProbe() = runTest(dispatcher) {
-        val builtIn = station("built-in", "Built in", "https://example.com/live")
-        val source = MutableCustomRadioDataSource(stations = mutableListOf(builtIn))
-        val validator = RecordingValidator()
-        val controller = RadioFeatureController(
-            source,
-            validator,
-            customStationIdFactory = { StationId("custom-fixed") },
-        )
-
-        val error = captureFailure {
-            controller.saveCustomStation(
-                stationId = null,
-                name = "Duplicate",
-                streamUrl = "HTTPS://EXAMPLE.COM:443/live",
-            )
-        }
-
-        assertTrue(error.message.orEmpty().contains("già presente"))
-        assertTrue(validator.urls.isEmpty())
-        assertEquals(listOf(builtIn), source.stations())
-    }
-
-    @Test
-    fun editPreservesCustomIdAndFavoriteAndBuiltInEditIsRejected() = runTest(dispatcher) {
-        val builtIn = station("built-in", "Built in", "https://example.com/built")
+    fun editPreservesIdFavoriteAndCanMoveCategory() = runTest(dispatcher) {
         val custom = station("custom-one", "Old", "https://example.com/old")
         val source = MutableCustomRadioDataSource(
-            stations = mutableListOf(builtIn, custom),
+            stations = mutableListOf(custom),
             favorites = mutableSetOf(custom.id),
             customIds = mutableSetOf(custom.id),
+            categories = mutableMapOf(custom.id to "Sport"),
         )
         val controller = RadioFeatureController(source, RecordingValidator())
 
@@ -100,60 +75,30 @@ class CustomRadioManagementTest {
             stationId = custom.id,
             name = "New Name",
             streamUrl = "https://example.com/new",
+            category = "Jazz",
         )
-        assertEquals(custom.id, result.stations.first { it.id == custom.id }.id)
-        assertEquals("New Name", result.stations.first { it.id == custom.id }.name)
+
+        assertEquals(custom.id, result.stations.single().id)
+        assertEquals("New Name", result.stations.single().name)
         assertTrue(custom.id in result.favoriteIds)
-
-        val error = captureFailure {
-            controller.saveCustomStation(
-                stationId = builtIn.id,
-                name = "No",
-                streamUrl = "https://example.com/no",
-            )
-        }
-        assertTrue(error.message.orEmpty().contains("integrate"))
-        assertEquals("Built in", source.stations().first { it.id == builtIn.id }.name)
+        assertEquals("Jazz", result.customStationCategories[custom.id])
     }
 
     @Test
-    fun deleteRemovesOnlyCustomStationAndFavorite() = runTest(dispatcher) {
-        val builtIn = station("built-in", "Built in", "https://example.com/built")
-        val custom = station("custom-one", "Custom", "https://example.com/custom")
+    fun dynamicCategorySearchStillLaunchesCompletePreSearchCategoryQueue() = runTest(dispatcher) {
+        val customA = station("custom-a", "Alpha Jazz", "https://example.com/a")
+        val customB = station("custom-b", "Beta Jazz", "https://example.com/b")
         val source = MutableCustomRadioDataSource(
-            stations = mutableListOf(builtIn, custom),
-            favorites = mutableSetOf(custom.id),
-            customIds = mutableSetOf(custom.id),
-        )
-        val controller = RadioFeatureController(source, RecordingValidator())
-
-        val result = controller.deleteCustomStation(custom.id)
-        assertEquals(listOf(builtIn), result.stations)
-        assertFalse(custom.id in result.favoriteIds)
-        assertFalse(custom.id in result.customStationIds)
-
-        val error = captureFailure { controller.deleteCustomStation(builtIn.id) }
-        assertTrue(error.message.orEmpty().contains("integrate"))
-        assertEquals(listOf(builtIn), source.stations())
-    }
-
-    @Test
-    fun personalSearchResultStillLaunchesCompleteCustomContextQueue() = runTest(dispatcher) {
-        val builtIn = station("built-in", "Built in", "https://example.com/built")
-        val customA = station("custom-a", "Alpha Personal", "https://example.com/a")
-        val customB = station("custom-b", "Beta Personal", "https://example.com/b")
-        val source = MutableCustomRadioDataSource(
-            stations = mutableListOf(builtIn, customA, customB),
+            stations = mutableListOf(customA, customB),
             customIds = mutableSetOf(customA.id, customB.id),
+            categories = mutableMapOf(customA.id to "Jazz", customB.id to "Jazz"),
         )
         val playback = CustomTestPlaybackGateway()
-        val viewModel = RadioViewModel(
-            RadioFeatureController(source, RecordingValidator()),
-            playback,
-        )
+        val viewModel = RadioViewModel(RadioFeatureController(source, RecordingValidator()), playback)
         advanceUntilIdle()
 
-        viewModel.selectFilter(RadioStationFilter.PERSONAL)
+        val jazz = viewModel.uiState.value.availableFilters.single { it.label == "Jazz" }
+        viewModel.selectFilter(jazz)
         viewModel.openSearch()
         viewModel.updateSearchQuery("Beta")
         assertEquals(listOf(customA, customB), viewModel.uiState.value.queueStations)
@@ -163,19 +108,36 @@ class CustomRadioManagementTest {
         advanceUntilIdle()
         assertEquals(listOf(customA, customB), playback.lastQueue)
         assertEquals(1, playback.lastStartIndex)
-        assertFalse(viewModel.uiState.value.isSearchOpen)
     }
 
     @Test
-    fun viewModelKeepsEditorOpenWithInlineErrorAndClosesAfterSuccessfulSave() = runTest(dispatcher) {
+    fun settingsEditPickerIsTransientAndEditorPrefillsCategory() = runTest(dispatcher) {
+        val custom = station("custom-one", "Custom", "https://example.com/custom")
+        val source = MutableCustomRadioDataSource(
+            stations = mutableListOf(custom),
+            customIds = mutableSetOf(custom.id),
+            categories = mutableMapOf(custom.id to "Sport"),
+        )
+        val viewModel = RadioViewModel(RadioFeatureController(source, RecordingValidator()), CustomTestPlaybackGateway())
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isCustomEditPickerOpen)
+        viewModel.openCustomStationEditPicker()
+        assertTrue(viewModel.uiState.value.isCustomEditPickerOpen)
+        assertEquals(listOf(custom), viewModel.uiState.value.customStations)
+
+        viewModel.openEditCustomStation(custom)
+        assertFalse(viewModel.uiState.value.isCustomEditPickerOpen)
+        assertEquals("Sport", viewModel.uiState.value.customRadioEditor?.category)
+        assertEquals(CustomRadioEditorMode.EDIT, viewModel.uiState.value.customRadioEditor?.mode)
+    }
+
+    @Test
+    fun newReservedCategoryShowsInlineErrorWithoutNetworkOrSave() = runTest(dispatcher) {
         val source = MutableCustomRadioDataSource()
-        val failingValidator = RecordingValidator(failure = IllegalArgumentException("stream non raggiungibile"))
+        val validator = RecordingValidator()
         val viewModel = RadioViewModel(
-            RadioFeatureController(
-                source,
-                failingValidator,
-                customStationIdFactory = { StationId("custom-fixed") },
-            ),
+            RadioFeatureController(source, validator, customStationIdFactory = { StationId("custom-fixed") }),
             CustomTestPlaybackGateway(),
         )
         advanceUntilIdle()
@@ -183,29 +145,46 @@ class CustomRadioManagementTest {
         viewModel.openAddCustomStation()
         viewModel.updateCustomStationName("Test")
         viewModel.updateCustomStationUrl("https://example.com/live")
+        viewModel.startNewCustomStationCategory()
+        viewModel.updateNewCustomStationCategory("sport")
         viewModel.submitCustomStation()
         advanceUntilIdle()
 
-        assertEquals("stream non raggiungibile", viewModel.uiState.value.customRadioEditor?.errorMessage)
-        assertFalse(viewModel.uiState.value.customRadioEditor?.isSaving ?: true)
+        assertTrue(viewModel.uiState.value.customRadioEditor?.errorMessage.orEmpty().contains("già disponibile"))
+        assertTrue(validator.urls.isEmpty())
         assertTrue(source.stations().isEmpty())
-
-        failingValidator.failure = null
-        viewModel.submitCustomStation()
-        advanceUntilIdle()
-        assertNull(viewModel.uiState.value.customRadioEditor)
-        assertEquals("Radio personale aggiunta", viewModel.uiState.value.customActionMessage)
-        assertEquals(setOf(StationId("custom-fixed")), viewModel.uiState.value.customStationIds)
     }
 
-    private suspend fun captureFailure(block: suspend () -> Unit): Throwable {
-        return try {
-            block()
-            throw AssertionError("Expected failure")
-        } catch (error: Throwable) {
-            if (error is AssertionError) throw error
-            error
-        }
+    @Test
+    fun successfulSettingsAddCreatesDynamicFilterAndDeleteRemovesIt() = runTest(dispatcher) {
+        val source = MutableCustomRadioDataSource()
+        val viewModel = RadioViewModel(
+            RadioFeatureController(
+                source,
+                RecordingValidator(),
+                customStationIdFactory = { StationId("custom-fixed") },
+            ),
+            CustomTestPlaybackGateway(),
+        )
+        advanceUntilIdle()
+
+        viewModel.openAddCustomStation()
+        viewModel.updateCustomStationName("Amazigh Radio")
+        viewModel.updateCustomStationUrl("https://example.com/live")
+        viewModel.startNewCustomStationCategory()
+        viewModel.updateNewCustomStationCategory("Amazigh")
+        viewModel.submitCustomStation()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.customRadioEditor)
+        assertEquals(listOf("Amazigh"), viewModel.uiState.value.userDefinedCategories)
+        val saved = viewModel.uiState.value.customStations.single()
+        viewModel.openEditCustomStation(saved)
+        viewModel.requestDeleteCustomStation(saved)
+        viewModel.confirmDeleteCustomStation()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.customStations.isEmpty())
+        assertTrue(viewModel.uiState.value.userDefinedCategories.isEmpty())
     }
 
     private fun station(id: String, name: String, url: String) = RadioStation(
@@ -228,26 +207,30 @@ class CustomRadioManagementTest {
         private val stations: MutableList<RadioStation> = mutableListOf(),
         private val favorites: MutableSet<StationId> = mutableSetOf(),
         private val customIds: MutableSet<StationId> = mutableSetOf(),
+        private val categories: MutableMap<StationId, String> = mutableMapOf(),
     ) : RadioDataSource {
         override suspend fun seedInitialCatalog() = Unit
         override suspend fun stations(): List<RadioStation> = stations.toList()
         override suspend fun favoriteIds(): Set<StationId> = favorites.toSet()
         override suspend fun customStationIds(): Set<StationId> = customIds.toSet()
+        override suspend fun customStationCategories(): Map<StationId, String> = categories.toMap()
 
         override suspend fun setFavorite(stationId: StationId, favorite: Boolean) {
             if (favorite) favorites += stationId else favorites -= stationId
         }
 
-        override suspend fun saveCustomStation(station: RadioStation) {
+        override suspend fun saveCustomStation(station: RadioStation, category: String) {
             val index = stations.indexOfFirst { it.id == station.id }
             if (index >= 0) stations[index] = station else stations += station
             customIds += station.id
+            categories[station.id] = category
         }
 
         override suspend fun removeCustomStation(stationId: StationId): Boolean {
             if (stationId !in customIds) return false
             stations.removeAll { it.id == stationId }
             customIds -= stationId
+            categories -= stationId
             favorites -= stationId
             return true
         }

@@ -13,13 +13,17 @@ data class RadioStationPersistenceRecord(
     val fallbackStreams: List<RadioStationFallbackEntity>,
 )
 
-fun RadioStation.toPersistenceRecord(isCustom: Boolean): RadioStationPersistenceRecord =
+fun RadioStation.toPersistenceRecord(
+    isCustom: Boolean,
+    customCategory: String? = null,
+): RadioStationPersistenceRecord =
     RadioStationPersistenceRecord(
         station = RadioStationEntity(
             stationId = id.value,
             name = name,
             primaryStreamUrl = primaryStream.url,
             isCustom = isCustom,
+            customCategory = customCategory,
         ),
         fallbackStreams = fallbackStreams.mapIndexed { index, endpoint ->
             RadioStationFallbackEntity(

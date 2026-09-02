@@ -18,6 +18,8 @@ data class RadioStationEntity(
     val primaryStreamUrl: String,
     @ColumnInfo(name = "is_custom")
     val isCustom: Boolean,
+    @ColumnInfo(name = "custom_category")
+    val customCategory: String? = null,
 )
 
 @Entity(

@@ -53,6 +53,7 @@ import androidx.room3.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import com.tamalut.radio.core.data.FavoriteStationRepository
 import com.tamalut.radio.core.data.RadioStationRepository
+import com.tamalut.radio.core.database.MIGRATION_1_2
 import com.tamalut.radio.core.database.TamalutDatabase
 import com.tamalut.radio.core.designsystem.TamalutRadioTheme
 import com.tamalut.radio.core.designsystem.ThemeMode
@@ -70,6 +71,7 @@ import com.tamalut.radio.feature.library.SafLocalAudioScanner
 import com.tamalut.radio.feature.radio.CoreRadioDataSource
 import com.tamalut.radio.feature.radio.Media3RadioPlaybackGateway
 import com.tamalut.radio.feature.radio.RadioFeatureController
+import com.tamalut.radio.feature.radio.RadioManagementSettings
 import com.tamalut.radio.feature.radio.RadioRoute
 import com.tamalut.radio.feature.radio.RadioViewModel
 import com.tamalut.radio.feature.radio.RadioViewModelFactory
@@ -93,6 +95,7 @@ class MainActivity : ComponentActivity() {
 
     private val database by lazy {
         Room.databaseBuilder(applicationContext, TamalutDatabase::class.java, "tamalut-radio.db")
+            .addMigrations(MIGRATION_1_2)
             .setDriver(AndroidSQLiteDriver())
             .build()
     }
@@ -192,6 +195,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize().padding(contentPadding),
                         )
                         MainDestination.SETTINGS -> SettingsDestination(
+                            radioViewModel = radioViewModel,
                             sleepTimerState = sleepTimerState,
                             onSleepTimerPresetSelected = sleepTimerController::setPreset,
                             onCustomSleepTimerRequested = { showCustomSleepTimerDialog = true },
@@ -254,6 +258,7 @@ internal fun destinationForLaunchAction(action: String?): MainDestination? =
 
 @Composable
 private fun SettingsDestination(
+    radioViewModel: RadioViewModel,
     sleepTimerState: SleepTimerState,
     onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
     onCustomSleepTimerRequested: () -> Unit,
@@ -281,6 +286,8 @@ private fun SettingsDestination(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            RadioManagementSettings(viewModel = radioViewModel)
 
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

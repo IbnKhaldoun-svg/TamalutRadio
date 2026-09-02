@@ -13,8 +13,13 @@ interface RadioDataSource {
     suspend fun favoriteIds(): Set<StationId>
     suspend fun setFavorite(stationId: StationId, favorite: Boolean)
     suspend fun customStationIds(): Set<StationId> = emptySet()
+    suspend fun customStationCategories(): Map<StationId, String> =
+        customStationIds().associateWith { RadioCategoryRules.LEGACY_CATEGORY }
     suspend fun saveCustomStation(station: RadioStation) {
         throw UnsupportedOperationException("Custom radio persistence is not available")
+    }
+    suspend fun saveCustomStation(station: RadioStation, category: String) {
+        saveCustomStation(station)
     }
     suspend fun removeCustomStation(stationId: StationId): Boolean = false
 }
@@ -43,8 +48,11 @@ class CoreRadioDataSource(
     override suspend fun customStationIds(): Set<StationId> =
         stationRepository.getCustomStationIds()
 
-    override suspend fun saveCustomStation(station: RadioStation) =
-        stationRepository.saveCustomStation(station)
+    override suspend fun customStationCategories(): Map<StationId, String> =
+        stationRepository.getCustomStationCategories()
+
+    override suspend fun saveCustomStation(station: RadioStation, category: String) =
+        stationRepository.saveCustomStation(station, category)
 
     override suspend fun removeCustomStation(stationId: StationId): Boolean =
         stationRepository.removeCustomStation(stationId)
@@ -54,6 +62,7 @@ data class RadioSnapshot(
     val stations: List<RadioStation>,
     val favoriteIds: Set<StationId>,
     val customStationIds: Set<StationId> = emptySet(),
+    val customStationCategories: Map<StationId, String> = emptyMap(),
 )
 
 class RadioFeatureController(
@@ -77,6 +86,7 @@ class RadioFeatureController(
         stationId: StationId?,
         name: String,
         streamUrl: String,
+        category: String,
     ): RadioSnapshot {
         val normalizedName = name.trim()
         require(normalizedName.isNotEmpty()) { "Inserisci un nome per la radio" }
@@ -89,6 +99,10 @@ class RadioFeatureController(
             }
         }
 
+        val normalizedCategory = RadioCategoryRules.normalize(
+            category = category,
+            existingCategories = before.customStationCategories.values,
+        )
         val duplicate = before.stations.any { station ->
             station.id != stationId && comparableStreamUrl(station.primaryStream.url) == normalizedUrl
         }
@@ -103,6 +117,7 @@ class RadioFeatureController(
                 name = normalizedName,
                 primaryStream = StreamEndpoint(normalizedUrl),
             ),
+            normalizedCategory,
         )
         return snapshot()
     }
@@ -118,11 +133,24 @@ class RadioFeatureController(
         return snapshot()
     }
 
-    private suspend fun snapshot(): RadioSnapshot = RadioSnapshot(
-        stations = dataSource.stations(),
-        favoriteIds = dataSource.favoriteIds(),
-        customStationIds = dataSource.customStationIds(),
-    )
+    private suspend fun snapshot(): RadioSnapshot {
+        val customStationIds = dataSource.customStationIds()
+        val categories = dataSource.customStationCategories()
+        val effectiveCategories = buildMap {
+            customStationIds.forEach { stationId ->
+                put(stationId, categories[stationId]?.trim().orEmpty().ifBlank { RadioCategoryRules.LEGACY_CATEGORY })
+            }
+            categories.forEach { (stationId, category) ->
+                put(stationId, category.trim().ifBlank { RadioCategoryRules.LEGACY_CATEGORY })
+            }
+        }
+        return RadioSnapshot(
+            stations = dataSource.stations(),
+            favoriteIds = dataSource.favoriteIds(),
+            customStationIds = customStationIds + effectiveCategories.keys,
+            customStationCategories = effectiveCategories,
+        )
+    }
 
     private fun newCustomStationId(existingIds: Set<StationId>): StationId {
         repeat(MAX_CUSTOM_ID_ATTEMPTS) {

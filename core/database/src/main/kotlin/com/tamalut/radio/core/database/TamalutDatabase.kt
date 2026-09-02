@@ -10,7 +10,7 @@ import androidx.room3.RoomDatabase
         FavoriteStationEntity::class,
         RecentlyPlayedEntity::class,
     ],
-    version = 1,
+    version = TAMALUT_DATABASE_VERSION,
     exportSchema = true,
 )
 abstract class TamalutDatabase : RoomDatabase() {

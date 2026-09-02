@@ -19,7 +19,7 @@ import org.junit.Test
 
 class CustomRadioRepositoryTest {
     @Test
-    fun customSaveUpdateDeleteAndOrderingPreserveBuiltInCatalog() = runSuspendCustom {
+    fun customSaveUpdateDeleteCategoryProjectionAndOrderingPreserveBuiltInCatalog() = runSuspendCustom {
         val stationDao = CustomRadioStationDao()
         val repository = RadioStationRepository(stationDao, CustomFavoriteStationDao())
         repository.seedInitialCatalog()
@@ -32,6 +32,7 @@ class CustomRadioRepositoryTest {
                     name = "User replacement",
                     primaryStream = StreamEndpoint("https://example.com/replacement"),
                 ),
+                "Italia",
             )
         }
         assertTrue(overwriteError is IllegalArgumentException)
@@ -39,11 +40,15 @@ class CustomRadioRepositoryTest {
 
         val zulu = customStation("custom-zulu", "Zulu", "https://example.com/zulu")
         val alpha = customStation("custom-alpha", "Alpha", "https://example.com/alpha")
-        repository.saveCustomStation(zulu)
-        repository.saveCustomStation(alpha)
-        repository.saveCustomStation(alpha.copy(name = "Alpha Updated"))
+        repository.saveCustomStation(zulu, "Sport")
+        repository.saveCustomStation(alpha, "Jazz")
+        repository.saveCustomStation(alpha.copy(name = "Alpha Updated"), "Italia")
 
         assertEquals(setOf(alpha.id, zulu.id), repository.getCustomStationIds())
+        assertEquals(
+            mapOf(alpha.id to "Italia", zulu.id to "Sport"),
+            repository.getCustomStationCategories(),
+        )
         val ordered = repository.getStations(favoritesFirst = false)
         assertEquals(
             InitialRadioCatalog.stations.map { it.id },
@@ -55,7 +60,27 @@ class CustomRadioRepositoryTest {
         assertFalse(repository.removeCustomStation(builtIn.id))
         assertTrue(repository.removeCustomStation(alpha.id))
         assertEquals(setOf(zulu.id), repository.getCustomStationIds())
+        assertEquals(mapOf(zulu.id to "Sport"), repository.getCustomStationCategories())
         assertEquals(54, repository.getStations(favoritesFirst = false).count { it.id in InitialRadioCatalog.stations.map { station -> station.id }.toSet() })
+    }
+
+    @Test
+    fun missingLegacyCustomCategoryProjectsAsAltroWithoutDataLoss() = runSuspendCustom {
+        val stationDao = CustomRadioStationDao()
+        val repository = RadioStationRepository(stationDao, CustomFavoriteStationDao())
+        val legacy = customStation("custom-legacy", "Legacy", "https://example.com/legacy")
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = legacy.id.value,
+                name = legacy.name,
+                primaryStreamUrl = legacy.primaryStream.url,
+                isCustom = true,
+                customCategory = null,
+            ),
+        )
+
+        assertEquals(mapOf(legacy.id to "Altro"), repository.getCustomStationCategories())
+        assertEquals(legacy, repository.getStation(legacy.id))
     }
 
     private fun customStation(id: String, name: String, url: String) = RadioStation(

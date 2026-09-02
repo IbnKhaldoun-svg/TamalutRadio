@@ -1,6 +1,7 @@
 package com.tamalut.radio.core.data
 
 import com.tamalut.radio.core.database.FavoriteStationDao
+import com.tamalut.radio.core.database.LEGACY_CUSTOM_RADIO_CATEGORY
 import com.tamalut.radio.core.database.RadioStationDao
 import com.tamalut.radio.core.database.RadioStationPersistenceRecord
 import com.tamalut.radio.core.database.RadioStationWithFallbacks
@@ -47,12 +48,24 @@ class RadioStationRepository(
         stationDao.getStationsByCustomState(isCustom = true)
             .mapTo(linkedSetOf()) { record -> StationId(record.station.stationId) }
 
-    suspend fun saveCustomStation(station: RadioStation) {
+    suspend fun getCustomStationCategories(): Map<StationId, String> =
+        stationDao.getStationsByCustomState(isCustom = true)
+            .associateTo(linkedMapOf()) { record ->
+                StationId(record.station.stationId) to
+                    record.station.customCategory?.trim().orEmpty().ifBlank { LEGACY_CUSTOM_RADIO_CATEGORY }
+            }
+
+    suspend fun saveCustomStation(
+        station: RadioStation,
+        category: String = LEGACY_CUSTOM_RADIO_CATEGORY,
+    ) {
+        val normalizedCategory = category.trim()
+        require(normalizedCategory.isNotEmpty()) { "Custom radio category must not be blank" }
         val stored = stationDao.getStation(station.id.value)
         require(stored == null || stored.station.isCustom) {
             "Built-in radio stations cannot be replaced by custom stations"
         }
-        persist(station.toPersistenceRecord(isCustom = true))
+        persist(station.toPersistenceRecord(isCustom = true, customCategory = normalizedCategory))
     }
 
     suspend fun removeCustomStation(stationId: StationId): Boolean {

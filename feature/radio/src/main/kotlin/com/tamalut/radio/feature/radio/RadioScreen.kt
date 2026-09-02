@@ -21,17 +21,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,15 +74,6 @@ fun RadioRoute(
         onSearchQueryChange = viewModel::updateSearchQuery,
         onSearchClear = viewModel::clearSearch,
         onSearchClose = viewModel::closeSearch,
-        onAddCustomStation = viewModel::openAddCustomStation,
-        onEditCustomStation = viewModel::openEditCustomStation,
-        onDeleteCustomStation = viewModel::requestDeleteCustomStation,
-        onCustomNameChange = viewModel::updateCustomStationName,
-        onCustomUrlChange = viewModel::updateCustomStationUrl,
-        onCustomSave = viewModel::submitCustomStation,
-        onCustomEditorDismiss = viewModel::dismissCustomStationEditor,
-        onCustomDeleteConfirm = viewModel::confirmDeleteCustomStation,
-        onCustomDeleteDismiss = viewModel::dismissDeleteCustomStation,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
@@ -105,15 +91,6 @@ fun RadioScreen(
     onSearchClear: () -> Unit,
     onSearchClose: () -> Unit,
     onRetry: () -> Unit,
-    onAddCustomStation: () -> Unit = {},
-    onEditCustomStation: (RadioStation) -> Unit = {},
-    onDeleteCustomStation: (RadioStation) -> Unit = {},
-    onCustomNameChange: (String) -> Unit = {},
-    onCustomUrlChange: (String) -> Unit = {},
-    onCustomSave: () -> Unit = {},
-    onCustomEditorDismiss: () -> Unit = {},
-    onCustomDeleteConfirm: () -> Unit = {},
-    onCustomDeleteDismiss: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
@@ -129,7 +106,6 @@ fun RadioScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             RadioHeader(
                 isSearchOpen = state.isSearchOpen,
-                onAddCustomStation = onAddCustomStation,
                 onSearchOpen = onSearchOpen,
                 onSearchClose = onSearchClose,
             )
@@ -153,6 +129,7 @@ fun RadioScreen(
 
             if (state.selectedSection == RadioSection.ALL) {
                 RadioFilterSelector(
+                    filters = state.availableFilters,
                     selectedFilter = state.selectedFilter,
                     onFilterSelected = onFilterSelected,
                 )
@@ -191,9 +168,6 @@ fun RadioScreen(
                 )
                 state.selectedSection == RadioSection.FAVORITES && state.queueStations.isEmpty() ->
                     EmptyFavoritesState()
-                state.selectedSection == RadioSection.ALL &&
-                    state.selectedFilter == RadioStationFilter.PERSONAL &&
-                    state.queueStations.isEmpty() -> EmptyCustomStationsState(onAddCustomStation)
                 state.searchQuery.trim().isNotEmpty() && state.visibleStations.isEmpty() ->
                     EmptySearchState(
                         query = state.searchQuery.trim(),
@@ -207,36 +181,17 @@ fun RadioScreen(
                     autoScrollEnabled = state.searchQuery.isBlank(),
                     onToggleFavorite = onToggleFavorite,
                     onStationSelected = onStationSelected,
-                    onEditCustomStation = onEditCustomStation,
-                    onDeleteCustomStation = onDeleteCustomStation,
                     transientError = state.errorMessage,
                 )
             }
         }
     }
 
-    state.customRadioEditor?.let { editor ->
-        CustomRadioEditorDialog(
-            editor = editor,
-            onNameChange = onCustomNameChange,
-            onUrlChange = onCustomUrlChange,
-            onSave = onCustomSave,
-            onDismiss = onCustomEditorDismiss,
-        )
-    }
-
-    state.pendingCustomDelete?.let { station ->
-        DeleteCustomRadioDialog(
-            station = station,
-            isDeleting = state.isDeletingCustomStation,
-            onConfirm = onCustomDeleteConfirm,
-            onDismiss = onCustomDeleteDismiss,
-        )
-    }
 }
 
 @Composable
 private fun RadioFilterSelector(
+    filters: List<RadioStationFilter>,
     selectedFilter: RadioStationFilter,
     onFilterSelected: (RadioStationFilter) -> Unit,
 ) {
@@ -247,7 +202,7 @@ private fun RadioFilterSelector(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        RadioStationFilter.entries.forEach { filter ->
+        filters.forEach { filter ->
             FilterChip(
                 selected = selectedFilter == filter,
                 onClick = { onFilterSelected(filter) },
@@ -260,7 +215,6 @@ private fun RadioFilterSelector(
 @Composable
 private fun RadioHeader(
     isSearchOpen: Boolean,
-    onAddCustomStation: () -> Unit,
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
 ) {
@@ -284,12 +238,6 @@ private fun RadioHeader(
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.SemiBold,
             )
-            IconButton(onClick = onAddCustomStation) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Aggiungi radio personale",
-                )
-            }
             IconButton(onClick = if (isSearchOpen) onSearchClose else onSearchOpen) {
                 Icon(
                     imageVector = if (isSearchOpen) Icons.Filled.Close else Icons.Filled.Search,
@@ -298,7 +246,7 @@ private fun RadioHeader(
             }
         }
         Text(
-            text = "Marocco · Italia · Sport · UK · Personali",
+            text = "Marocco · Italia · Sport · UK · categorie personalizzate",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -436,42 +384,6 @@ private fun EmptyFavoritesState() {
 }
 
 @Composable
-private fun EmptyCustomStationsState(onAddCustomStation: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-        ) {
-            Icon(
-                modifier = Modifier.padding(16.dp),
-                imageVector = Icons.Filled.Radio,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Text(
-            modifier = Modifier.padding(top = 16.dp),
-            text = "Nessuna radio personale",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            modifier = Modifier.padding(top = 6.dp),
-            text = "Aggiungi una radio inserendo il suo nome e una URL stream HTTPS.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TextButton(onClick = onAddCustomStation) { Text("Aggiungi radio") }
-    }
-}
-
-@Composable
 private fun EmptySearchState(query: String, onClear: () -> Unit) {
     Column(
         modifier = Modifier
@@ -514,8 +426,6 @@ private fun RadioList(
     autoScrollEnabled: Boolean,
     onToggleFavorite: (RadioStation) -> Unit,
     onStationSelected: (RadioStation) -> Unit,
-    onEditCustomStation: (RadioStation) -> Unit,
-    onDeleteCustomStation: (RadioStation) -> Unit,
     transientError: String?,
 ) {
     val listState = rememberLazyListState()
@@ -559,8 +469,6 @@ private fun RadioList(
                 isCustom = station.id.value in customStationIds,
                 isPlaying = station.id.value == playingStationId,
                 onToggleFavorite = { onToggleFavorite(station) },
-                onEdit = { onEditCustomStation(station) },
-                onDelete = { onDeleteCustomStation(station) },
                 onClick = { onStationSelected(station) },
             )
         }
@@ -574,8 +482,6 @@ private fun RadioStationCard(
     isCustom: Boolean,
     isPlaying: Boolean,
     onToggleFavorite: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
     onClick: () -> Unit,
 ) {
     val borderColor = if (isPlaying) {
@@ -683,170 +589,8 @@ private fun RadioStationCard(
                 )
             }
 
-            if (isCustom) {
-                CustomStationMenu(
-                    stationName = station.name,
-                    onEdit = onEdit,
-                    onDelete = onDelete,
-                )
-            }
         }
     }
-}
-
-@Composable
-private fun CustomStationMenu(
-    stationName: String,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(
-                imageVector = Icons.Filled.MoreVert,
-                contentDescription = "Gestisci $stationName",
-            )
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text("Modifica") },
-                onClick = {
-                    expanded = false
-                    onEdit()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Elimina") },
-                onClick = {
-                    expanded = false
-                    onDelete()
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun CustomRadioEditorDialog(
-    editor: CustomRadioEditorState,
-    onNameChange: (String) -> Unit,
-    onUrlChange: (String) -> Unit,
-    onSave: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = { if (!editor.isSaving) onDismiss() },
-        title = {
-            Text(
-                if (editor.mode == CustomRadioEditorMode.ADD) {
-                    "Aggiungi radio personale"
-                } else {
-                    "Modifica radio personale"
-                },
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = editor.name,
-                    onValueChange = onNameChange,
-                    enabled = !editor.isSaving,
-                    singleLine = true,
-                    label = { Text("Nome radio") },
-                )
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = editor.streamUrl,
-                    onValueChange = onUrlChange,
-                    enabled = !editor.isSaving,
-                    singleLine = true,
-                    label = { Text("URL stream HTTPS") },
-                )
-                Text(
-                    text = "Solo HTTPS. Prima del salvataggio verifichiamo connessione, redirect e sicurezza HLS.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                editor.errorMessage?.let { message ->
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !editor.isSaving,
-                onClick = onSave,
-            ) {
-                if (editor.isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text("Verifica e salva")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                enabled = !editor.isSaving,
-                onClick = onDismiss,
-            ) {
-                Text("Annulla")
-            }
-        },
-    )
-}
-
-@Composable
-private fun DeleteCustomRadioDialog(
-    station: RadioStation,
-    isDeleting: Boolean,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = { if (!isDeleting) onDismiss() },
-        title = { Text("Eliminare ${station.name}?") },
-        text = {
-            Text(
-                "La radio personale verrà rimossa dalla libreria e dai Preferiti. " +
-                    "La riproduzione già attiva non viene forzatamente interrotta.",
-            )
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !isDeleting,
-                onClick = onConfirm,
-            ) {
-                if (isDeleting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Text("Elimina")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                enabled = !isDeleting,
-                onClick = onDismiss,
-            ) {
-                Text("Annulla")
-            }
-        },
-    )
 }
 
 @Composable
