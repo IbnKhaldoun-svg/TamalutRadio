@@ -57,6 +57,9 @@ object InitialRadioCatalog {
         station("classic-fm", "Classic FM", "https://media-ssl.musicradio.com/ClassicFMMP3"),
         station("radio-sportiva", "Radio Sportiva", "https://sportiva.inmystream.it/stream/sportiva"),
         station("rete-sport", "Rete Sport", "https://icecast.ithost.it/retesport.ogg"),
+        station("on-sport-fm", "ON Sport FM", "https://carina.streamerr.co:2020/stream/OnSportFM"),
+        station("talksport", "talkSPORT", "https://radio.talksport.com/stream"),
+        station("radio-mana-mana-sport-roma", "Radio Manà Manà Sport Roma", "https://stream10.xdevel.com/audio2s975363-2142/stream/icecast.audio"),
     )
 
     private fun station(id: String, name: String, streamUrl: String): RadioStation = RadioStation(

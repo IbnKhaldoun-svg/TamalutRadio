@@ -19,14 +19,14 @@ class RadioStationGroupingTest {
         val sport = RadioStationFiltering.apply(stations, RadioStationFilter.SPORT)
         val uk = RadioStationFiltering.apply(stations, RadioStationFilter.UK)
 
-        assertEquals(51, stations.size)
+        assertEquals(54, stations.size)
         assertEquals(MOROCCO_IDS, morocco.map { it.id.value })
         assertEquals(ITALY_IDS, italy.map { it.id.value })
         assertEquals(SPORT_IDS, sport.map { it.id.value })
         assertEquals(UK_IDS, uk.map { it.id.value })
         assertEquals(21, morocco.size)
         assertEquals(22, italy.size)
-        assertEquals(2, sport.size)
+        assertEquals(5, sport.size)
         assertEquals(6, uk.size)
         assertTrue(morocco.any { it.id.value == "radio-mars" })
         assertTrue(morocco.any { it.id.value == "radio-monte-carlo-doualiya" })
@@ -69,6 +69,6 @@ class RadioStationGroupingTest {
             "radiofreccia", "rai-isoradio", "rai-radio-3-classica", "radio-radicale", "radio-cuore",
         )
         val UK_IDS = listOf("bbc-radio-1", "bbc-radio-2", "bbc-radio-4", "capital-fm-london", "heart-uk", "classic-fm")
-        val SPORT_IDS = listOf("radio-sportiva", "rete-sport")
+        val SPORT_IDS = listOf("radio-sportiva", "rete-sport", "on-sport-fm", "talksport", "radio-mana-mana-sport-roma")
     }
 }

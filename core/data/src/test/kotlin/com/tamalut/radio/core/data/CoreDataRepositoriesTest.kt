@@ -35,12 +35,12 @@ class CoreDataRepositoriesTest {
         repository.seedInitialCatalog()
         repository.seedInitialCatalog()
 
-        assertEquals(51, stationDao.getAllStations().size)
-        assertEquals(51, stationDao.stationUpsertCount)
+        assertEquals(54, stationDao.getAllStations().size)
+        assertEquals(54, stationDao.stationUpsertCount)
         assertEquals(BUILT_IN_IDS, InitialRadioCatalog.stations.map { it.id.value })
         assertEquals(BUILT_IN_IDS, repository.getStations(favoritesFirst = false).map { it.id.value })
-        assertEquals(51, InitialRadioCatalog.stations.map { it.id.value }.toSet().size)
-        assertEquals(51, InitialRadioCatalog.stations.map { it.primaryStream.url }.toSet().size)
+        assertEquals(54, InitialRadioCatalog.stations.map { it.id.value }.toSet().size)
+        assertEquals(54, InitialRadioCatalog.stations.map { it.primaryStream.url }.toSet().size)
         assertEquals(1, InitialRadioCatalog.stations.count { it.id.value == "radio-italia-smi" })
         assertFalse(stationDao.getAllStations().any { it.station.name.contains("Tachlit", ignoreCase = true) })
     }
@@ -98,7 +98,7 @@ class CoreDataRepositoriesTest {
             ),
             repaired?.playbackStreams?.map { it.url },
         )
-        assertEquals(51, stationDao.getAllStations().size)
+        assertEquals(54, stationDao.getAllStations().size)
 
         repository.seedInitialCatalog()
         assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
@@ -139,7 +139,7 @@ class CoreDataRepositoriesTest {
             ),
             repaired?.playbackStreams?.map { it.url },
         )
-        assertEquals(51, stationDao.getAllStations().size)
+        assertEquals(54, stationDao.getAllStations().size)
 
         repository.seedInitialCatalog()
         assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
@@ -187,7 +187,7 @@ class CoreDataRepositoriesTest {
 
         repository.seedInitialCatalog()
         assertNull(repository.getStation(StationId("radio-maria")))
-        assertEquals(51, stationDao.getAllStations().size)
+        assertEquals(54, stationDao.getAllStations().size)
         val upsertsAfterFirstSeed = stationDao.stationUpsertCount
 
         repository.seedInitialCatalog()
@@ -266,7 +266,7 @@ class CoreDataRepositoriesTest {
             "https://example.invalid/r2-fallback.aac",
             repository.getStation(StationId("bbc-radio-2"))?.fallbackStreams?.single()?.url,
         )
-        assertEquals(51, stationDao.getAllStations().size)
+        assertEquals(54, stationDao.getAllStations().size)
 
         repository.seedInitialCatalog()
         assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
@@ -343,7 +343,7 @@ class CoreDataRepositoriesTest {
             "https://example.invalid/my-zeta.aac",
             repository.getStation(StationId("radio-zeta"))?.primaryStream?.url,
         )
-        assertEquals(51, stationDao.getAllStations().size)
+        assertEquals(54, stationDao.getAllStations().size)
     }
 
     @Test
@@ -359,11 +359,11 @@ class CoreDataRepositoriesTest {
 
         assertEquals(
             BUILT_IN_IDS,
-            ordered.take(51).map { it.id.value },
+            ordered.take(54).map { it.id.value },
         )
         assertEquals(
             listOf("custom-a1", "custom-a2", "custom-z"),
-            ordered.drop(51).map { it.id.value },
+            ordered.drop(54).map { it.id.value },
         )
     }
 
@@ -479,6 +479,9 @@ class CoreDataRepositoriesTest {
             "classic-fm",
             "radio-sportiva",
             "rete-sport",
+            "on-sport-fm",
+            "talksport",
+            "radio-mana-mana-sport-roma",
         )
     }
 }

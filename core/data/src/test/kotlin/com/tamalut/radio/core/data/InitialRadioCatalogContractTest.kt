@@ -6,15 +6,15 @@ import org.junit.Test
 
 class InitialRadioCatalogContractTest {
     @Test
-    fun catalogHasExactlyFiftyOneUniqueStationsInApprovedOrder() {
+    fun catalogHasExactlyFiftyFourUniqueStationsInApprovedOrder() {
         val stations = InitialRadioCatalog.stations
         val ids = stations.map { it.id.value }
         val primaryUrls = stations.map { it.primaryStream.url }
 
         assertEquals(EXPECTED_IDS, ids)
-        assertEquals(51, stations.size)
-        assertEquals(51, ids.distinct().size)
-        assertEquals(51, primaryUrls.distinct().size)
+        assertEquals(54, stations.size)
+        assertEquals(54, ids.distinct().size)
+        assertEquals(54, primaryUrls.distinct().size)
         assertTrue(stations.none { it.name.contains("Radio Plus Agadir", ignoreCase = true) })
         assertEquals("Radio Atbir", stations.first { it.id.value == "radio-plus-agadir" }.name)
         assertEquals(1, stations.count { it.id.value == "radio-italia-smi" })
@@ -83,6 +83,9 @@ class InitialRadioCatalogContractTest {
             "classic-fm",
             "radio-sportiva",
             "rete-sport",
+            "on-sport-fm",
+            "talksport",
+            "radio-mana-mana-sport-roma",
         )
     }
 }

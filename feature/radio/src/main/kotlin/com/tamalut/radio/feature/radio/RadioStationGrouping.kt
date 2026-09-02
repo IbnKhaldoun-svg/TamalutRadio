@@ -61,6 +61,9 @@ object RadioStationFiltering {
     private val sportStationIds = setOf(
         "radio-sportiva",
         "rete-sport",
+        "on-sport-fm",
+        "talksport",
+        "radio-mana-mana-sport-roma",
     )
     private val ukStationIds = setOf(
         "bbc-radio-1",
