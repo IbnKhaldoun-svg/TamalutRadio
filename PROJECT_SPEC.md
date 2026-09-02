@@ -1397,3 +1397,18 @@ Physical re-test gate (remains **PENDING/FAILED** until explicit device confirma
 - Previous/Next must still traverse the exact selected category snapshot, including UK, with wrap-around and no queue collapse after a failed/retried endpoint.
 - A genuinely unavailable station/network failure must produce a visible error instead of an indefinitely inert `Connessione…` state.
 - LOCAL music, notification, mini-player, Now Playing, floating overlay and Sleep Timer remain regression checks.
+
+
+### Validation record — radio runtime playback compatibility recovery
+
+- [x] Spec-before commit: `4db6e393769fc52df281be94e93b2d12454ca7f6` (`docs: define radio playback compatibility recovery`).
+- [x] Exact product commit: `212d5c1aecd3de6c38543c9b8393264c45c4578c` (`fix: restore radio playback compatibility`), direct child of the spec-before commit and the only product commit in the objective.
+- [x] Runtime compatibility fix: `androidx.media3:media3-exoplayer-hls:1.11.0` added alongside Media3 1.11.0; known HLS streams are classified deterministically, including explicit HLS MIME for Chada FM whose URI does not end in `.m3u8`.
+- [x] Aswat FM now uses the separately verified direct HTTPS stream `https://aswat.ice.infomaniak.ch/aswat-high.mp3`; the repository repairs only the exact legacy built-in Aswat row so existing installs migrate without global cleartext traffic or overwriting custom rows.
+- [x] Terminal asynchronous playback failures are propagated from the playback service only after station-local fallback exhaustion and projected through shared playback state to the Radio UI; a new playback attempt or READY state clears stale errors. No second player/session is introduced and the active radio queue is not mutated by error reporting.
+- [x] GitHub Actions validation run `33551020947`, job `100000189350`, checked out the exact product commit and passed isolated-parent/file-list checks, structural HLS/Chada/Aswat/error checks, Java 17/signing setup, and Android 37 SDK setup.
+- [x] Kotlin preflight passed `:core:data:compileDebugKotlin`, `:core:playback:compileDebugKotlin`, and `:feature:radio:compileDebugKotlin` (`BUILD SUCCESSFUL in 1m 41s`).
+- [x] Full relevant unit-test suite passed: `:core:data:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, and `:app:testDebugUnitTest` (`BUILD SUCCESSFUL in 49s`; 152 actionable tasks: 85 executed, 26 from cache, 41 up-to-date).
+- [x] `:app:assembleDebug` passed (`BUILD SUCCESSFUL in 1m 48s`; 165 actionable tasks: 46 executed, 119 up-to-date). Validation APK: `23,696,756` bytes; SHA-256 `725355a083ab40f097cefd2c5fe4b519a99409dcfa3717f29277bc1e031aebfe`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
+- [x] The validation workflow deleted its temporary validation branch after all gates passed. The exact validated product commit was then fast-forward promoted to `main`; no fixup or merge commit changed the product snapshot.
+- [ ] **Physical radio playback recovery gate:** remains PENDING until explicit real-device confirmation on the published recovery APK. Required targeted checks: Medi1 Radio and Chada FM; RTL 102.5 plus Deejay/RDS/Capital/m2o coverage; BBC Radio 1 plus BBC Radio 2/4 coverage; representative direct MP3/AAC streams; Previous/Next snapshot/wrap behavior; visible error on genuine terminal failure; and LOCAL music/notification/mini-player/Now Playing/floating overlay/Sleep Timer regressions.
