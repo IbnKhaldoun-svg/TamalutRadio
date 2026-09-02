@@ -1740,14 +1740,14 @@ Validation record — user-managed custom radio stations:
 - [x] Validation APK: **23,778,676 bytes**; SHA-256 `14e8a16bf5caaee86461a5ff1c2f165fe4ad83d8ec52da546b9ac26b24fdcb9d`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - [x] The same successful validation job promoted exactly `cdeca8294a6cc50ab8ca99380295d5d5263ecd24` from the spec-before to `main`, then removed the temporary product and validation branches.
 - [x] Permanent Release evidence: VERIFIED below for exact runtime `cdeca8294a6cc50ab8ca99380295d5d5263ecd24`.
-- [ ] Physical custom-radio gate: PENDING on the permanent prerelease.
+- [x] Physical custom-radio gate: SUPERSEDED by the later Settings/category revision and its completed physical gate; the obsolete `cdeca829…` UI is not a separate remaining gate.
 
 Permanent Release record — user-managed custom radio stations:
 - [x] Permanent publisher run `33634279546`, job `100261104037`, started from docs-only workflow source `bbe81a6b8d7b33c2d860891dacba562ce2ecd741` but resolved explicit input `ref=cdeca8294a6cc50ab8ca99380295d5d5263ecd24`, detached `HEAD` to that exact runtime, and logged `Building exact commit: cdeca8294a6cc50ab8ca99380295d5d5263ecd24`.
 - [x] `:app:assembleDebug` passed with `BUILD SUCCESSFUL in 3m 39s` (165 actionable tasks: 131 executed, 34 from cache). Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - [x] GitHub prerelease `debug-20260902-131555-cdeca82` targets exactly `cdeca8294a6cc50ab8ca99380295d5d5263ecd24`. Asset `TamalutRadio-debug-cdeca82.apk` is `uploaded`, **23,778,676 bytes**, digest `sha256:14e8a16bf5caaee86461a5ff1c2f165fe4ad83d8ec52da546b9ac26b24fdcb9d`, exactly matching the prior validation APK SHA-256.
 - [x] Release URL: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260902-131555-cdeca82`. Direct APK: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260902-131555-cdeca82/TamalutRadio-debug-cdeca82.apk`.
-- [x] Temporary product, validation, spec-after and release-record helper branches are removed at automated closure. Physical custom-radio add/edit/delete/playback verification remains a separate pending device gate.
+- [x] Temporary product, validation, spec-after and release-record helper branches are removed at automated closure. This older physical gate was superseded by the later Settings/category revision and is not independently pending.
 
 
 ### Custom radio settings + assignable categories revision — contract
@@ -1780,14 +1780,24 @@ Validation record — custom radio settings + assignable categories revision:
 - [x] Validation APK: **23,795,060 bytes**; SHA-256 `dadaf967fc49fc40197e5e1cc170f1a0b336dc68a08366485a94e58deee9c1fb`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` (`CN=Android Debug, O=TamalutRadio, C=IT`).
 - [x] The same successful validation job promoted exactly `9176ced98b886c61464b1ffc4859ca8a7483dac6` to `main` only after all gates passed and removed product/validation helper branches; repository branch cleanup left only `main`.
 - [x] Permanent Release evidence: VERIFIED for exact runtime `9176ced98b886c61464b1ffc4859ca8a7483dac6`; see permanent release record below.
-- [ ] Physical custom-radio settings/category gate: PENDING on the permanent prerelease.
+- [x] Physical custom-radio settings/category gate: PASS on permanent prerelease `debug-20260902-144400-9176ced` for exact runtime `9176ced98b886c61464b1ffc4859ca8a7483dac6` (physical user report, 2026-09-02).
+
+Physical closure record — custom radio settings + assignable categories revision:
+- [x] Radio surface: no add button, no per-card edit/delete management and no fixed `Personali`; Radio remains listening/filter/search/favorites only.
+- [x] Settings ownership: `Gestione radio` exposes direct Add plus transient custom-only Edit selection and no persistent custom-radio list.
+- [x] Add/category behavior: standard-category custom stations appear after canonical built-ins; `+ Nuova categoria…` creates a dynamic Radio filter containing the saved station.
+- [x] Edit behavior: custom-only picker opens the prefilled editor; name/category changes persist, category moves are reflected in future lists, and favorite linkage remains intact.
+- [x] Delete behavior: deletion requires explicit confirmation; deleted rows disappear from subsequent lists/queues and an empty user-defined category filter disappears.
+- [x] Queue/search behavior: Previous/Next and wrap use the explicitly started category snapshot; merely switching visible category does not rewrite the active Media3 queue; search remains display-only and starting a search result retains the full pre-search category context.
+- [x] Playback regressions: custom-station playback, background continuation, media notification, floating overlay, play/pause and Previous/Next all passed with no double audio or stale-title regression reported.
+- [x] Migration note: the v1→v2 legacy-row case was included in the requested physical checklist. The user reported the complete requested gate PASS; because presence of an actual pre-existing v1 custom row was not separately stated, no sampled legacy row is claimed here. Automated migration coverage for legacy custom→`Altro` remains PASS.
 
 Permanent Release record — custom radio settings + assignable categories revision:
 - [x] Permanent publisher run `33643555539`, job `100292482083`, used workflow source from docs-only `main` `6e2b3abb0715e2216b836e310b49f6ff615eeeee` but explicit input `ref=9176ced98b886c61464b1ffc4859ca8a7483dac6`; the job detached `HEAD` to that exact runtime and logged `Building exact commit: 9176ced98b886c61464b1ffc4859ca8a7483dac6`.
 - [x] `:app:assembleDebug` passed with `BUILD SUCCESSFUL in 3m 3s` (165 actionable tasks: 131 executed, 34 from cache). Persistent debug signer remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` (`CN=Android Debug, O=TamalutRadio, C=IT`).
 - [x] GitHub prerelease `debug-20260902-144400-9176ced` targets exactly `9176ced98b886c61464b1ffc4859ca8a7483dac6`. Asset `TamalutRadio-debug-9176ced.apk` is uploaded, **23,795,060 bytes**, digest `sha256:dadaf967fc49fc40197e5e1cc170f1a0b336dc68a08366485a94e58deee9c1fb`, exactly matching the prior detached validation APK.
 - [x] Release URL: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260902-144400-9176ced`. Direct APK: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260902-144400-9176ced/TamalutRadio-debug-9176ced.apk`.
-- [x] Automated/distribution closure is complete. The remaining gate is physical device verification of Settings-only add/edit/delete, standard/custom category assignment, dynamic filters, v1→v2 retained custom station behavior where applicable, queue/search/favorites behavior, and playback regressions.
+- [x] Automated/distribution closure and the physical custom-radio settings/category gate are complete for exact runtime `9176ced98b886c61464b1ffc4859ca8a7483dac6`; roadmap item 2 (Radio personalizzate) is closed.
 
 Sport regression note on the superseded custom-radio runtime:
 - [x] User physically rechecked ON Sport FM, talkSPORT and Radio Manà Manà Sport Roma on `debug-20260902-131555-cdeca82`; real audio, five-station Sport order/wrap, background playback, notification, overlay and absence of `Personali` side effects on Sport all passed. This confirms Sport remained regression-safe before the present custom-radio UX revision.
