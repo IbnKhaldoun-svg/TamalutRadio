@@ -16,6 +16,8 @@ class RadioStationRepository(
     suspend fun seedInitialCatalog() {
         repairLegacyAtbirLabel()
         repairLegacyAswatStream()
+        retireLegacyRadioMaria()
+        repairLegacyBbcStreams()
         InitialRadioCatalog.stations.forEach { station ->
             if (stationDao.getStation(station.id.value) == null) {
                 persist(station.toPersistenceRecord(isCustom = false))
@@ -75,6 +77,35 @@ class RadioStationRepository(
         }
     }
 
+    private suspend fun retireLegacyRadioMaria() {
+        val stored = stationDao.getStation(LEGACY_RADIO_MARIA_ID) ?: return
+        val entity = stored.station
+        if (
+            !entity.isCustom &&
+            entity.name == LEGACY_RADIO_MARIA_NAME &&
+            entity.primaryStreamUrl == LEGACY_RADIO_MARIA_STREAM
+        ) {
+            stationDao.deleteStation(LEGACY_RADIO_MARIA_ID)
+        }
+    }
+
+    private suspend fun repairLegacyBbcStreams() {
+        repairLegacyBbcStream(BBC_RADIO_1_ID, LEGACY_BBC_RADIO_1_STREAM, CORRECTED_BBC_RADIO_1_STREAM)
+        repairLegacyBbcStream(BBC_RADIO_2_ID, LEGACY_BBC_RADIO_2_STREAM, CORRECTED_BBC_RADIO_2_STREAM)
+    }
+
+    private suspend fun repairLegacyBbcStream(
+        stationId: String,
+        legacyStream: String,
+        correctedStream: String,
+    ) {
+        val stored = stationDao.getStation(stationId) ?: return
+        val entity = stored.station
+        if (!entity.isCustom && entity.primaryStreamUrl == legacyStream) {
+            stationDao.upsertStation(entity.copy(primaryStreamUrl = correctedStream))
+        }
+    }
+
     private fun orderedRecords(records: List<RadioStationWithFallbacks>): List<RadioStationWithFallbacks> {
         val catalogOrder = InitialRadioCatalog.stations
             .withIndex()
@@ -111,5 +142,14 @@ class RadioStationRepository(
         const val LEGACY_ASWAT_ID = "aswat-fm"
         const val LEGACY_ASWAT_STREAM = "https://broadcast.ice.infomaniak.ch/aswat-high.mp3"
         const val CORRECTED_ASWAT_STREAM = "https://aswat.ice.infomaniak.ch/aswat-high.mp3"
+        const val LEGACY_RADIO_MARIA_ID = "radio-maria"
+        const val LEGACY_RADIO_MARIA_NAME = "Radio Maria"
+        const val LEGACY_RADIO_MARIA_STREAM = "https://dreamsiteradiocp4.com/proxy/rmitaliamontecarlo?mp=/stream"
+        const val BBC_RADIO_1_ID = "bbc-radio-1"
+        const val LEGACY_BBC_RADIO_1_STREAM = "https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8"
+        const val CORRECTED_BBC_RADIO_1_STREAM = "https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8"
+        const val BBC_RADIO_2_ID = "bbc-radio-2"
+        const val LEGACY_BBC_RADIO_2_STREAM = "https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/cf/bbc_radio_two.m3u8"
+        const val CORRECTED_BBC_RADIO_2_STREAM = "https://as-hls-ww-live.akamaized.net/pool_74208725/live/ww/bbc_radio_two/bbc_radio_two.isml/bbc_radio_two-audio%3d96000.norewind.m3u8"
     }
 }

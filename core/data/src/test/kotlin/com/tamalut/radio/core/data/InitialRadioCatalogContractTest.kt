@@ -6,18 +6,28 @@ import org.junit.Test
 
 class InitialRadioCatalogContractTest {
     @Test
-    fun catalogHasExactlyFiftyTwoUniqueStationsInApprovedOrder() {
+    fun catalogHasExactlyFiftyOneUniqueStationsInApprovedOrder() {
         val stations = InitialRadioCatalog.stations
         val ids = stations.map { it.id.value }
         val primaryUrls = stations.map { it.primaryStream.url }
 
         assertEquals(EXPECTED_IDS, ids)
-        assertEquals(52, stations.size)
-        assertEquals(52, ids.distinct().size)
-        assertEquals(52, primaryUrls.distinct().size)
+        assertEquals(51, stations.size)
+        assertEquals(51, ids.distinct().size)
+        assertEquals(51, primaryUrls.distinct().size)
         assertTrue(stations.none { it.name.contains("Radio Plus Agadir", ignoreCase = true) })
         assertEquals("Radio Atbir", stations.first { it.id.value == "radio-plus-agadir" }.name)
         assertEquals(1, stations.count { it.id.value == "radio-italia-smi" })
+        assertTrue(stations.none { it.id.value == "radio-maria" })
+        assertEquals(
+            "https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8",
+            stations.first { it.id.value == "bbc-radio-1" }.primaryStream.url,
+        )
+        assertEquals(
+            "https://as-hls-ww-live.akamaized.net/pool_74208725/live/ww/bbc_radio_two/bbc_radio_two.isml/bbc_radio_two-audio%3d96000.norewind.m3u8",
+            stations.first { it.id.value == "bbc-radio-2" }.primaryStream.url,
+        )
+        assertTrue(stations.filter { it.id.value.startsWith("bbc-radio-") }.all { it.primaryStream.url.startsWith("https://") })
     }
 
     private companion object {
@@ -63,7 +73,6 @@ class InitialRadioCatalogContractTest {
             "radiofreccia",
             "rai-isoradio",
             "rai-radio-3-classica",
-            "radio-maria",
             "radio-radicale",
             "radio-cuore",
             "bbc-radio-1",

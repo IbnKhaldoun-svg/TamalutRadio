@@ -55,7 +55,6 @@ object RadioStationFiltering {
         "radiofreccia",
         "rai-isoradio",
         "rai-radio-3-classica",
-        "radio-maria",
         "radio-radicale",
         "radio-cuore",
     )

@@ -35,12 +35,12 @@ class CoreDataRepositoriesTest {
         repository.seedInitialCatalog()
         repository.seedInitialCatalog()
 
-        assertEquals(52, stationDao.getAllStations().size)
-        assertEquals(52, stationDao.stationUpsertCount)
+        assertEquals(51, stationDao.getAllStations().size)
+        assertEquals(51, stationDao.stationUpsertCount)
         assertEquals(BUILT_IN_IDS, InitialRadioCatalog.stations.map { it.id.value })
         assertEquals(BUILT_IN_IDS, repository.getStations(favoritesFirst = false).map { it.id.value })
-        assertEquals(52, InitialRadioCatalog.stations.map { it.id.value }.toSet().size)
-        assertEquals(52, InitialRadioCatalog.stations.map { it.primaryStream.url }.toSet().size)
+        assertEquals(51, InitialRadioCatalog.stations.map { it.id.value }.toSet().size)
+        assertEquals(51, InitialRadioCatalog.stations.map { it.primaryStream.url }.toSet().size)
         assertEquals(1, InitialRadioCatalog.stations.count { it.id.value == "radio-italia-smi" })
         assertFalse(stationDao.getAllStations().any { it.station.name.contains("Tachlit", ignoreCase = true) })
     }
@@ -98,7 +98,7 @@ class CoreDataRepositoriesTest {
             ),
             repaired?.playbackStreams?.map { it.url },
         )
-        assertEquals(52, stationDao.getAllStations().size)
+        assertEquals(51, stationDao.getAllStations().size)
 
         repository.seedInitialCatalog()
         assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
@@ -139,7 +139,7 @@ class CoreDataRepositoriesTest {
             ),
             repaired?.playbackStreams?.map { it.url },
         )
-        assertEquals(52, stationDao.getAllStations().size)
+        assertEquals(51, stationDao.getAllStations().size)
 
         repository.seedInitialCatalog()
         assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
@@ -169,6 +169,135 @@ class CoreDataRepositoriesTest {
         assertEquals(
             "https://broadcast.ice.infomaniak.ch/aswat-high.mp3",
             stored?.primaryStream?.url,
+        )
+    }
+
+    @Test
+    fun legacyRadioMariaRetirementIsExactAndIdempotent() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "radio-maria",
+                name = "Radio Maria",
+                primaryStreamUrl = "https://dreamsiteradiocp4.com/proxy/rmitaliamontecarlo?mp=/stream",
+                isCustom = false,
+            ),
+        )
+
+        repository.seedInitialCatalog()
+        assertNull(repository.getStation(StationId("radio-maria")))
+        assertEquals(51, stationDao.getAllStations().size)
+        val upsertsAfterFirstSeed = stationDao.stationUpsertCount
+
+        repository.seedInitialCatalog()
+        assertNull(repository.getStation(StationId("radio-maria")))
+        assertEquals(upsertsAfterFirstSeed, stationDao.stationUpsertCount)
+    }
+
+    @Test
+    fun radioMariaRetirementProtectsCustomAndModifiedRows() = runSuspend {
+        val customDao = FakeRadioStationDao()
+        val customRepository = RadioStationRepository(customDao, FakeFavoriteStationDao())
+        customDao.upsertStation(
+            RadioStationEntity(
+                stationId = "radio-maria",
+                name = "My Radio Maria",
+                primaryStreamUrl = "https://example.invalid/custom-maria.mp3",
+                isCustom = true,
+            ),
+        )
+        customRepository.seedInitialCatalog()
+        assertEquals("My Radio Maria", customRepository.getStation(StationId("radio-maria"))?.name)
+
+        val modifiedDao = FakeRadioStationDao()
+        val modifiedRepository = RadioStationRepository(modifiedDao, FakeFavoriteStationDao())
+        modifiedDao.upsertStation(
+            RadioStationEntity(
+                stationId = "radio-maria",
+                name = "Radio Maria",
+                primaryStreamUrl = "https://example.invalid/modified-maria.mp3",
+                isCustom = false,
+            ),
+        )
+        modifiedRepository.seedInitialCatalog()
+        assertEquals(
+            "https://example.invalid/modified-maria.mp3",
+            modifiedRepository.getStation(StationId("radio-maria"))?.primaryStream?.url,
+        )
+    }
+
+    @Test
+    fun legacyBbcStreamsAreRepairedExactlyIdempotentlyAndPreserveFallbacks() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "bbc-radio-1",
+                name = "BBC Radio 1",
+                primaryStreamUrl = "https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8",
+                isCustom = false,
+            ),
+        )
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "bbc-radio-2",
+                name = "BBC Radio 2",
+                primaryStreamUrl = "https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/cf/bbc_radio_two.m3u8",
+                isCustom = false,
+            ),
+        )
+        stationDao.upsertFallbackStreams(
+            listOf(
+                RadioStationFallbackEntity("bbc-radio-1", 0, "https://example.invalid/r1-fallback.aac"),
+                RadioStationFallbackEntity("bbc-radio-2", 0, "https://example.invalid/r2-fallback.aac"),
+            ),
+        )
+
+        repository.seedInitialCatalog()
+        val upsertsAfterRepairAndSeed = stationDao.stationUpsertCount
+        assertEquals("https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8", repository.getStation(StationId("bbc-radio-1"))?.primaryStream?.url)
+        assertEquals("https://as-hls-ww-live.akamaized.net/pool_74208725/live/ww/bbc_radio_two/bbc_radio_two.isml/bbc_radio_two-audio%3d96000.norewind.m3u8", repository.getStation(StationId("bbc-radio-2"))?.primaryStream?.url)
+        assertEquals(
+            "https://example.invalid/r1-fallback.aac",
+            repository.getStation(StationId("bbc-radio-1"))?.fallbackStreams?.single()?.url,
+        )
+        assertEquals(
+            "https://example.invalid/r2-fallback.aac",
+            repository.getStation(StationId("bbc-radio-2"))?.fallbackStreams?.single()?.url,
+        )
+        assertEquals(51, stationDao.getAllStations().size)
+
+        repository.seedInitialCatalog()
+        assertEquals(upsertsAfterRepairAndSeed, stationDao.stationUpsertCount)
+    }
+
+    @Test
+    fun bbcRepairDoesNotOverwriteCustomOrModifiedRows() = runSuspend {
+        val stationDao = FakeRadioStationDao()
+        val repository = RadioStationRepository(stationDao, FakeFavoriteStationDao())
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "bbc-radio-1",
+                name = "My BBC One",
+                primaryStreamUrl = "https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8",
+                isCustom = true,
+            ),
+        )
+        stationDao.upsertStation(
+            RadioStationEntity(
+                stationId = "bbc-radio-2",
+                name = "BBC Radio 2 modified",
+                primaryStreamUrl = "https://example.invalid/my-bbc-two.m3u8",
+                isCustom = false,
+            ),
+        )
+
+        repository.seedInitialCatalog()
+        assertEquals("https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8", repository.getStation(StationId("bbc-radio-1"))?.primaryStream?.url)
+        assertEquals(
+            "https://example.invalid/my-bbc-two.m3u8",
+            repository.getStation(StationId("bbc-radio-2"))?.primaryStream?.url,
         )
     }
 
@@ -214,7 +343,7 @@ class CoreDataRepositoriesTest {
             "https://example.invalid/my-zeta.aac",
             repository.getStation(StationId("radio-zeta"))?.primaryStream?.url,
         )
-        assertEquals(52, stationDao.getAllStations().size)
+        assertEquals(51, stationDao.getAllStations().size)
     }
 
     @Test
@@ -230,11 +359,11 @@ class CoreDataRepositoriesTest {
 
         assertEquals(
             BUILT_IN_IDS,
-            ordered.take(52).map { it.id.value },
+            ordered.take(51).map { it.id.value },
         )
         assertEquals(
             listOf("custom-a1", "custom-a2", "custom-z"),
-            ordered.drop(52).map { it.id.value },
+            ordered.drop(51).map { it.id.value },
         )
     }
 
@@ -340,7 +469,6 @@ class CoreDataRepositoriesTest {
             "radiofreccia",
             "rai-isoradio",
             "rai-radio-3-classica",
-            "radio-maria",
             "radio-radicale",
             "radio-cuore",
             "bbc-radio-1",
