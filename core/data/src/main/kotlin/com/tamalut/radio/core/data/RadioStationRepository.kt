@@ -43,7 +43,15 @@ class RadioStationRepository(
     suspend fun getStation(stationId: StationId): RadioStation? =
         stationDao.getStation(stationId.value)?.toDomain()
 
+    suspend fun getCustomStationIds(): Set<StationId> =
+        stationDao.getStationsByCustomState(isCustom = true)
+            .mapTo(linkedSetOf()) { record -> StationId(record.station.stationId) }
+
     suspend fun saveCustomStation(station: RadioStation) {
+        val stored = stationDao.getStation(station.id.value)
+        require(stored == null || stored.station.isCustom) {
+            "Built-in radio stations cannot be replaced by custom stations"
+        }
         persist(station.toPersistenceRecord(isCustom = true))
     }
 

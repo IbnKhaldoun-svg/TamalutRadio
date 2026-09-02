@@ -1,6 +1,7 @@
 package com.tamalut.radio.feature.radio
 
 import com.tamalut.radio.core.model.RadioStation
+import com.tamalut.radio.core.model.StationId
 
 enum class RadioStationFilter(val label: String) {
     ALL("Tutte"),
@@ -8,6 +9,7 @@ enum class RadioStationFilter(val label: String) {
     ITALY("Italia"),
     SPORT("Sport"),
     UK("UK"),
+    PERSONAL("Personali"),
 }
 
 object RadioStationFiltering {
@@ -74,19 +76,26 @@ object RadioStationFiltering {
         "classic-fm",
     )
 
-    fun filterFor(station: RadioStation): RadioStationFilter? = when (station.id.value) {
-        in moroccoStationIds -> RadioStationFilter.MOROCCO
-        in italyStationIds -> RadioStationFilter.ITALY
-        in sportStationIds -> RadioStationFilter.SPORT
-        in ukStationIds -> RadioStationFilter.UK
+    fun filterFor(
+        station: RadioStation,
+        customStationIds: Set<StationId> = emptySet(),
+    ): RadioStationFilter? = when {
+        station.id in customStationIds -> RadioStationFilter.PERSONAL
+        station.id.value in moroccoStationIds -> RadioStationFilter.MOROCCO
+        station.id.value in italyStationIds -> RadioStationFilter.ITALY
+        station.id.value in sportStationIds -> RadioStationFilter.SPORT
+        station.id.value in ukStationIds -> RadioStationFilter.UK
         else -> null
     }
 
     fun apply(
         stations: List<RadioStation>,
         filter: RadioStationFilter,
+        customStationIds: Set<StationId> = emptySet(),
     ): List<RadioStation> = when (filter) {
         RadioStationFilter.ALL -> stations
-        else -> stations.filter { station -> filterFor(station) == filter }
+        else -> stations.filter { station ->
+            filterFor(station, customStationIds) == filter
+        }
     }
 }

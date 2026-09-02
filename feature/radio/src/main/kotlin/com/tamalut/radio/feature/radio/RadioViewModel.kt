@@ -18,23 +18,46 @@ enum class RadioSection {
     ALL,
 }
 
+enum class CustomRadioEditorMode {
+    ADD,
+    EDIT,
+}
+
+data class CustomRadioEditorState(
+    val mode: CustomRadioEditorMode,
+    val stationId: StationId? = null,
+    val name: String = "",
+    val streamUrl: String = "",
+    val isSaving: Boolean = false,
+    val errorMessage: String? = null,
+)
+
 data class RadioUiState(
     val isLoading: Boolean = true,
     val selectedSection: RadioSection = RadioSection.ALL,
     val selectedFilter: RadioStationFilter = RadioStationFilter.ALL,
     val stations: List<RadioStation> = emptyList(),
     val favoriteIds: Set<StationId> = emptySet(),
+    val customStationIds: Set<StationId> = emptySet(),
     val searchQuery: String = "",
     val isSearchOpen: Boolean = false,
     val errorMessage: String? = null,
     val playbackMessage: String? = null,
     val playbackErrorMessage: String? = null,
     val playingStationId: StationId? = null,
+    val customRadioEditor: CustomRadioEditorState? = null,
+    val pendingCustomDelete: RadioStation? = null,
+    val isDeletingCustomStation: Boolean = false,
+    val customActionMessage: String? = null,
 ) {
     val queueStations: List<RadioStation>
         get() = when (selectedSection) {
             RadioSection.FAVORITES -> stations.filter { it.id in favoriteIds }
-            RadioSection.ALL -> RadioStationFiltering.apply(stations, selectedFilter)
+            RadioSection.ALL -> RadioStationFiltering.apply(
+                stations = stations,
+                filter = selectedFilter,
+                customStationIds = customStationIds,
+            )
         }
 
     val visibleStations: List<RadioStation>
@@ -95,7 +118,7 @@ class RadioViewModel(
     }
 
     fun openSearch() {
-        _uiState.update { it.copy(isSearchOpen = true) }
+        _uiState.update { it.copy(isSearchOpen = true, customActionMessage = null) }
     }
 
     fun updateSearchQuery(query: String) {
@@ -108,6 +131,151 @@ class RadioViewModel(
 
     fun closeSearch() {
         _uiState.update { it.copy(isSearchOpen = false, searchQuery = "") }
+    }
+
+    fun openAddCustomStation() {
+        _uiState.update {
+            it.copy(
+                isSearchOpen = false,
+                searchQuery = "",
+                customRadioEditor = CustomRadioEditorState(mode = CustomRadioEditorMode.ADD),
+                pendingCustomDelete = null,
+                customActionMessage = null,
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun openEditCustomStation(station: RadioStation) {
+        if (station.id !in _uiState.value.customStationIds) {
+            _uiState.update { it.copy(errorMessage = "Le radio integrate non possono essere modificate") }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                isSearchOpen = false,
+                searchQuery = "",
+                customRadioEditor = CustomRadioEditorState(
+                    mode = CustomRadioEditorMode.EDIT,
+                    stationId = station.id,
+                    name = station.name,
+                    streamUrl = station.primaryStream.url,
+                ),
+                pendingCustomDelete = null,
+                customActionMessage = null,
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun updateCustomStationName(name: String) {
+        _uiState.update { state ->
+            val editor = state.customRadioEditor ?: return@update state
+            if (editor.isSaving) state else state.copy(customRadioEditor = editor.copy(name = name, errorMessage = null))
+        }
+    }
+
+    fun updateCustomStationUrl(url: String) {
+        _uiState.update { state ->
+            val editor = state.customRadioEditor ?: return@update state
+            if (editor.isSaving) state else state.copy(customRadioEditor = editor.copy(streamUrl = url, errorMessage = null))
+        }
+    }
+
+    fun dismissCustomStationEditor() {
+        _uiState.update { state ->
+            if (state.customRadioEditor?.isSaving == true) state else state.copy(customRadioEditor = null)
+        }
+    }
+
+    fun submitCustomStation() {
+        val editor = _uiState.value.customRadioEditor ?: return
+        if (editor.isSaving) return
+        _uiState.update { state ->
+            state.copy(customRadioEditor = state.customRadioEditor?.copy(isSaving = true, errorMessage = null))
+        }
+
+        viewModelScope.launch {
+            runCatching {
+                controller.saveCustomStation(
+                    stationId = editor.stationId,
+                    name = editor.name,
+                    streamUrl = editor.streamUrl,
+                )
+            }.onSuccess { snapshot ->
+                applySnapshot(snapshot)
+                _uiState.update {
+                    it.copy(
+                        customRadioEditor = null,
+                        customActionMessage = if (editor.mode == CustomRadioEditorMode.ADD) {
+                            "Radio personale aggiunta"
+                        } else {
+                            "Radio personale aggiornata"
+                        },
+                        errorMessage = null,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        customRadioEditor = state.customRadioEditor?.copy(
+                            isSaving = false,
+                            errorMessage = error.message ?: "Impossibile salvare la radio personale",
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun requestDeleteCustomStation(station: RadioStation) {
+        if (station.id !in _uiState.value.customStationIds) {
+            _uiState.update { it.copy(errorMessage = "Le radio integrate non possono essere eliminate") }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                pendingCustomDelete = station,
+                isDeletingCustomStation = false,
+                customActionMessage = null,
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun dismissDeleteCustomStation() {
+        _uiState.update { state ->
+            if (state.isDeletingCustomStation) state else state.copy(pendingCustomDelete = null)
+        }
+    }
+
+    fun confirmDeleteCustomStation() {
+        val station = _uiState.value.pendingCustomDelete ?: return
+        if (_uiState.value.isDeletingCustomStation) return
+        _uiState.update { it.copy(isDeletingCustomStation = true) }
+
+        viewModelScope.launch {
+            runCatching { controller.deleteCustomStation(station.id) }
+                .onSuccess { snapshot ->
+                    applySnapshot(snapshot)
+                    _uiState.update {
+                        it.copy(
+                            pendingCustomDelete = null,
+                            isDeletingCustomStation = false,
+                            customActionMessage = "Radio personale eliminata",
+                            errorMessage = null,
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isDeletingCustomStation = false,
+                            errorMessage = error.message ?: "Impossibile eliminare la radio personale",
+                        )
+                    }
+                }
+        }
     }
 
     fun refresh() {
@@ -191,6 +359,7 @@ class RadioViewModel(
                 isLoading = false,
                 stations = snapshot.stations,
                 favoriteIds = snapshot.favoriteIds,
+                customStationIds = snapshot.customStationIds,
                 errorMessage = null,
             )
         }

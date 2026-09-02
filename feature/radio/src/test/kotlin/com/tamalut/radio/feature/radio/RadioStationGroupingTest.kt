@@ -12,7 +12,7 @@ import org.junit.Test
 
 class RadioStationGroupingTest {
     @Test
-    fun expandedCatalogUsesFourCategoriesInAuthoritativeRelativeOrder() {
+    fun expandedCatalogUsesFourBuiltInCategoriesInAuthoritativeRelativeOrder() {
         val stations = InitialRadioCatalog.stations
         val morocco = RadioStationFiltering.apply(stations, RadioStationFilter.MOROCCO)
         val italy = RadioStationFiltering.apply(stations, RadioStationFilter.ITALY)
@@ -36,7 +36,7 @@ class RadioStationGroupingTest {
     }
 
     @Test
-    fun allFilterPreservesFlatOrderAndUnknownStationsRemainVisibleOnlyInAll() {
+    fun allFilterPreservesFlatOrderAndUnknownStationsRemainVisibleOnlyInAllWithoutCustomMetadata() {
         val unknown = RadioStation(
             id = StationId("future-station"),
             name = "Future Station",
@@ -45,14 +45,47 @@ class RadioStationGroupingTest {
         val stations = InitialRadioCatalog.stations + unknown
         assertEquals(stations, RadioStationFiltering.apply(stations, RadioStationFilter.ALL))
         assertNull(RadioStationFiltering.filterFor(unknown))
-        listOf(RadioStationFilter.MOROCCO, RadioStationFilter.ITALY, RadioStationFilter.SPORT, RadioStationFilter.UK).forEach {
+        listOf(
+            RadioStationFilter.MOROCCO,
+            RadioStationFilter.ITALY,
+            RadioStationFilter.SPORT,
+            RadioStationFilter.UK,
+            RadioStationFilter.PERSONAL,
+        ).forEach {
             assertFalse(RadioStationFiltering.apply(stations, it).contains(unknown))
         }
     }
 
     @Test
+    fun personalFilterUsesExplicitCustomIdsAndPreservesSourceOrder() {
+        val customZulu = RadioStation(
+            id = StationId("custom-zulu"),
+            name = "Zulu",
+            primaryStream = StreamEndpoint("https://example.com/zulu"),
+        )
+        val customAlpha = RadioStation(
+            id = StationId("custom-alpha"),
+            name = "Alpha",
+            primaryStream = StreamEndpoint("https://example.com/alpha"),
+        )
+        val builtIn = InitialRadioCatalog.stations.first()
+        val stations = listOf(builtIn, customZulu, customAlpha)
+        val customIds = setOf(customZulu.id, customAlpha.id)
+
+        assertEquals(
+            listOf(customZulu, customAlpha),
+            RadioStationFiltering.apply(stations, RadioStationFilter.PERSONAL, customIds),
+        )
+        assertEquals(RadioStationFilter.PERSONAL, RadioStationFiltering.filterFor(customZulu, customIds))
+        assertEquals(RadioStationFiltering.filterFor(builtIn), RadioStationFiltering.filterFor(builtIn, customIds))
+    }
+
+    @Test
     fun filterOptionsAreStableAndUserFacing() {
-        assertEquals(listOf("Tutte", "Marocco", "Italia", "Sport", "UK"), RadioStationFilter.entries.map { it.label })
+        assertEquals(
+            listOf("Tutte", "Marocco", "Italia", "Sport", "UK", "Personali"),
+            RadioStationFilter.entries.map { it.label },
+        )
     }
 
     private companion object {
