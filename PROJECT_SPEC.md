@@ -1665,8 +1665,8 @@ Research status at spec-before: **RESOLVED — all three candidates admitted for
 - [x] Exact detached product passed `:core:data:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`; Gradle result `BUILD SUCCESSFUL` with 208 actionable tasks (163 executed, 35 from cache, 10 up-to-date).
 - [x] Validation APK: **23,729,524 bytes**, SHA-256 `3cd430ccbae536882f7dc727fcf35b1013daeba4f62293c1f754d8a474749eac`; persistent debug signer v1 SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - [x] The same successful validation job fast-forward promoted exactly `83628093e7261d23a7013f5a4106c48c31a43c3f` from `62bf499df6cd84ed5accf705985753e72d20be98` to `main`, then removed the temporary product and validation branches. The spec-after is documentation-only and does not alter the validated runtime snapshot.
-- [ ] **Permanent Release evidence:** PENDING. Publish the exact runtime product `83628093e7261d23a7013f5a4106c48c31a43c3f` through `.github/workflows/publish-debug-release.yml`, then record tag/asset/digest/signer and final branch cleanup here.
-- [ ] **Physical Sport radio gate:** PENDING on the published prerelease. Verify ON Sport FM, talkSPORT and Radio Manà Manà Sport Roma appear in `Sport` after Radio Sportiva/Rete Sport, each starts real audio, Previous/Next follows the five-station Sport order with wrap-around, background/notification/overlay behavior remains normal, and no endpoint falls back to cleartext transport on-device.
+- [x] **Permanent Release evidence:** exact Sport runtime `83628093e7261d23a7013f5a4106c48c31a43c3f` was published as prerelease `debug-20260902-101941-8362809`; asset `TamalutRadio-debug-8362809.apk` is 23,729,524 bytes with SHA-256 `3cd430ccbae536882f7dc727fcf35b1013daeba4f62293c1f754d8a474749eac` and persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
+- [x] **Physical Sport radio gate:** PASS on the final device recheck. ON Sport FM, talkSPORT and Radio Manà Manà Sport Roma appear after Radio Sportiva/Rete Sport; all three start real audio; Previous/Next follows the five-station Sport order with wrap-around; background playback, notification and overlay behavior remain normal.
 
 ### Active radio list visibility refinement contract
 
@@ -1680,7 +1680,7 @@ This UX correction was discovered during the physical Sport-radio gate. The radi
 - [x] **Automated coverage.** Add deterministic tests for selecting the active station index only when it is present, returning no target when absent, and suppressing the target while search is active. Add a structural/UI guard proving `RadioList` owns a remembered `LazyListState` and performs event-keyed scrolling rather than unconditional scrolling.
 - [x] **Standard closure.** Create one clean product commit directly from this spec-before; validate the exact commit on a real GitHub Actions runner with `:feature:radio:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`; verify persistent debug signer plus APK SHA-256/size; promote only that exact product to `main`; append a docs-only spec-after; publish that exact runtime snapshot through the permanent debug-prerelease workflow; remove every temporary helper/product/validation branch; then repeat the physical Sport gate including active-card visibility.
 
-Physical Sport gate status: **PENDING RECHECK**. Stream/audio and category-queue behavior observed so far are valid, but formal PASS is deferred until this active-card visibility refinement is physically confirmed.
+Physical Sport gate status: **PASS**. The active-card visibility refinement and the previously qualified Sport streams/category queue were confirmed together on device.
 
 Validation record — active radio list visibility refinement:
 - Spec-before commit: `2b9f6af3cc7cf13404f69d306b7c1ee1319824f8`, direct child of the prior Sport spec-after. The first temporary spec helper run `33624898084` was rejected at workflow-parse time and created no job or repository change; corrected spec helper run `33625000778`, job `100230547699`, wrote the contract before product code.
@@ -1691,10 +1691,19 @@ Validation record — active radio list visibility refinement:
 - Regression/build gate passed `:core:data:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`: `BUILD SUCCESSFUL in 3m 38s`, 208 actionable tasks (162 executed, 36 from cache, 10 up-to-date).
 - Validation APK: 23,729,524 bytes; SHA-256 `1d44f270ebdbcd75a37ba6ea3cdaa2422f9e45e0a1bb0a6e0a6127138a1dbbec`; persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - Promotion occurred only after the gates above: exact runtime `9690beb788384be0a58d9a98f0a9841e27948431` became `main`; product/spec/validation helper branches were then removed. Permanent exact-product debug prerelease publication follows this docs-only record.
-- Physical Sport gate remains **PENDING RECHECK** until the active-card visibility behavior and the previously qualified three Sport streams are confirmed together on device.
+- Physical Sport gate: **PASS**. Final device recheck confirmed active-card auto-visibility, stable manual browsing without snap-back, no category hijack, search-time auto-scroll suppression, five-station Sport Previous/Next order with wrap-around, and real audio from ON Sport FM, talkSPORT and Radio Manà Manà Sport Roma.
 
 Permanent Release record — active radio list visibility refinement:
 - Permanent publisher run `33626026033`, job `100233848785`, used workflow source from docs-only `main` `e4862834259dc65b0b5a1fdbfe501c6435b85a9a` but resolved input `ref=9690beb788384be0a58d9a98f0a9841e27948431`, detached `HEAD` to that exact runtime, and logged `Building exact commit: 9690beb788384be0a58d9a98f0a9841e27948431`.
 - `:app:assembleDebug` passed with `BUILD SUCCESSFUL in 3m 8s` (165 actionable tasks: 131 executed, 34 from cache). Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
 - GitHub prerelease tag `debug-20260902-114616-9690beb` targets exactly `9690beb788384be0a58d9a98f0a9841e27948431`. Asset `TamalutRadio-debug-9690beb.apk` is uploaded, 23,729,524 bytes, digest `sha256:1d44f270ebdbcd75a37ba6ea3cdaa2422f9e45e0a1bb0a6e0a6127138a1dbbec`, exactly matching the prior validation APK hash.
-- Temporary closure/release helper branches were removed. Physical Sport gate remains **PENDING RECHECK**; the next device test must verify both the three Sport stations and the active-card auto-visibility refinement.
+- Temporary closure/release helper branches were removed. Physical Sport gate is now **PASS** after the final device recheck of the three Sport stations, five-station queue behavior, active-card auto-visibility, manual browsing stability, category isolation, search suppression, background playback, notification and overlay behavior.
+
+
+Final physical validation record — Sport expansion + active radio visibility:
+- [x] User-reported device recheck completed with all requested cases passing on 2026-09-02.
+- [x] Active radio card is brought into view when appropriate on Radio entry/re-entry and active-station changes, while stable manual browsing does not snap back.
+- [x] Changing to a category that does not contain the active station does not hijack the filter or rewrite the existing Media3 radio queue; search suppresses automatic active-card scrolling until the normal list is restored.
+- [x] Sport queue order passed physically as `Radio Sportiva → Rete Sport → ON Sport FM → talkSPORT → Radio Manà Manà Sport Roma`, including Previous/Next wrap-around.
+- [x] ON Sport FM, talkSPORT and Radio Manà Manà Sport Roma all produced real audio; background playback, media notification and floating overlay remained normal during the recheck.
+- [x] Runtime under test remained exact product `9690beb788384be0a58d9a98f0a9841e27948431`, published as `debug-20260902-114616-9690beb`; no new runtime build is required for this physical-gate closure.
