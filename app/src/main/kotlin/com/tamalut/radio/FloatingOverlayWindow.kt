@@ -126,7 +126,7 @@ internal class FloatingOverlayWindow(
             val appEntryWidth = dp(52)
             val dividerWidth = dp(1).coerceAtLeast(1)
             val transportButtonWidth = dp(48)
-            val expandedWidth = collapsedWidth + closeWidth + appEntryWidth + dividerWidth + (transportButtonWidth * 3)
+            val expandedWidth = collapsedWidth + closeWidth + appEntryWidth + dividerWidth + (transportButtonWidth * 4)
             val windowHeight = dp(48)
             val root = LinearLayout(overlayContext).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -200,7 +200,7 @@ internal class FloatingOverlayWindow(
             transport?.let {
                 host.root.addView(
                     it,
-                    LinearLayout.LayoutParams(host.transportButtonWidth * 3, host.windowHeight),
+                    LinearLayout.LayoutParams(host.transportButtonWidth * 4, host.windowHeight),
                 )
             }
             close?.let {
@@ -213,7 +213,7 @@ internal class FloatingOverlayWindow(
             transport?.let {
                 host.root.addView(
                     it,
-                    LinearLayout.LayoutParams(host.transportButtonWidth * 3, host.windowHeight),
+                    LinearLayout.LayoutParams(host.transportButtonWidth * 4, host.windowHeight),
                 )
             }
             divider?.let {
@@ -312,6 +312,31 @@ internal class FloatingOverlayWindow(
             ),
             LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
         )
+        addView(
+            stopTransportButton(
+                host = host,
+                enabled = model != null,
+            ),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+        )
+    }
+
+    private fun stopTransportButton(
+        host: OverlayWindowHost,
+        enabled: Boolean,
+    ): TextView = TextView(host.context).apply {
+        gravity = Gravity.CENTER
+        text = "■"
+        textSize = 18f
+        setTextColor(Color.rgb(216, 179, 106))
+        contentDescription = "Stop"
+        setBackgroundColor(Color.TRANSPARENT)
+        isEnabled = enabled
+        alpha = if (enabled) 1f else 0.35f
+        setOnClickListener {
+            onUserInteraction()
+            if (isEnabled) onPlaybackAction(OverlayPlaybackAction.STOP)
+        }
     }
 
     private fun transportButton(

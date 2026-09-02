@@ -15,9 +15,10 @@ class OverlayPlaybackArchitectureRegressionTest {
         val overlayProduction = coordinator + "\n" + window + "\n" + controls
 
         assertTrue(coordinator.contains("playbackController.state.collect"))
+        assertTrue(coordinator.contains("private val onStopRequested: () -> Unit"))
         assertTrue(
             coordinator.contains(
-                "performOverlayPlaybackAction(action, latestPlaybackState, playbackController)",
+                "performOverlayPlaybackAction(action, latestPlaybackState, playbackController, onStopRequested)",
             ),
         )
         assertTrue(
@@ -29,6 +30,7 @@ class OverlayPlaybackArchitectureRegressionTest {
         assertTrue(window.contains("description = \"Precedente\""))
         assertTrue(window.contains("description = if (model?.playPauseIcon == OverlayPlayPauseIcon.PAUSE) \"Pausa\" else \"Riproduci\""))
         assertTrue(window.contains("description = \"Successivo\""))
+        assertTrue(window.contains("contentDescription = \"Stop\""))
 
         assertFalse(overlayProduction.contains("ExoPlayer.Builder"))
         assertFalse(overlayProduction.contains("MediaBrowser.Builder"))
@@ -45,8 +47,10 @@ class OverlayPlaybackArchitectureRegressionTest {
         assertTrue(controls.contains("PREVIOUS -> if (state.canSkipPrevious) controller.skipToPrevious()"))
         assertTrue(controls.contains("TOGGLE_PLAY_PAUSE -> if (state.hasCurrentItem) controller.togglePlayPause()"))
         assertTrue(controls.contains("NEXT -> if (state.canSkipNext) controller.skipToNext()"))
+        assertTrue(controls.contains("STOP -> if (state.hasCurrentItem) onStop()"))
 
         assertTrue(window.contains("if (isEnabled) onPlaybackAction(action)"))
+        assertTrue(window.contains("if (isEnabled) onPlaybackAction(OverlayPlaybackAction.STOP)"))
         assertFalse(controls.contains("OverlaySessionState"))
         assertFalse(controls.contains("onExpandedChanged"))
         assertFalse(controls.contains("onDismiss"))

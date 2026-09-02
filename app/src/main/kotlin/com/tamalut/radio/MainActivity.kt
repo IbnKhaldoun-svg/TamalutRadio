@@ -146,6 +146,7 @@ class MainActivity : ComponentActivity() {
                             PersistentMiniPlayer(
                                 state = playbackState,
                                 controller = playbackController,
+                                onStop = { TamalutRadioRuntime.shutdown(applicationContext) },
                                 onOpenNowPlaying = { selectedDestination.value = MainDestination.NOW_PLAYING },
                             )
                             NavigationBar {

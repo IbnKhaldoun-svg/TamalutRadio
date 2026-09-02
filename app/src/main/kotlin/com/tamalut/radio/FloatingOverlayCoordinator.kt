@@ -19,6 +19,7 @@ internal class FloatingOverlayCoordinator(
     context: Context,
     private val preferencesRepository: UserPreferencesRepository,
     private val playbackController: PlaybackController,
+    private val onStopRequested: () -> Unit,
 ) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -67,7 +68,7 @@ internal class FloatingOverlayCoordinator(
         },
         onPlaybackAction = { action ->
             if (sessionState.expanded) autoCollapseTimer.arm()
-            performOverlayPlaybackAction(action, latestPlaybackState, playbackController)
+            performOverlayPlaybackAction(action, latestPlaybackState, playbackController, onStopRequested)
         },
         onOpenApp = {
             autoCollapseTimer.cancel()

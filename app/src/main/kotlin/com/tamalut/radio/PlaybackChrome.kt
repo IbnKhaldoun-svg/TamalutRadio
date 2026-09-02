@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -75,6 +76,7 @@ enum class PlaybackChromeAction {
     PREVIOUS,
     TOGGLE_PLAY_PAUSE,
     NEXT,
+    STOP,
     TOGGLE_SHUFFLE,
     CYCLE_REPEAT,
 }
@@ -142,11 +144,13 @@ fun performPlaybackChromeAction(
     action: PlaybackChromeAction,
     state: PlaybackState,
     controller: PlaybackController,
+    onStop: () -> Unit = {},
 ) {
     when (action) {
         PlaybackChromeAction.PREVIOUS -> controller.skipToPrevious()
         PlaybackChromeAction.TOGGLE_PLAY_PAUSE -> controller.togglePlayPause()
         PlaybackChromeAction.NEXT -> controller.skipToNext()
+        PlaybackChromeAction.STOP -> onStop()
         PlaybackChromeAction.TOGGLE_SHUFFLE -> {
             if (state.sourceType == MediaSourceType.LOCAL) {
                 controller.setLocalShuffleEnabled(!state.shuffleEnabled)
@@ -164,6 +168,7 @@ fun performPlaybackChromeAction(
 fun PersistentMiniPlayer(
     state: PlaybackState,
     controller: PlaybackController,
+    onStop: () -> Unit,
     onOpenNowPlaying: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -274,6 +279,13 @@ fun PersistentMiniPlayer(
                 enabled = model.canSkipNext,
             ) {
                 Icon(Icons.Filled.SkipNext, contentDescription = "Successivo")
+            }
+            IconButton(
+                onClick = {
+                    performPlaybackChromeAction(PlaybackChromeAction.STOP, state, controller, onStop)
+                },
+            ) {
+                Icon(Icons.Filled.Stop, contentDescription = "Stop")
             }
         }
     }

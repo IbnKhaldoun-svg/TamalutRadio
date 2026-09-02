@@ -74,6 +74,32 @@ class PlaybackChromeTest {
     }
 
     @Test
+    fun stopActionDelegatesExactlyOnceWithoutMutatingOrdinaryTransport() {
+        val controller = FakePlaybackController()
+        val state = PlaybackState(
+            isConnected = true,
+            sourceType = MediaSourceType.LOCAL,
+            mediaId = MediaId("track"),
+            title = "Track",
+        )
+        var stopCalls = 0
+
+        performPlaybackChromeAction(
+            PlaybackChromeAction.STOP,
+            state,
+            controller,
+            onStop = { stopCalls += 1 },
+        )
+
+        assertEquals(1, stopCalls)
+        assertEquals(0, controller.previousCalls)
+        assertEquals(0, controller.toggleCalls)
+        assertEquals(0, controller.nextCalls)
+        assertTrue(controller.repeatValues.isEmpty())
+        assertTrue(controller.shuffleValues.isEmpty())
+    }
+
+    @Test
     fun localModeActionsDelegateAndRadioRejectsThem() {
         val controller = FakePlaybackController()
         val localState = PlaybackState(

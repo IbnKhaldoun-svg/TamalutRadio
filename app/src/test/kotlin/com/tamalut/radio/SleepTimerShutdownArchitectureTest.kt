@@ -14,6 +14,9 @@ class SleepTimerShutdownArchitectureTest {
         val controller = Path.of("../core/playback/src/main/kotlin/com/tamalut/radio/core/playback/SharedPlaybackController.kt").readText()
         val service = Path.of("../core/playback/src/main/kotlin/com/tamalut/radio/core/playback/TamalutPlaybackService.kt").readText()
 
+        assertTrue(runtime.contains("onExpired = { shutdown(context.applicationContext) }"))
+        assertTrue(runtime.contains("fun shutdown(context: Context)"))
+        assertTrue(runtime.contains("sleepTimerController?.setPreset(SleepTimerPreset.OFF)"))
         assertTrue(runtime.contains("controller.stopAndExit"))
         assertTrue(controller.contains("sendCustomCommand(PlaybackCommands.stopExitCommand"))
         assertTrue(service.contains("player?.stop()"))
@@ -22,7 +25,7 @@ class SleepTimerShutdownArchitectureTest {
         assertTrue(runtime.contains("shutdownForSleepTimer()"))
         assertTrue(overlay.contains("window.hide()"))
         assertTrue(runtime.contains("finishAndRemoveTask()"))
-        assertTrue(runtime.contains("stopService(Intent(context, TamalutPlaybackService::class.java))"))
+        assertTrue(runtime.contains("stopService(Intent(appContext, TamalutPlaybackService::class.java))"))
 
         val shutdownProduction = runtime + "\n" + controller + "\n" + service
         assertFalse(shutdownProduction.contains("Process.killProcess"))
@@ -30,6 +33,7 @@ class SleepTimerShutdownArchitectureTest {
         assertFalse(shutdownProduction.contains("exitProcess("))
         assertFalse(runtime.contains("ExoPlayer.Builder"))
         assertFalse(runtime.contains("MediaSession.Builder"))
+        assertFalse(runtime.contains("shutdownAfterSleepTimer"))
     }
 
     @Test

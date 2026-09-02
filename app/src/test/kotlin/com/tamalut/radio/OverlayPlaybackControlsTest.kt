@@ -34,6 +34,27 @@ class OverlayPlaybackControlsTest {
     }
 
     @Test
+    fun stopDelegatesExactlyOnceToShutdownCallbackWithoutTransportMutation() {
+        val controller = FakePlaybackController()
+        val state = localState(isPlaying = true, canPrevious = true, canNext = true)
+        var stopCalls = 0
+
+        performOverlayPlaybackAction(
+            OverlayPlaybackAction.STOP,
+            state,
+            controller,
+            onStop = { stopCalls += 1 },
+        )
+
+        assertEquals(1, stopCalls)
+        assertEquals(0, controller.previousCalls)
+        assertEquals(0, controller.toggleCalls)
+        assertEquals(0, controller.nextCalls)
+        assertTrue(controller.repeatValues.isEmpty())
+        assertTrue(controller.shuffleValues.isEmpty())
+    }
+
+    @Test
     fun sharedStateChangesUpdatePlayPausePresentation() {
         val controller = FakePlaybackController()
         controller.publish(localState(isPlaying = true, canPrevious = true, canNext = true))
@@ -121,8 +142,16 @@ class OverlayPlaybackControlsTest {
         val controller = FakePlaybackController()
         val empty = PlaybackState(isConnected = true)
         assertNull(empty.toOverlayPlaybackControlsModel())
+        var stopCalls = 0
         performOverlayPlaybackAction(OverlayPlaybackAction.TOGGLE_PLAY_PAUSE, empty, controller)
+        performOverlayPlaybackAction(
+            OverlayPlaybackAction.STOP,
+            empty,
+            controller,
+            onStop = { stopCalls += 1 },
+        )
         assertEquals(0, controller.toggleCalls)
+        assertEquals(0, stopCalls)
     }
 
     private fun localState(

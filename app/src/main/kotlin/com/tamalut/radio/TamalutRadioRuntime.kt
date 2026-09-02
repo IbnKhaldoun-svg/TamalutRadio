@@ -7,6 +7,7 @@ import com.tamalut.radio.core.playback.HandlerSleepTimerScheduler
 import com.tamalut.radio.core.playback.Media3PlaybackController
 import com.tamalut.radio.core.playback.SleepTimerController
 import com.tamalut.radio.core.playback.SleepTimerNotificationBridge
+import com.tamalut.radio.core.playback.SleepTimerPreset
 import com.tamalut.radio.core.playback.TamalutPlaybackService
 import com.tamalut.radio.core.preferences.DataStoreUserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,7 @@ internal object TamalutRadioRuntime {
     private var playbackController: Media3PlaybackController? = null
     private var overlayCoordinator: FloatingOverlayCoordinator? = null
     private var sleepTimerController: SleepTimerController? = null
+    private var shutdownInProgress: Boolean = false
 
     @Synchronized
     fun preferences(context: Context): DataStoreUserPreferencesRepository =
@@ -40,7 +42,7 @@ internal object TamalutRadioRuntime {
     fun sleepTimer(context: Context): SleepTimerController =
         sleepTimerController ?: SleepTimerController(
             scheduler = HandlerSleepTimerScheduler(),
-            onExpired = { shutdownAfterSleepTimer(context.applicationContext) },
+            onExpired = { shutdown(context.applicationContext) },
         ).also { controller ->
             sleepTimerController = controller
             sleepTimerPresentationJob?.cancel()
@@ -57,12 +59,20 @@ internal object TamalutRadioRuntime {
             context = context.applicationContext,
             preferencesRepository = preferences(context),
             playbackController = playback(context),
+            onStopRequested = { shutdown(context.applicationContext) },
         ).also {
             overlayCoordinator = it
         }
 
-    private fun shutdownAfterSleepTimer(context: Context) {
-        val controller = playback(context)
+    fun shutdown(context: Context) {
+        val appContext = context.applicationContext
+        val controller: Media3PlaybackController
+        synchronized(this) {
+            if (shutdownInProgress) return
+            shutdownInProgress = true
+            sleepTimerController?.setPreset(SleepTimerPreset.OFF)
+            controller = playback(appContext)
+        }
         controller.stopAndExit {
             val coordinator = synchronized(this) { overlayCoordinator }
             coordinator?.shutdownForSleepTimer()
@@ -72,10 +82,13 @@ internal object TamalutRadioRuntime {
                 if (overlayCoordinator === coordinator) overlayCoordinator = null
                 if (playbackController === controller) playbackController = null
             }
-            context.stopService(Intent(context, TamalutPlaybackService::class.java))
-            context.getSystemService(ActivityManager::class.java)
+            appContext.stopService(Intent(appContext, TamalutPlaybackService::class.java))
+            appContext.getSystemService(ActivityManager::class.java)
                 ?.appTasks
                 ?.forEach { task -> runCatching { task.finishAndRemoveTask() } }
+            synchronized(this) {
+                shutdownInProgress = false
+            }
         }
     }
 }

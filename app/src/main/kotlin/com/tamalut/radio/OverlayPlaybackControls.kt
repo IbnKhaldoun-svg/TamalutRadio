@@ -7,6 +7,7 @@ internal enum class OverlayPlaybackAction {
     PREVIOUS,
     TOGGLE_PLAY_PAUSE,
     NEXT,
+    STOP,
 }
 
 internal enum class OverlayPlayPauseIcon {
@@ -33,11 +34,13 @@ internal fun performOverlayPlaybackAction(
     action: OverlayPlaybackAction,
     state: PlaybackState,
     controller: PlaybackController,
+    onStop: () -> Unit = {},
 ) {
     when (action) {
         OverlayPlaybackAction.PREVIOUS -> if (state.canSkipPrevious) controller.skipToPrevious()
         OverlayPlaybackAction.TOGGLE_PLAY_PAUSE -> if (state.hasCurrentItem) controller.togglePlayPause()
         OverlayPlaybackAction.NEXT -> if (state.canSkipNext) controller.skipToNext()
+        OverlayPlaybackAction.STOP -> if (state.hasCurrentItem) onStop()
     }
 }
 
