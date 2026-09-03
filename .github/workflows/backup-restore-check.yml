@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 25affa9635cb02e3834e60e04b1e8cd8769835b5
+          ref: 00c38553f2d21afc2b183d035de88cc60790d3cb
           fetch-depth: 0
 
       - uses: actions/setup-java@v5
