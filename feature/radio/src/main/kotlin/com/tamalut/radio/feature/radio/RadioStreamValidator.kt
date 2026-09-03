@@ -84,7 +84,7 @@ internal class HttpsRadioStreamValidator(
     }
 }
 
-internal fun normalizeHttpsStreamUrl(input: String): String {
+fun normalizeHttpsStreamUrl(input: String): String {
     val trimmed = input.trim()
     require(trimmed.isNotEmpty()) { "Inserisci una URL stream HTTPS" }
 
