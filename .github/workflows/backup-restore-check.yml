@@ -6,7 +6,7 @@ on:
       - backup-restore-check-helper
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   check:
@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: c19e849ea8c451d07d96c41dcb05876aa75d7db7
+          ref: 25affa9635cb02e3834e60e04b1e8cd8769835b5
           fetch-depth: 0
 
       - uses: actions/setup-java@v5
