@@ -122,6 +122,21 @@ class DataStoreUserPreferencesRepository(
             preferences[PreferenceKeys.overlayVerticalFraction] = normalizedFraction
         }
     }
+
+    override suspend fun applyPortablePreferences(preferences: PortableUserPreferences) {
+        val normalizedLanguageTag = preferences.languageTag?.trim()?.takeIf(String::isNotEmpty)
+        val normalizedFraction = preferences.overlayVerticalFraction
+            .takeIf(Float::isFinite)
+            ?.coerceIn(0f, 1f)
+            ?: DEFAULT_OVERLAY_VERTICAL_FRACTION
+        dataStore.edit { mutablePreferences ->
+            mutablePreferences[PreferenceKeys.themePreference] = preferences.themePreference.name
+            setOrRemove(mutablePreferences, PreferenceKeys.languageTag, normalizedLanguageTag)
+            mutablePreferences[PreferenceKeys.overlayEnabled] = preferences.overlayEnabled
+            mutablePreferences[PreferenceKeys.overlayEdge] = preferences.overlayEdge.name
+            mutablePreferences[PreferenceKeys.overlayVerticalFraction] = normalizedFraction
+        }
+    }
 }
 
 internal fun decodeUserPreferences(preferences: Preferences): UserPreferences {

@@ -82,6 +82,7 @@ dependencies {
     implementation("androidx.media3:media3-session:1.11.0")
     implementation("androidx.room3:room3-runtime:3.0.2")
     implementation("androidx.sqlite:sqlite-framework:2.7.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
     testImplementation("junit:junit:4.13.2")
 }

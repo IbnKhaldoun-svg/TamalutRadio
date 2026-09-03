@@ -28,4 +28,11 @@ interface UserPreferencesRepository {
         edge: OverlayEdge,
         verticalFraction: Float,
     ) = Unit
+
+    suspend fun applyPortablePreferences(preferences: PortableUserPreferences) {
+        setThemePreference(preferences.themePreference)
+        setLanguageTag(preferences.languageTag)
+        setOverlayEnabled(preferences.overlayEnabled)
+        setOverlayPosition(preferences.overlayEdge, preferences.overlayVerticalFraction)
+    }
 }
