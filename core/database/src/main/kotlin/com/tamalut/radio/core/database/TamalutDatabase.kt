@@ -16,5 +16,6 @@ import androidx.room3.RoomDatabase
 abstract class TamalutDatabase : RoomDatabase() {
     abstract fun radioStationDao(): RadioStationDao
     abstract fun favoriteStationDao(): FavoriteStationDao
+    abstract fun backupRestoreDao(): BackupRestoreDao
     abstract fun recentlyPlayedDao(): RecentlyPlayedDao
 }
