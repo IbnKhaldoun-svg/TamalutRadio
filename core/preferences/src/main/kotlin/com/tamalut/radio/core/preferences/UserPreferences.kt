@@ -34,6 +34,18 @@ data class LastPlayedPreference(
     }
 }
 
+data class PortableUserPreferences(
+    val themePreference: ThemePreference = ThemePreference.FOLLOW_SYSTEM,
+    val languageTag: String? = null,
+    val overlayEnabled: Boolean = false,
+    val overlayEdge: OverlayEdge = OverlayEdge.RIGHT,
+    val overlayVerticalFraction: Float = DEFAULT_OVERLAY_VERTICAL_FRACTION,
+) {
+    init {
+        require(overlayVerticalFraction.isFinite()) { "Overlay position must be finite" }
+    }
+}
+
 data class UserPreferences(
     val themePreference: ThemePreference = ThemePreference.FOLLOW_SYSTEM,
     val languageTag: String? = null,
@@ -42,4 +54,12 @@ data class UserPreferences(
     val overlayEnabled: Boolean = false,
     val overlayEdge: OverlayEdge = OverlayEdge.RIGHT,
     val overlayVerticalFraction: Float = DEFAULT_OVERLAY_VERTICAL_FRACTION,
-)
+) {
+    fun portableSnapshot(): PortableUserPreferences = PortableUserPreferences(
+        themePreference = themePreference,
+        languageTag = languageTag,
+        overlayEnabled = overlayEnabled,
+        overlayEdge = overlayEdge,
+        overlayVerticalFraction = overlayVerticalFraction,
+    )
+}
