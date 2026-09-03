@@ -48,6 +48,41 @@ interface FavoriteStationDao {
 }
 
 @Dao
+interface BackupRestoreDao {
+    @Query("SELECT * FROM radio_stations WHERE is_custom = 1 ORDER BY name COLLATE NOCASE, station_id ASC")
+    suspend fun getCustomStations(): List<RadioStationEntity>
+
+    @Query("SELECT * FROM radio_stations WHERE is_custom = 0 ORDER BY station_id ASC")
+    suspend fun getBuiltInStations(): List<RadioStationEntity>
+
+    @Query("SELECT * FROM favorite_stations ORDER BY favorited_at_epoch_millis DESC, station_id ASC")
+    suspend fun getFavorites(): List<FavoriteStationEntity>
+
+    @Query("DELETE FROM favorite_stations")
+    suspend fun deleteAllFavorites()
+
+    @Query("DELETE FROM radio_stations WHERE is_custom = 1")
+    suspend fun deleteAllCustomStations()
+
+    @Upsert
+    suspend fun upsertStations(stations: List<RadioStationEntity>)
+
+    @Upsert
+    suspend fun upsertFavorites(favorites: List<FavoriteStationEntity>)
+
+    @Transaction
+    suspend fun replaceBackupManagedData(
+        customStations: List<RadioStationEntity>,
+        favorites: List<FavoriteStationEntity>,
+    ) {
+        deleteAllFavorites()
+        deleteAllCustomStations()
+        if (customStations.isNotEmpty()) upsertStations(customStations)
+        if (favorites.isNotEmpty()) upsertFavorites(favorites)
+    }
+}
+
+@Dao
 interface RecentlyPlayedDao {
     @Upsert
     suspend fun upsert(entry: RecentlyPlayedEntity)
