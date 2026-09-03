@@ -1,5 +1,6 @@
 package com.tamalut.radio
 
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -100,9 +101,23 @@ class MainActivity : ComponentActivity() {
             .build()
     }
 
+    private val favoriteRepository by lazy {
+        FavoriteStationRepository(database.favoriteStationDao())
+    }
+
+    private val stationRepository by lazy {
+        RadioStationRepository(database.radioStationDao(), database.favoriteStationDao())
+    }
+
+    private val backupRestoreCoordinator by lazy {
+        BackupRestoreCoordinator(
+            dataStore = RoomBackupDataStore(database.backupRestoreDao(), stationRepository),
+            preferencesRepository = preferencesRepository,
+            overlayPermissionGranted = { Settings.canDrawOverlays(applicationContext) },
+        )
+    }
+
     private val radioViewModelFactory by lazy {
-        val favoriteRepository = FavoriteStationRepository(database.favoriteStationDao())
-        val stationRepository = RadioStationRepository(database.radioStationDao(), database.favoriteStationDao())
         RadioViewModelFactory(
             controller = RadioFeatureController(CoreRadioDataSource(stationRepository, favoriteRepository)),
             playbackGateway = Media3RadioPlaybackGateway(playbackController),
@@ -196,6 +211,8 @@ class MainActivity : ComponentActivity() {
                         )
                         MainDestination.SETTINGS -> SettingsDestination(
                             radioViewModel = radioViewModel,
+                            backupRestoreCoordinator = backupRestoreCoordinator,
+                            contentResolver = contentResolver,
                             sleepTimerState = sleepTimerState,
                             onSleepTimerPresetSelected = sleepTimerController::setPreset,
                             onCustomSleepTimerRequested = { showCustomSleepTimerDialog = true },
@@ -259,6 +276,8 @@ internal fun destinationForLaunchAction(action: String?): MainDestination? =
 @Composable
 private fun SettingsDestination(
     radioViewModel: RadioViewModel,
+    backupRestoreCoordinator: BackupRestoreCoordinator,
+    contentResolver: ContentResolver,
     sleepTimerState: SleepTimerState,
     onSleepTimerPresetSelected: (SleepTimerPreset) -> Unit,
     onCustomSleepTimerRequested: () -> Unit,
@@ -288,6 +307,12 @@ private fun SettingsDestination(
             )
 
             RadioManagementSettings(viewModel = radioViewModel)
+
+            BackupRestoreSettings(
+                coordinator = backupRestoreCoordinator,
+                contentResolver = contentResolver,
+                onRestored = radioViewModel::refresh,
+            )
 
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
