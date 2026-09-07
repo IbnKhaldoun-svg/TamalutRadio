@@ -1867,3 +1867,13 @@ Implementation note for v1: a dedicated serializer/coordinator may be added, but
 - Exact GitHub Actions validation run `34086926398` passed `:core:database:testDebugUnitTest`, `:core:data:testDebugUnitTest`, `:core:preferences:testDebugUnitTest`, `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`: BUILD SUCCESSFUL in 3m 59s, 208 actionable tasks (171 executed, 37 from cache).
 - Validation APK size: `23844741` bytes. SHA-256: `745b947ad7aee067be9c9a959a16dc4a8f7a93b3bff27d64fb91d8214b601976`. Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` with DN `CN=Android Debug, O=TamalutRadio, C=IT`.
 - The exact product commit was promoted to `main` by the successful validation job. Physical Backup -> mutate managed data -> Restore verification remains pending and is required before the Backup/Restore roadmap objective is declared physically complete.
+
+
+### 2026-09-07 — Backup/Restore debug distribution record
+
+- Permanent physical-test prerelease: `debug-20260907-054106-c062f58` (release ID `383852346`), `prerelease=true`, targeting exact product `c062f5890566183a4e5240fca5d502da6908a650`.
+- APK asset: `TamalutRadio-debug-c062f58.apk`, size `23844741` bytes, GitHub asset digest `sha256:745b947ad7aee067be9c9a959a16dc4a8f7a93b3bff27d64fb91d8214b601976`.
+- Release build independently verified the persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` with DN `CN=Android Debug, O=TamalutRadio, C=IT`.
+- Release page: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260907-054106-c062f58`.
+- Direct APK: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260907-054106-c062f58/TamalutRadio-debug-c062f58.apk`.
+- Automated implementation/distribution is closed. Physical Backup -> mutate managed data -> Restore remains PENDING; roadmap completion waits for that device gate.
