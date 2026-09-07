@@ -1910,3 +1910,10 @@ Implementation note for v1: a dedicated serializer/coordinator may be added, but
 - Release page: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260907-061054-017229b`.
 - Direct APK: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260907-061054-017229b/TamalutRadio-debug-017229b.apk`.
 - Automated implementation/distribution is closed. Physical verification of radio title, Music title, live title changes, ellipsis and overlay regressions remains PENDING.
+
+### 2026-09-07 — Floating overlay current-title physical gate CLOSED
+
+- Physical verification on permanent prerelease `debug-20260907-061054-017229b` was reported PASS.
+- Confirmed in physical use: expanded floating overlay displays the active Radio station title and local Music track title, title updates follow playback changes, long-title presentation remains contained by the single-line/ellipsis treatment, and the collapsed edge tab remains title-free.
+- Overlay regressions were not observed in the physical check: expand/collapse, playback controls and existing floating-overlay behavior remained functional.
+- This closes the floating-overlay current-title refinement for exact product commit `017229b25041a6aa7603a766163693d75145bb4b`; no additional runtime APK is required.
