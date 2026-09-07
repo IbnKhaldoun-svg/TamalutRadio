@@ -1899,3 +1899,14 @@ Implementation note for v1: a dedicated serializer/coordinator may be added, but
 - Exact GitHub Actions validation run `34088915598` passed `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`: BUILD SUCCESSFUL in 3m 34s.
 - Validation APK size: `23844741` bytes. SHA-256: `52b00c2e1cc79be316b28231eca24f1736afe77f910d192d0dbb6b11ba59ef99`. Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` with DN `CN=Android Debug, O=TamalutRadio, C=IT`.
 - Exact product commit was promoted to `main`. Physical verification of radio title, Music title, live title changes, ellipsis and overlay regressions remains pending.
+
+### 2026-09-07 — Floating overlay current-title debug distribution
+
+- Permanent debug prerelease tag: `debug-20260907-061054-017229b`.
+- Release target: exact product commit `017229b25041a6aa7603a766163693d75145bb4b` (`feat: show current title in floating overlay`).
+- Asset: `TamalutRadio-debug-017229b.apk`, size `23844741` bytes, SHA-256 `52b00c2e1cc79be316b28231eca24f1736afe77f910d192d0dbb6b11ba59ef99`.
+- Persistent debug signer SHA-256: `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`, DN `CN=Android Debug, O=TamalutRadio, C=IT`.
+- Release verification confirmed `prerelease=true`, exact `target_commitish`, matching asset size/digest, and no runtime changes beyond the validated product commit.
+- Release page: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260907-061054-017229b`.
+- Direct APK: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260907-061054-017229b/TamalutRadio-debug-017229b.apk`.
+- Automated implementation/distribution is closed. Physical verification of radio title, Music title, live title changes, ellipsis and overlay regressions remains PENDING.
