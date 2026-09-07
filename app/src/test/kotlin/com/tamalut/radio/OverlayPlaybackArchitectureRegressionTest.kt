@@ -26,7 +26,12 @@ class OverlayPlaybackArchitectureRegressionTest {
                 "playbackControls = latestPlaybackState.toOverlayPlaybackControlsModel()",
             ),
         )
-        assertTrue(window.contains("if (state.expanded) transportControls(host, state.playbackControls) else null"))
+        assertTrue(controls.contains("title = title?.trim()?.takeIf(String::isNotEmpty) ?: \"In riproduzione\""))
+        assertTrue(window.contains("if (state.expanded)"))
+        assertTrue(window.contains("playbackTitle(host, state.playbackControls?.title)"))
+        assertTrue(window.contains("expandedControlsRow(host, state)"))
+        assertTrue(window.contains("maxLines = 1"))
+        assertTrue(window.contains("ellipsize = TextUtils.TruncateAt.END"))
         assertTrue(window.contains("description = \"Precedente\""))
         assertTrue(window.contains("description = if (model?.playPauseIcon == OverlayPlayPauseIcon.PAUSE) \"Pausa\" else \"Riproduci\""))
         assertTrue(window.contains("description = \"Successivo\""))
@@ -37,6 +42,21 @@ class OverlayPlaybackArchitectureRegressionTest {
         assertFalse(overlayProduction.contains("MediaSession.Builder"))
         assertFalse(overlayProduction.contains("MediaSessionService"))
         assertFalse(overlayProduction.contains("startForegroundService"))
+    }
+
+    @Test
+    fun titleIsOnlyInExpandedStructureAndGeometryUsesRenderedHeight() {
+        val window = Path.of("src/main/kotlin/com/tamalut/radio/FloatingOverlayWindow.kt").readText()
+
+        val renderBody = window.substringAfter("private fun render(host: OverlayWindowHost, state: FloatingOverlayViewState)")
+            .substringBefore("private fun expandedControlsRow")
+        assertTrue(renderBody.contains("val height = if (state.expanded) host.expandedHeight else host.controlHeight"))
+        assertTrue(renderBody.contains("if (state.expanded)"))
+        assertTrue(renderBody.contains("playbackTitle(host, state.playbackControls?.title)"))
+        assertTrue(renderBody.contains("edgeTab(host, state)"))
+        assertTrue(window.contains("windowHeight = host.params.height"))
+        assertTrue(window.contains("val titleHeight = dp(24)"))
+        assertTrue(window.contains("val expandedHeight = controlHeight + titleHeight"))
     }
 
     @Test

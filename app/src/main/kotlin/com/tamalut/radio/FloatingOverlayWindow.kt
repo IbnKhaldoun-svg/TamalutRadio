@@ -7,6 +7,7 @@ import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.os.Build
 import android.provider.Settings
+import android.text.TextUtils
 import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
@@ -38,7 +39,9 @@ private data class OverlayWindowHost(
     val appEntryWidth: Int,
     val dividerWidth: Int,
     val transportButtonWidth: Int,
-    val windowHeight: Int,
+    val controlHeight: Int,
+    val titleHeight: Int,
+    val expandedHeight: Int,
     val root: LinearLayout,
     val params: WindowManager.LayoutParams,
 )
@@ -127,16 +130,18 @@ internal class FloatingOverlayWindow(
             val dividerWidth = dp(1).coerceAtLeast(1)
             val transportButtonWidth = dp(48)
             val expandedWidth = collapsedWidth + closeWidth + appEntryWidth + dividerWidth + (transportButtonWidth * 4)
-            val windowHeight = dp(48)
+            val controlHeight = dp(48)
+            val titleHeight = dp(24)
+            val expandedHeight = controlHeight + titleHeight
             val root = LinearLayout(overlayContext).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
                 elevation = dp(10).toFloat()
                 contentDescription = "Player flottante TamalutRadio"
             }
             val params = WindowManager.LayoutParams(
                 collapsedWidth,
-                windowHeight,
+                controlHeight,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -156,7 +161,9 @@ internal class FloatingOverlayWindow(
                 appEntryWidth = appEntryWidth,
                 dividerWidth = dividerWidth,
                 transportButtonWidth = transportButtonWidth,
-                windowHeight = windowHeight,
+                controlHeight = controlHeight,
+                titleHeight = titleHeight,
+                expandedHeight = expandedHeight,
                 root = root,
                 params = params,
             )
@@ -171,64 +178,88 @@ internal class FloatingOverlayWindow(
 
     private fun render(host: OverlayWindowHost, state: FloatingOverlayViewState) {
         val width = if (state.expanded) host.expandedWidth else host.collapsedWidth
+        val height = if (state.expanded) host.expandedHeight else host.controlHeight
         val (screenWidth, screenHeight) = displaySize(host)
         host.params.width = width
-        host.params.height = host.windowHeight
+        host.params.height = height
         host.params.x = OverlayGeometry.xForEdge(state.edge, screenWidth, width)
         host.params.y = OverlayGeometry.yFromNormalizedFraction(
             fraction = state.verticalFraction,
             screenHeight = screenHeight,
-            windowHeight = host.windowHeight,
+            windowHeight = height,
         )
 
         host.root.removeAllViews()
         host.root.background = backgroundFor(host, state.edge)
 
-        val tab = edgeTab(host, state)
-        val close = if (state.expanded) closeButton(host) else null
-        val appEntry = if (state.expanded) appEntryButton(host) else null
-        val divider = if (state.expanded) appEntryDivider(host) else null
-        val transport = if (state.expanded) transportControls(host, state.playbackControls) else null
-        if (state.edge == OverlayEdge.LEFT) {
-            host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
-            appEntry?.let {
-                host.root.addView(it, LinearLayout.LayoutParams(host.appEntryWidth, host.windowHeight))
-            }
-            divider?.let {
-                host.root.addView(it, LinearLayout.LayoutParams(host.dividerWidth, dp(host, 24)))
-            }
-            transport?.let {
-                host.root.addView(
-                    it,
-                    LinearLayout.LayoutParams(host.transportButtonWidth * 4, host.windowHeight),
-                )
-            }
-            close?.let {
-                host.root.addView(it, LinearLayout.LayoutParams(host.closeWidth, host.windowHeight))
-            }
+        if (state.expanded) {
+            host.root.addView(
+                playbackTitle(host, state.playbackControls?.title),
+                LinearLayout.LayoutParams(host.expandedWidth, host.titleHeight),
+            )
+            host.root.addView(
+                expandedControlsRow(host, state),
+                LinearLayout.LayoutParams(host.expandedWidth, host.controlHeight),
+            )
         } else {
-            close?.let {
-                host.root.addView(it, LinearLayout.LayoutParams(host.closeWidth, host.windowHeight))
-            }
-            transport?.let {
-                host.root.addView(
-                    it,
-                    LinearLayout.LayoutParams(host.transportButtonWidth * 4, host.windowHeight),
-                )
-            }
-            divider?.let {
-                host.root.addView(it, LinearLayout.LayoutParams(host.dividerWidth, dp(host, 24)))
-            }
-            appEntry?.let {
-                host.root.addView(it, LinearLayout.LayoutParams(host.appEntryWidth, host.windowHeight))
-            }
-            host.root.addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.windowHeight))
+            host.root.addView(
+                edgeTab(host, state),
+                LinearLayout.LayoutParams(host.collapsedWidth, host.controlHeight),
+            )
         }
 
         if (host.root.isAttachedToWindow) {
             runCatching { host.manager.updateViewLayout(host.root, host.params) }
         }
     }
+
+    private fun expandedControlsRow(
+        host: OverlayWindowHost,
+        state: FloatingOverlayViewState,
+    ): LinearLayout = LinearLayout(host.context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+
+        val tab = edgeTab(host, state)
+        val close = closeButton(host)
+        val appEntry = appEntryButton(host)
+        val divider = appEntryDivider(host)
+        val transport = transportControls(host, state.playbackControls)
+
+        if (state.edge == OverlayEdge.LEFT) {
+            addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.controlHeight))
+            addView(appEntry, LinearLayout.LayoutParams(host.appEntryWidth, host.controlHeight))
+            addView(divider, LinearLayout.LayoutParams(host.dividerWidth, dp(host, 24)))
+            addView(
+                transport,
+                LinearLayout.LayoutParams(host.transportButtonWidth * 4, host.controlHeight),
+            )
+            addView(close, LinearLayout.LayoutParams(host.closeWidth, host.controlHeight))
+        } else {
+            addView(close, LinearLayout.LayoutParams(host.closeWidth, host.controlHeight))
+            addView(
+                transport,
+                LinearLayout.LayoutParams(host.transportButtonWidth * 4, host.controlHeight),
+            )
+            addView(divider, LinearLayout.LayoutParams(host.dividerWidth, dp(host, 24)))
+            addView(appEntry, LinearLayout.LayoutParams(host.appEntryWidth, host.controlHeight))
+            addView(tab, LinearLayout.LayoutParams(host.collapsedWidth, host.controlHeight))
+        }
+    }
+
+    private fun playbackTitle(host: OverlayWindowHost, title: String?): TextView =
+        TextView(host.context).apply {
+            val resolvedTitle = title?.trim()?.takeIf(String::isNotEmpty) ?: "In riproduzione"
+            text = resolvedTitle
+            textSize = 13f
+            setTextColor(Color.rgb(235, 239, 244))
+            gravity = Gravity.CENTER_VERTICAL
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(dp(host, 12), 0, dp(host, 12), 0)
+            contentDescription = "In riproduzione: $resolvedTitle"
+            setBackgroundColor(Color.TRANSPARENT)
+        }
 
     private fun edgeTab(host: OverlayWindowHost, state: FloatingOverlayViewState): TextView =
         TextView(host.context).apply {
@@ -286,7 +317,7 @@ internal class FloatingOverlayWindow(
                 enabled = model?.previousEnabled == true,
                 action = OverlayPlaybackAction.PREVIOUS,
             ),
-            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.controlHeight),
         )
         addView(
             transportButton(
@@ -300,7 +331,7 @@ internal class FloatingOverlayWindow(
                 enabled = model != null,
                 action = OverlayPlaybackAction.TOGGLE_PLAY_PAUSE,
             ),
-            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.controlHeight),
         )
         addView(
             transportButton(
@@ -310,14 +341,14 @@ internal class FloatingOverlayWindow(
                 enabled = model?.nextEnabled == true,
                 action = OverlayPlaybackAction.NEXT,
             ),
-            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.controlHeight),
         )
         addView(
             stopTransportButton(
                 host = host,
                 enabled = model != null,
             ),
-            LinearLayout.LayoutParams(host.transportButtonWidth, host.windowHeight),
+            LinearLayout.LayoutParams(host.transportButtonWidth, host.controlHeight),
         )
     }
 
@@ -400,7 +431,7 @@ internal class FloatingOverlayWindow(
                     host.params.y = OverlayGeometry.clampY(
                         y = startY + deltaY.toInt(),
                         screenHeight = screenHeight,
-                        windowHeight = host.windowHeight,
+                        windowHeight = host.params.height,
                     )
                     if (host.root.isAttachedToWindow) {
                         runCatching { host.manager.updateViewLayout(host.root, host.params) }
@@ -420,7 +451,7 @@ internal class FloatingOverlayWindow(
                     val fraction = OverlayGeometry.normalizedVerticalFraction(
                         y = host.params.y,
                         screenHeight = screenHeight,
-                        windowHeight = host.windowHeight,
+                        windowHeight = host.params.height,
                     )
                     val updated = currentState?.copy(edge = edge, verticalFraction = fraction)
                     if (updated != null) {

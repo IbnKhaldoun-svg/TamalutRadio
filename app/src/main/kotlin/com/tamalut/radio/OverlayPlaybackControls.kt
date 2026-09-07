@@ -16,6 +16,7 @@ internal enum class OverlayPlayPauseIcon {
 }
 
 internal data class OverlayPlaybackControlsModel(
+    val title: String,
     val playPauseIcon: OverlayPlayPauseIcon,
     val previousEnabled: Boolean,
     val nextEnabled: Boolean,
@@ -24,6 +25,7 @@ internal data class OverlayPlaybackControlsModel(
 internal fun PlaybackState.toOverlayPlaybackControlsModel(): OverlayPlaybackControlsModel? {
     if (!hasCurrentItem) return null
     return OverlayPlaybackControlsModel(
+        title = title?.trim()?.takeIf(String::isNotEmpty) ?: "In riproduzione",
         playPauseIcon = if (isPlaying) OverlayPlayPauseIcon.PAUSE else OverlayPlayPauseIcon.PLAY,
         previousEnabled = canSkipPrevious,
         nextEnabled = canSkipNext,

@@ -55,19 +55,17 @@ class OverlayPlaybackControlsTest {
     }
 
     @Test
-    fun sharedStateChangesUpdatePlayPausePresentation() {
+    fun sharedStateChangesUpdatePlayPausePresentationAndTitle() {
         val controller = FakePlaybackController()
-        controller.publish(localState(isPlaying = true, canPrevious = true, canNext = true))
-        assertEquals(
-            OverlayPlayPauseIcon.PAUSE,
-            controller.state.value.toOverlayPlaybackControlsModel()?.playPauseIcon,
-        )
+        controller.publish(localState(isPlaying = true, canPrevious = true, canNext = true).copy(title = "Track A"))
+        val playing = controller.state.value.toOverlayPlaybackControlsModel()
+        assertEquals(OverlayPlayPauseIcon.PAUSE, playing?.playPauseIcon)
+        assertEquals("Track A", playing?.title)
 
-        controller.publish(localState(isPlaying = false, canPrevious = true, canNext = true))
-        assertEquals(
-            OverlayPlayPauseIcon.PLAY,
-            controller.state.value.toOverlayPlaybackControlsModel()?.playPauseIcon,
-        )
+        controller.publish(localState(isPlaying = false, canPrevious = true, canNext = true).copy(title = "Track B"))
+        val paused = controller.state.value.toOverlayPlaybackControlsModel()
+        assertEquals(OverlayPlayPauseIcon.PLAY, paused?.playPauseIcon)
+        assertEquals("Track B", paused?.title)
     }
 
     @Test
@@ -87,19 +85,20 @@ class OverlayPlaybackControlsTest {
     }
 
     @Test
-    fun radioRegressionUsesSameStateAndControllerWithoutLocalModeMutation() {
+    fun radioRegressionUsesStationNameFromSharedState() {
         val controller = FakePlaybackController()
         val radio = PlaybackState(
             isConnected = true,
             sourceType = MediaSourceType.RADIO,
             stationId = StationId("radio"),
-            title = "Radio",
+            title = "Radio Tamalut",
             isPlaying = true,
             canSkipPrevious = false,
             canSkipNext = false,
         )
         val model = radio.toOverlayPlaybackControlsModel()
         assertNotNull(model)
+        assertEquals("Radio Tamalut", model?.title)
         assertEquals(OverlayPlayPauseIcon.PAUSE, model?.playPauseIcon)
         assertFalse(model?.previousEnabled ?: true)
         assertFalse(model?.nextEnabled ?: true)
@@ -116,14 +115,16 @@ class OverlayPlaybackControlsTest {
     }
 
     @Test
-    fun localMusicRegressionPreservesQueueCapabilitiesAndModes() {
+    fun localMusicRegressionPreservesTrackTitleQueueCapabilitiesAndModes() {
         val controller = FakePlaybackController()
         val local = localState(isPlaying = false, canPrevious = true, canNext = true).copy(
+            title = "Brano locale",
             repeatMode = PlaybackRepeatMode.ONE,
             shuffleEnabled = true,
         )
         val model = local.toOverlayPlaybackControlsModel()
         requireNotNull(model)
+        assertEquals("Brano locale", model.title)
         assertEquals(OverlayPlayPauseIcon.PLAY, model.playPauseIcon)
         assertTrue(model.previousEnabled)
         assertTrue(model.nextEnabled)
@@ -135,6 +136,16 @@ class OverlayPlaybackControlsTest {
         assertEquals(1, controller.nextCalls)
         assertTrue(controller.repeatValues.isEmpty())
         assertTrue(controller.shuffleValues.isEmpty())
+    }
+
+    @Test
+    fun titleIsTrimmedAndHasStableFallback() {
+        val withWhitespace = localState(isPlaying = true, canPrevious = true, canNext = true)
+            .copy(title = "  Titolo pulito  ")
+        assertEquals("Titolo pulito", withWhitespace.toOverlayPlaybackControlsModel()?.title)
+
+        val blankTitle = withWhitespace.copy(title = "   ")
+        assertEquals("In riproduzione", blankTitle.toOverlayPlaybackControlsModel()?.title)
     }
 
     @Test
