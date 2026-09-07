@@ -1889,3 +1889,13 @@ Implementation note for v1: a dedicated serializer/coordinator may be added, but
 - Expansion/collapse height changes must preserve normalized vertical positioning and drag clamping by using the actual rendered overlay height.
 - Required regression coverage: radio title projection, local-track title projection, single-line ellipsis/title-only-expanded structure, shared-controller architecture, transport controls, overlay geometry/drag, and existing app unit tests.
 - Exact product validation must run at least `:core:playback:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` with the persistent debug signer before promoting the exact product commit to `main`.
+
+### 2026-09-07 — Floating overlay current-title implementation validated
+
+- Clean product commit: `017229b25041a6aa7603a766163693d75145bb4b` (`feat: show current title in floating overlay`), direct child of spec-before `27afc794e8a74b0a60415ba3b5d14fa9c999e89d`.
+- Expanded floating overlay shows the current shared Media3 playback title: radio station name for Radio and current track title for local Music. The collapsed edge tab remains unchanged.
+- Title presentation is single-line with end ellipsis and updates from the existing process-shared `PlaybackController.state`; no second player, browser, session, service, queue or independent playback state was introduced.
+- Existing transport controls, Stop, edge-aware ordering, app entry, close/session dismiss, drag/snap position persistence and 4-second auto-collapse remain unchanged; expanded height is accounted for by overlay geometry.
+- Exact GitHub Actions validation run `34088915598` passed `:core:playback:testDebugUnitTest`, `:feature:radio:testDebugUnitTest`, `:feature:library:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug`: BUILD SUCCESSFUL in 3m 34s.
+- Validation APK size: `23844741` bytes. SHA-256: `52b00c2e1cc79be316b28231eca24f1736afe77f910d192d0dbb6b11ba59ef99`. Persistent debug signer SHA-256 remained `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` with DN `CN=Android Debug, O=TamalutRadio, C=IT`.
+- Exact product commit was promoted to `main`. Physical verification of radio title, Music title, live title changes, ellipsis and overlay regressions remains pending.
