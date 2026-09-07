@@ -1877,3 +1877,15 @@ Implementation note for v1: a dedicated serializer/coordinator may be added, but
 - Release page: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260907-054106-c062f58`.
 - Direct APK: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260907-054106-c062f58/TamalutRadio-debug-c062f58.apk`.
 - Automated implementation/distribution is closed. Physical Backup -> mutate managed data -> Restore remains PENDING; roadmap completion waits for that device gate.
+
+
+### 2026-09-07 — Floating overlay current-title refinement contract
+
+- The floating mini-player must show the current media title only while expanded. The collapsed edge tab remains the same compact handle and must not gain title text.
+- For radio playback the title is the current station name already exposed by the shared Media3 `PlaybackState.title`; for local Music playback it is the current track title from that same state. The title must update live when the shared playback item changes.
+- Presentation is a single line with end ellipsis for long titles. To avoid widening the existing ~317 dp transport bar beyond practical phone width, the expanded overlay may add a compact title strip above the existing 48 dp control row.
+- The existing edge-aware tab/app-entry/previous/play-pause/next/Stop/close ordering, drag/snap position persistence, 4-second auto-collapse, session-only dismiss, overlay permission behavior, and app-entry behavior must remain unchanged.
+- The title must be projected from the existing process-shared `PlaybackController.state`. No new `ExoPlayer`, `MediaBrowser`, `MediaSession`, playback service, queue, or independent playback state is allowed.
+- Expansion/collapse height changes must preserve normalized vertical positioning and drag clamping by using the actual rendered overlay height.
+- Required regression coverage: radio title projection, local-track title projection, single-line ellipsis/title-only-expanded structure, shared-controller architecture, transport controls, overlay geometry/drag, and existing app unit tests.
+- Exact product validation must run at least `:core:playback:testDebugUnitTest`, `:app:testDebugUnitTest`, and `:app:assembleDebug` with the persistent debug signer before promoting the exact product commit to `main`.
