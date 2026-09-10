@@ -2,6 +2,18 @@
 
 Single source of truth for TamalutRadio. **Update this file before code changes.**
 
+
+## Canonical current baseline (2026-09-10)
+
+This block is the authoritative pointer for all new installs and physical/regression testing. Historical release records below remain evidence only and must not be used to choose the current APK.
+
+- **CURRENT PRODUCT RUNTIME:** `017229b25041a6aa7603a766163693d75145bb4b` (`feat: show current title in floating overlay`). This is the newest non-documentation product commit. The later `main` commits through `d4ac419ba284dd15dfbdf386d8b4720f396e1a89` are documentation-only, so the runtime source tree is unchanged.
+- **CURRENT PHYSICAL-TEST APK:** PENDING fresh canonical rebuild from the exact runtime above.
+- The canonical runtime includes the finalized Settings/category custom-radio UX (`9176ced98b886c61464b1ffc4859ca8a7483dac6`), Android Auto media discovery declaration (`362b0a0b86e2fc17229113cf38e0794bd0ea9426`), Backup/Restore (`c062f5890566183a4e5240fca5d502da6908a650`), floating-overlay current title (`017229b25041a6aa7603a766163693d75145bb4b`), and all earlier catalog/Sport/playback/Stop/Sleep-Timer behavior inherited in its ancestry.
+- All previously published debug APKs are retained as permanent historical evidence but are **SUPERSEDED FOR NEW PHYSICAL TESTING** once the fresh canonical release below is verified. In particular, `debug-20260902-131555-cdeca82` / `cdeca829...` is historical and must not be used as the current baseline.
+- The 2026-09-10 Sport PASS reported on `cdeca82` is valid only as historical regression evidence for that runtime; it does not certify the canonical current runtime.
+- Every future physical-test instruction must identify one exact runtime SHA, Release tag, APK size/SHA-256 and signer SHA-256 before installation.
+
 ## Current decisions
 
 - UI: **Atlas Night** base + Material 3 / Material Air ergonomics + restrained Sahara Pulse accents.
