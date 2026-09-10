@@ -1939,4 +1939,21 @@ Implementation note for v1: a dedicated serializer/coordinator may be added, but
 - [x] All 41 older public debug prereleases are explicitly marked **SUPERSEDED FOR NEW PHYSICAL TESTING** and retained only as historical evidence.
 - [x] The historical `cdeca82` Sport PASS remains historical evidence only and is not used to certify this canonical runtime.
 - [x] Repository finalization run `34493779159` updates only documentation on `main`; the temporary canonical-baseline helper branch is deleted by the same run.
-- [ ] **Canonical consolidated physical smoke gate:** PENDING on the exact canonical APK above; older APK reports must not be used to close it.
+- [x] **Canonical consolidated physical smoke gate:** PASS reported on 2026-09-10 for this exact canonical APK. Detailed sampled scope is recorded below; separate Android Auto and destructive Backup/Restore gates remain independent.
+
+### 2026-09-10 — Canonical consolidated physical smoke gate — CLOSED
+
+- [x] User reported **PASS tutto** on the already-installed canonical prerelease `debug-20260910-131003-017229b`, exact runtime `017229b25041a6aa7603a766163693d75145bb4b`; no reinstall or newer runtime was involved.
+- [x] APK identity for this gate: `TamalutRadio-debug-017229b.apk`, **23844741 bytes**, SHA-256 `52b00c2e1cc79be316b28231eca24f1736afe77f910d192d0dbb6b11ba59ef99`, persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`.
+- [x] Radio smoke passed across Marocco / Italia / Sport / UK, including Sport Previous/Next and wrap behavior.
+- [x] Custom-radio smoke passed for Settings management/category behavior, favorites/search projection and normal playback use.
+- [x] Local Music SAF playback smoke passed, including Previous/Next and shuffle/repeat controls.
+- [x] Cross-source Radio -> Music -> Radio switching passed with correct title/state and no duplicate audio reported.
+- [x] Persistent mini-player and `In Riproduzione` navigation/transport smoke passed.
+- [x] Floating overlay smoke passed, including expanded current-title display/update and title-free collapsed tab.
+- [x] Background playback and existing Media3 notification controls passed, including return to the app without duplicate-session symptoms.
+- [x] Sleep Timer start/cancel and full Stop smoke passed without residual playback/session symptoms.
+- [x] Backup/Restore entry-point smoke passed: `Esporta backup` and `Ripristina backup` are present and open the Android document UI. This does **not** replace the separate destructive Backup -> mutate -> Restore physical gate, which remains pending.
+- [x] Force-close/reopen persistence smoke passed for the sampled user data/settings surfaces.
+- [x] This closes the **canonical consolidated phone smoke baseline** for `017229b25041a6aa7603a766163693d75145bb4b`. Android Auto physical certification and the dedicated destructive Backup/Restore gate remain separate objectives and are not implied by this PASS.
+
