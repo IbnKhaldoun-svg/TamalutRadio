@@ -8,7 +8,7 @@ Single source of truth for TamalutRadio. **Update this file before code changes.
 This block is the authoritative pointer for all new installs and physical/regression testing. Historical release records below remain evidence only and must not be used to choose the current APK.
 
 - **CURRENT PRODUCT RUNTIME:** `017229b25041a6aa7603a766163693d75145bb4b` (`feat: show current title in floating overlay`). This is the newest non-documentation product commit. The later `main` commits through `d4ac419ba284dd15dfbdf386d8b4720f396e1a89` are documentation-only, so the runtime source tree is unchanged.
-- **CURRENT PHYSICAL-TEST APK:** PENDING fresh canonical rebuild from the exact runtime above.
+- **CURRENT PHYSICAL-TEST APK:** `debug-20260910-131003-017229b` → `TamalutRadio-debug-017229b.apk`; exact runtime `017229b25041a6aa7603a766163693d75145bb4b`; size **23844741 bytes**; SHA-256 `52b00c2e1cc79be316b28231eca24f1736afe77f910d192d0dbb6b11ba59ef99`; persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`. Release: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260910-131003-017229b`. Direct APK: `https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260910-131003-017229b/TamalutRadio-debug-017229b.apk`.
 - The canonical runtime includes the finalized Settings/category custom-radio UX (`9176ced98b886c61464b1ffc4859ca8a7483dac6`), Android Auto media discovery declaration (`362b0a0b86e2fc17229113cf38e0794bd0ea9426`), Backup/Restore (`c062f5890566183a4e5240fca5d502da6908a650`), floating-overlay current title (`017229b25041a6aa7603a766163693d75145bb4b`), and all earlier catalog/Sport/playback/Stop/Sleep-Timer behavior inherited in its ancestry.
 - All previously published debug APKs are retained as permanent historical evidence but are **SUPERSEDED FOR NEW PHYSICAL TESTING** once the fresh canonical release below is verified. In particular, `debug-20260902-131555-cdeca82` / `cdeca829...` is historical and must not be used as the current baseline.
 - The 2026-09-10 Sport PASS reported on `cdeca82` is valid only as historical regression evidence for that runtime; it does not certify the canonical current runtime.
@@ -1929,3 +1929,14 @@ Implementation note for v1: a dedicated serializer/coordinator may be added, but
 - Confirmed in physical use: expanded floating overlay displays the active Radio station title and local Music track title, title updates follow playback changes, long-title presentation remains contained by the single-line/ellipsis treatment, and the collapsed edge tab remains title-free.
 - Overlay regressions were not observed in the physical check: expand/collapse, playback controls and existing floating-overlay behavior remained functional.
 - This closes the floating-overlay current-title refinement for exact product commit `017229b25041a6aa7603a766163693d75145bb4b`; no additional runtime APK is required.
+
+### 2026-09-10 — Canonical consolidated baseline release — VERIFIED
+
+- [x] Canonical runtime remains `017229b25041a6aa7603a766163693d75145bb4b`; commits after it through the spec-before are documentation-only.
+- [x] Consolidation validation run/job `34480132955` / `102880566491` checked out that runtime detached and passed `clean`, database/data/playback/radio/library/app unit gates plus `:app:assembleDebug` (`BUILD SUCCESSFUL in 3m 56s`).
+- [x] Canonical APK identity: **23844741 bytes**, SHA-256 `52b00c2e1cc79be316b28231eca24f1736afe77f910d192d0dbb6b11ba59ef99`, persistent debug signer SHA-256 `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6` (`CN=Android Debug, O=TamalutRadio, C=IT`).
+- [x] Permanent prerelease `debug-20260910-131003-017229b` targets exactly `017229b25041a6aa7603a766163693d75145bb4b` and exposes `TamalutRadio-debug-017229b.apk` with the matching digest/size/signer.
+- [x] All 41 older public debug prereleases are explicitly marked **SUPERSEDED FOR NEW PHYSICAL TESTING** and retained only as historical evidence.
+- [x] The historical `cdeca82` Sport PASS remains historical evidence only and is not used to certify this canonical runtime.
+- [x] Repository finalization run `34493779159` updates only documentation on `main`; the temporary canonical-baseline helper branch is deleted by the same run.
+- [ ] **Canonical consolidated physical smoke gate:** PENDING on the exact canonical APK above; older APK reports must not be used to close it.

@@ -1,108 +1,38 @@
 # TamalutRadio
 
-TamalutRadio is a native Android application for listening to internet radio and local music selected through Android Storage Access Framework. The project is designed around reliable background playback, favorites-first radio browsing, Android media controls, Android Auto compatibility, and a lightweight Atlas-inspired visual identity.
+TamalutRadio is a native Android app for internet radio and local music, built around a single AndroidX Media3 playback service/session, reliable background playback, favorites/search, Android media controls, and an Atlas-inspired UI.
 
-The application is distributed as an APK for direct sideloading. Google Play distribution is not required.
+## Current canonical test build
 
-## Current development status
+Use this baseline for every new install and physical/regression test unless `PROJECT_SPEC.md` explicitly replaces it:
 
-The project is currently in the foundation phase.
+- Runtime: `017229b25041a6aa7603a766163693d75145bb4b` (`feat: show current title in floating overlay`)
+- Prerelease: `debug-20260910-131003-017229b`
+- APK: `TamalutRadio-debug-017229b.apk`
+- Size: `23844741` bytes
+- APK SHA-256: `52b00c2e1cc79be316b28231eca24f1736afe77f910d192d0dbb6b11ba59ef99`
+- Debug signer SHA-256: `03225636d52d29f3886592d40747bc85c1c7ad2cafdf622a7d35d409fd928bd6`
+- Release: https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/tag/debug-20260910-131003-017229b
+- Direct APK: https://github.com/IbnKhaldoun-svg/TamalutRadio/releases/download/debug-20260910-131003-017229b/TamalutRadio-debug-017229b.apk
 
-Completed:
+Older debug prereleases are retained as historical evidence and are marked **SUPERSEDED FOR NEW PHYSICAL TESTING**.
 
-- Gradle 9.5.0 wrapper
-- root Gradle Kotlin DSL configuration
-- Android application module `:app`
-- Kotlin + Jetpack Compose bootstrap
-- `minSdk 26`, `compileSdk 37`, `targetSdk 37`
-- AGP 9.3.0 / JDK 17 baseline
-- application ID `com.tamalut.radio`
-- minimal launchable `MainActivity`
-- Atlas Signal launcher icon, including adaptive and Android 13+ monochrome/themed resources
-- successful real `./gradlew :app:assembleDebug` build on GitHub Actions
+## Current product scope
 
-Next foundation work:
+TamalutRadio currently includes the internet-radio catalog and categories (including Sport), favorites and search, user-created radios with assignable categories, local Music through Android Storage Access Framework, shared Media3 playback/background/notification controls, persistent mini-player and Now Playing, floating playback overlay with current Radio/Music title, Stop/exit policy, Sleep Timer, Backup/Restore, and the Android Auto media-discovery/browse foundation.
 
-- `:core:designsystem` with Atlas Night light/dark Material 3 design tokens
-- remaining `core/*` modules
-- feature modules
-- Media3 1.11.0 playback service and media session
-- radio catalog, favorites and fallback streams
-- local music via Android Storage Access Framework
-- release signing and automatic GitHub Releases publishing
+Google Drive is retired from current product scope. `PROJECT_SPEC.md` is the authoritative source for architecture, accepted behavior, validation evidence, physical gates, and roadmap state.
 
-See [`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the complete approved architecture, scope and implementation decisions.
+## Build locally
 
-## Visual identity
-
-The approved application identity is **Atlas Signal**, variant 3, with generous adaptive-icon safe-area margins.
-
-The approved branding source files are stored in:
-
-`assets/branding/`
-
-Android launcher resources are generated from those approved sources without changing their proportions.
-
-## Building locally
-
-Requirements:
-
-- JDK 17
-- Android SDK Platform 37
-
-Build a debug APK with:
+Requirements: JDK 17 and Android SDK Platform 37.
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-The generated APK is placed under:
+Local output: `app/build/outputs/apk/debug/app-debug.apk`.
 
-```text
-app/build/outputs/apk/debug/app-debug.apk
-```
+## Distribution
 
-## Installing an APK from GitHub Releases
-
-Official project APKs will be published on the repository's **Releases** page once the release-signing pipeline is enabled.
-
-On an Android phone:
-
-1. Open this repository on GitHub.
-2. Open **Releases**.
-3. Select the desired TamalutRadio release.
-4. Download the `.apk` file attached to the release.
-5. Open the downloaded APK from your browser or file manager.
-6. If Android blocks the installation, open the prompted **Install unknown apps** setting and allow installation for the browser or file manager you are using.
-7. Return to the APK and choose **Install**.
-8. After installation, you may disable the **Install unknown apps** permission again if desired.
-
-Future release APKs will use the same dedicated release signing key so Android can install newer TamalutRadio versions as updates over previous release builds.
-
-## Development debug APKs
-
-During development, temporary debug APKs may be exposed as GitHub Actions artifacts for device testing. These are development builds rather than official releases and may expire automatically after their configured artifact retention period.
-
-## Planned technical architecture
-
-The approved architecture is modular and will include:
-
-- `:app`
-- `:core:model`
-- `:core:data`
-- `:core:database`
-- `:core:preferences`
-- `:core:playback`
-- `:core:designsystem`
-- `:core:cloud` (empty provider-neutral future seam)
-- `:feature:radio`
-- `:feature:library`
-- `:feature:nowplaying`
-- `:feature:settings`
-- `:feature:widget`
-
-Playback is planned around AndroidX Media3 / ExoPlayer with `MediaLibraryService` and `MediaLibrarySession`, with Room and DataStore handling their separate persistence responsibilities.
-
-## Distribution principles
-
-TamalutRadio is intended to remain usable without mandatory paid infrastructure, paid subscriptions, or Play Store distribution. APK sideloading from GitHub Releases is the primary distribution path.
+Development test APKs are published as permanent GitHub prerelease assets rather than temporary Actions artifacts. The publisher builds an exact supplied runtime SHA and records APK SHA-256 plus debug-signer identity in the Release notes.
